@@ -15,6 +15,11 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UsuarioEmpresaDto } from './dto/usuario-empresa.dto';
+import { UsuarioRolEmpresaDto } from './dto/usuario-rol-empresa.dto';
+import { Autenticacion2FADto } from './dto/autenticacion-2fa.dto';
+import { SesionUsuarioDto } from './dto/sesion-usuario.dto';
+import { PermisoUsuarioDto } from './dto/permiso-usuario.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -108,34 +113,104 @@ export class UsersController {
     return this.usersService.changePassword(req.user.id, changePasswordDto);
   }
 
-  @Post(':id/empresas/:empresaId')
-  @ApiOperation({ summary: 'Asignar empresa a usuario' })
-  @ApiResponse({ status: 201, description: 'Empresa asignada' })
+  @Post('empresa')
+  @ApiOperation({ summary: 'Asignar usuario a una empresa' })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario asignado a empresa exitosamente',
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Usuario o empresa no encontrado' })
-  asignarEmpresa(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('empresaId', ParseIntPipe) empresaId: number,
-    @Body('esDueno') esDueno: boolean = false,
-  ) {
-    return this.usersService.asignarEmpresa(id, empresaId, esDueno);
+  async asignarEmpresa(@Body() usuarioEmpresaDto: UsuarioEmpresaDto) {
+    return await this.usersService.asignarEmpresa(
+      usuarioEmpresaDto.usuario_id,
+      usuarioEmpresaDto.empresa_id,
+      usuarioEmpresaDto.es_dueno,
+    );
   }
 
-  @Delete(':id/empresas/:empresaId')
-  @ApiOperation({ summary: 'Remover empresa de usuario' })
-  @ApiResponse({ status: 200, description: 'Empresa removida' })
+  @Delete('empresa/:usuarioId/:empresaId')
+  @ApiOperation({ summary: 'Remover usuario de una empresa' })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario removido de empresa exitosamente',
+  })
   @ApiResponse({ status: 404, description: 'Usuario o empresa no encontrado' })
-  removerEmpresa(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+  async removerEmpresa(
+    @Param('usuarioId') usuarioId: number,
+    @Param('empresaId') empresaId: number,
   ) {
-    return this.usersService.removerEmpresa(id, empresaId);
+    return await this.usersService.removerEmpresa(usuarioId, empresaId);
   }
 
-  @Get(':id/empresas')
-  @ApiOperation({ summary: 'Obtener empresas de usuario' })
-  @ApiResponse({ status: 200, description: 'Lista de empresas' })
+  @Post('rol-empresa')
+  @ApiOperation({ summary: 'Asignar rol de empresa a un usuario' })
+  @ApiResponse({ status: 201, description: 'Rol asignado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Usuario o rol no encontrado' })
+  async asignarRolEmpresa(@Body() usuarioRolEmpresaDto: UsuarioRolEmpresaDto) {
+    return await this.usersService.asignarRolEmpresa(usuarioRolEmpresaDto);
+  }
+
+  @Delete('rol-empresa/:usuarioId/:rolId')
+  @ApiOperation({ summary: 'Remover rol de empresa de un usuario' })
+  @ApiResponse({ status: 200, description: 'Rol removido exitosamente' })
+  @ApiResponse({ status: 404, description: 'Asignación no encontrada' })
+  async removerRolEmpresa(
+    @Param('usuarioId') usuarioId: number,
+    @Param('rolId') rolId: number,
+  ) {
+    return await this.usersService.removerRolEmpresa(usuarioId, rolId);
+  }
+
+  @Post('2fa')
+  @ApiOperation({
+    summary: 'Configurar o actualizar autenticación 2FA para un usuario',
+  })
+  @ApiResponse({ status: 201, description: '2FA configurado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-  obtenerEmpresas(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.obtenerEmpresasUsuario(id);
+  async configurar2FA(@Body() autenticacion2FADto: Autenticacion2FADto) {
+    return await this.usersService.configurar2FA(autenticacion2FADto);
+  }
+
+  @Delete('2fa/:id_usuario')
+  @ApiOperation({ summary: 'Desactivar autenticación 2FA para un usuario' })
+  @ApiResponse({ status: 200, description: '2FA desactivado exitosamente' })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado o 2FA no configurado',
+  })
+  async desactivar2FA(@Param('id_usuario', ParseIntPipe) id_usuario: number) {
+    return await this.usersService.desactivar2FA(id_usuario);
+  }
+
+  @Post('sesion')
+  @ApiOperation({ summary: 'Crear una nueva sesión de usuario' })
+  @ApiResponse({ status: 201, description: 'Sesión creada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  async crearSesion(@Body() sesionUsuarioDto: SesionUsuarioDto) {
+    return await this.usersService.crearSesion(sesionUsuarioDto);
+  }
+
+  @Post('permiso')
+  @ApiOperation({ summary: 'Asignar un permiso a un usuario' })
+  @ApiResponse({ status: 201, description: 'Permiso asignado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Usuario o permiso no encontrado' })
+  async asignarPermiso(@Body() permisoUsuarioDto: PermisoUsuarioDto) {
+    return await this.usersService.asignarPermiso(permisoUsuarioDto);
+  }
+
+  @Delete('permiso/:usuarioId/:permisoId')
+  @ApiOperation({ summary: 'Remover un permiso de un usuario' })
+  @ApiResponse({ status: 200, description: 'Permiso removido exitosamente' })
+  @ApiResponse({ status: 404, description: 'Asignación no encontrada' })
+  async removerPermiso(
+    @Param('usuarioId') usuarioId: number,
+    @Param('permisoId') permisoId: number,
+  ) {
+    return await this.usersService.removerPermiso(usuarioId, permisoId);
   }
 }

@@ -8,6 +8,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UsuarioRolEmpresaDto } from './dto/usuario-rol-empresa.dto';
+import { Autenticacion2FADto } from './dto/autenticacion-2fa.dto';
+import { SesionUsuarioDto } from './dto/sesion-usuario.dto';
+import { PermisoUsuarioDto } from './dto/permiso-usuario.dto';
 import * as bcrypt from 'bcrypt';
 import { PermisosService } from '../auth/services/permisos.service';
 
@@ -456,6 +460,219 @@ export class UsersService {
     return this.prisma.usuarioEmpresa.findMany({
       where: { usuario_id: usuarioId },
       include: { empresa: true },
+    });
+  }
+
+  async asignarRolEmpresa(usuarioRolEmpresaDto: UsuarioRolEmpresaDto) {
+    // Verificar si el usuario existe
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: usuarioRolEmpresaDto.id_usuario },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Verificar si el rol de empresa existe
+    const rolEmpresa = await this.prisma.rolEmpresa.findUnique({
+      where: { id_rol: usuarioRolEmpresaDto.id_rol },
+    });
+
+    if (!rolEmpresa) {
+      throw new NotFoundException('Rol de empresa no encontrado');
+    }
+
+    // Verificar si ya existe la asignación
+    const existingAssignment = await this.prisma.usuarioRolEmpresa.findUnique({
+      where: {
+        id_usuario_id_rol: {
+          id_usuario: usuarioRolEmpresaDto.id_usuario,
+          id_rol: usuarioRolEmpresaDto.id_rol,
+        },
+      },
+    });
+
+    if (existingAssignment) {
+      throw new ConflictException('El usuario ya tiene asignado este rol');
+    }
+
+    // Crear la asignación
+    return await this.prisma.usuarioRolEmpresa.create({
+      data: {
+        id_usuario: usuarioRolEmpresaDto.id_usuario,
+        id_rol: usuarioRolEmpresaDto.id_rol,
+        fecha_inicio: usuarioRolEmpresaDto.fecha_inicio,
+        fecha_fin: usuarioRolEmpresaDto.fecha_fin,
+      },
+    });
+  }
+
+  async removerRolEmpresa(usuarioId: number, rolId: number) {
+    const assignment = await this.prisma.usuarioRolEmpresa.findUnique({
+      where: {
+        id_usuario_id_rol: {
+          id_usuario: usuarioId,
+          id_rol: rolId,
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Asignación de rol no encontrada');
+    }
+
+    return await this.prisma.usuarioRolEmpresa.delete({
+      where: {
+        id_usuario_id_rol: {
+          id_usuario: usuarioId,
+          id_rol: rolId,
+        },
+      },
+    });
+  }
+
+  async configurar2FA(autenticacion2FADto: Autenticacion2FADto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: autenticacion2FADto.id_usuario },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Verificar si ya existe una configuración 2FA
+    const existing2FA = await this.prisma.autenticacion2FA.findUnique({
+      where: { id_usuario: autenticacion2FADto.id_usuario },
+    });
+
+    if (existing2FA) {
+      // Si ya existe, actualizamos la configuración
+      return await this.prisma.autenticacion2FA.update({
+        where: { id_usuario: autenticacion2FADto.id_usuario },
+        data: {
+          codigo_verificacion: autenticacion2FADto.codigo_verificacion,
+          fecha_expiracion: autenticacion2FADto.fecha_expiracion,
+          estado: autenticacion2FADto.estado,
+        },
+      });
+    }
+
+    // Si no existe, creamos una nueva configuración
+    return await this.prisma.autenticacion2FA.create({
+      data: {
+        id_usuario: autenticacion2FADto.id_usuario,
+        codigo_verificacion: autenticacion2FADto.codigo_verificacion,
+        fecha_expiracion: autenticacion2FADto.fecha_expiracion,
+        estado: autenticacion2FADto.estado,
+      },
+    });
+  }
+
+  async desactivar2FA(id_usuario: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const config2FA = await this.prisma.autenticacion2FA.findUnique({
+      where: { id_usuario },
+    });
+
+    if (!config2FA) {
+      throw new NotFoundException('2FA no está configurado para este usuario');
+    }
+
+    return await this.prisma.autenticacion2FA.delete({
+      where: { id_usuario },
+    });
+  }
+
+  async crearSesion(sesionUsuarioDto: SesionUsuarioDto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: sesionUsuarioDto.id_usuario },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    return await this.prisma.sesionUsuario.create({
+      data: {
+        id_usuario: sesionUsuarioDto.id_usuario,
+        token: sesionUsuarioDto.token,
+        dispositivo: sesionUsuarioDto.dispositivo,
+        ip_address: sesionUsuarioDto.ip_address,
+        activa: sesionUsuarioDto.activa,
+        fecha_creacion: sesionUsuarioDto.fecha_creacion,
+        fecha_expiracion: sesionUsuarioDto.fecha_expiracion,
+      },
+    });
+  }
+
+  async asignarPermiso(permisoUsuarioDto: PermisoUsuarioDto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: permisoUsuarioDto.usuario_id },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const permiso = await this.prisma.permiso.findUnique({
+      where: { id_permiso: permisoUsuarioDto.permiso_id },
+    });
+
+    if (!permiso) {
+      throw new NotFoundException('Permiso no encontrado');
+    }
+
+    // Verificar si ya existe la asignación
+    const existingAssignment = await this.prisma.permisoUsuario.findUnique({
+      where: {
+        usuario_id_permiso_id: {
+          usuario_id: permisoUsuarioDto.usuario_id,
+          permiso_id: permisoUsuarioDto.permiso_id,
+        },
+      },
+    });
+
+    if (existingAssignment) {
+      throw new ConflictException('El usuario ya tiene asignado este permiso');
+    }
+
+    return await this.prisma.permisoUsuario.create({
+      data: {
+        usuario_id: permisoUsuarioDto.usuario_id,
+        permiso_id: permisoUsuarioDto.permiso_id,
+        condiciones: permisoUsuarioDto.condiciones,
+      },
+    });
+  }
+
+  async removerPermiso(usuarioId: number, permisoId: number) {
+    const assignment = await this.prisma.permisoUsuario.findUnique({
+      where: {
+        usuario_id_permiso_id: {
+          usuario_id: usuarioId,
+          permiso_id: permisoId,
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Asignación de permiso no encontrada');
+    }
+
+    return await this.prisma.permisoUsuario.delete({
+      where: {
+        usuario_id_permiso_id: {
+          usuario_id: usuarioId,
+          permiso_id: permisoId,
+        },
+      },
     });
   }
 }

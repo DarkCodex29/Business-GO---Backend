@@ -25,7 +25,7 @@ import {
 import { Public } from './decorators/public.decorator';
 import { Request as ExpressRequest } from 'express';
 
-@ApiTags('Auth')
+@ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

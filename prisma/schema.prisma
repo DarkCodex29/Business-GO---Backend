@@ -211,10 +211,11 @@ model Valoracion {
 }
 
 model Notificacion {
-  id_notificacion    Int   @id @default(autoincrement())
+  id_notificacion    Int      @id @default(autoincrement())
   id_cliente         Int
   mensaje            String
   fecha_notificacion DateTime @default(now())
+  estado             String   @default("pendiente")
   cliente            Cliente  @relation(fields: [id_cliente], references: [id_cliente])
 
   @@map("notificaciones")
@@ -231,11 +232,12 @@ model Feedback {
 }
 
 model Fidelizacion {
-  id_fidelizacion Int    @id @default(autoincrement())
+  id_fidelizacion Int      @id @default(autoincrement())
   id_cliente      Int
   fecha_inicio    DateTime
   fecha_fin       DateTime?
-  cliente         Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  puntos_actuales Int      @default(0)
+  cliente         Cliente  @relation(fields: [id_cliente], references: [id_cliente])
 
   @@map("fidelizaciones")
 }
