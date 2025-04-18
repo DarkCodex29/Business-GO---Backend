@@ -32,6 +32,7 @@ model Permiso {
   accion     String    // La acción permitida (ej: "crear", "leer", "actualizar", "eliminar")
   roles      PermisoRol[]
   permisos_usuario PermisoUsuario[]
+  permisos_rol_empresa PermisoRolEmpresa[]
 }
 
 model PermisoRol {
@@ -84,6 +85,7 @@ model Usuario {
   auditoria_cambios AuditoriaCambio[]
   documentos    Documento[]
   archivos      ArchivoMultimedia[]
+  roles_empresa    UsuarioRolEmpresa[]
 }
 
 // Tabla intermedia para la relación muchos a muchos entre Usuario y Empresa
@@ -105,6 +107,8 @@ model UsuarioEmpresa {
   beneficios         Json?   // Beneficios en formato JSON
   notas              String?
   fecha_asignacion   DateTime @default(now())
+  rol_empresa        RolEmpresa? @relation(fields: [rol_empresa_id], references: [id_rol])
+  rol_empresa_id     BigInt?
 
   @@unique([usuario_id, empresa_id])
 }
@@ -166,6 +170,7 @@ model Empresa {
   comunicacion  Comunicacion[]
   documentos    Documento[]
   archivos      ArchivoMultimedia[]
+  roles_empresa  RolEmpresa[]
 }
 
 model Direccion {
@@ -443,4 +448,48 @@ model ArchivoMultimedia {
   producto_id   BigInt?
   documento     Documento? @relation(fields: [documento_id], references: [id_documento])
   documento_id  BigInt?
+}
+
+model RolEmpresa {
+  id_rol          BigInt   @id @default(autoincrement())
+  nombre          String
+  descripcion     String?
+  id_empresa      BigInt
+  horario_inicio  String?
+  horario_fin     String?
+  fecha_inicio    DateTime?
+  fecha_fin       DateTime?
+  fecha_creacion  DateTime @default(now())
+  fecha_actualizacion DateTime @updatedAt
+  empresa         Empresa  @relation(fields: [id_empresa], references: [id_empresa])
+  permisos        PermisoRolEmpresa[]
+  usuarios        UsuarioRolEmpresa[]
+  usuarios_empresa UsuarioEmpresa[]
+
+  @@unique([nombre, id_empresa])
+}
+
+model PermisoRolEmpresa {
+  id_permiso_rol  BigInt   @id @default(autoincrement())
+  id_rol          BigInt
+  recurso         String
+  accion          String
+  fecha_creacion  DateTime @default(now())
+  rol             RolEmpresa @relation(fields: [id_rol], references: [id_rol])
+  permiso         Permiso @relation(fields: [permiso_id], references: [id_permiso])
+  permiso_id      Int
+
+  @@unique([id_rol, recurso, accion])
+}
+
+model UsuarioRolEmpresa {
+  id_usuario_rol  BigInt   @id @default(autoincrement())
+  id_usuario      BigInt
+  id_rol          BigInt
+  fecha_inicio    DateTime @default(now())
+  fecha_fin       DateTime?
+  usuario         Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  rol             RolEmpresa @relation(fields: [id_rol], references: [id_rol])
+
+  @@unique([id_usuario, id_rol])
 }

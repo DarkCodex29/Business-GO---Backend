@@ -178,18 +178,12 @@ export class EmpresasService {
       return await this.prisma.direccion.create({
         data: {
           empresa: {
-            connect: { id_empresa: createDireccionDto.id_empresa },
+            connect: { id_empresa: BigInt(createDireccionDto.id_empresa) },
           },
-          tipo_direccion: createDireccionDto.tipo_direccion ?? 'principal',
           departamento: createDireccionDto.departamento,
           provincia: createDireccionDto.provincia,
           distrito: createDireccionDto.distrito,
           direccion: createDireccionDto.direccion,
-          codigo_postal: createDireccionDto.codigo_postal,
-          referencia: createDireccionDto.referencia,
-          latitud: createDireccionDto.latitud,
-          longitud: createDireccionDto.longitud,
-          activa: true,
         },
       });
     } catch (error) {
@@ -205,11 +199,12 @@ export class EmpresasService {
   ) {
     try {
       return await this.prisma.direccion.update({
-        where: { id_direccion: BigInt(direccionId) },
+        where: { id_direccion: parseInt(direccionId) },
         data: {
           direccion: updateDireccionDto.direccion,
-          latitud: updateDireccionDto.latitud,
-          longitud: updateDireccionDto.longitud,
+          departamento: updateDireccionDto.departamento,
+          provincia: updateDireccionDto.provincia,
+          distrito: updateDireccionDto.distrito,
         },
       });
     } catch (error) {
@@ -225,7 +220,7 @@ export class EmpresasService {
   async removeDireccion(empresaId: string, direccionId: string) {
     try {
       await this.prisma.direccion.delete({
-        where: { id_direccion: BigInt(direccionId) },
+        where: { id_direccion: parseInt(direccionId) },
       });
       return { message: 'Dirección eliminada correctamente' };
     } catch (error) {
