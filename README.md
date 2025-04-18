@@ -1,191 +1,160 @@
-# BusinessGo - Sistema de Gestión Empresarial
+# BusinessGo - Backend de Sistema de Gestión Empresarial
 
-[![NestJS](https://img.shields.io/badge/NestJS-10.0+-red.svg)](https://nestjs.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
+[![NestJS](https://img.shields.io/badge/NestJS-^11.0-red.svg)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-^5.7-blue.svg)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Requerido-blue.svg)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-^6.6-darkblue.svg)](https://www.prisma.io/)
+[![AWS S3](https://img.shields.io/badge/AWS_S3-Integrado-orange.svg)](https://aws.amazon.com/s3/)
 
-Sistema backend desarrollado con NestJS para la gestión integral de empresas. Proyecto personal que implementa un sistema robusto de autenticación, gestión de usuarios y envío de correos electrónicos.
+<div align="center">
+  <img src="https://nestjs.com/img/logo-small.svg" width="120" alt="NestJS Logo" />
+  <img src="https://upload.wikimedia.org/wikipedia/commons/4/4c/Typescript_logo_2020.svg" width="120" alt="TypeScript Logo" />
+  <img src="https://www.postgresql.org/media/img/about/press/elephant.png" width="120" alt="PostgreSQL Logo" />
+  <img src="https://prismalens.vercel.app/header/logo-dark.svg" width="120" alt="Prisma Logo" />
+  <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg" width="120" alt="AWS Logo" />
+</div>
 
-## 📋 Características
+Backend robusto desarrollado con NestJS para la gestión integral de empresas. Este proyecto implementa funcionalidades clave como autenticación JWT, gestión de usuarios, roles, permisos, empresas, carga de archivos a S3 y envío de correos.
 
-- **Autenticación JWT**: Sistema seguro de autenticación con tokens de acceso y refresco
-- **Gestión de usuarios**: Administración completa de usuarios y roles
-- **Sistema de correos**: Integración con Resend para envío de correos electrónicos
-- **API RESTful**: Endpoints bien documentados y seguros
-- **Base de datos PostgreSQL**: Almacenamiento robusto y escalable
-- **Documentación Swagger**: API documentada y fácil de probar
-- **Sistema de logging**: Registro detallado de eventos y errores
-- **Seguridad robusta**: Protección contra ataques comunes
-- **Gestión de sesiones**: Control y seguimiento de sesiones de usuario
-- **Modo desarrollo/producción**: Configuraciones optimizadas para cada entorno
+## 📋 Características Principales
 
-## 🚀 Instalación
+- **Autenticación y Autorización:**
+  - Registro e inicio de sesión con JWT (Access y Refresh Tokens).
+  - Guards para proteger rutas.
+  - Middleware para validación de tokens.
+  - Sistema de Roles y Permisos granular (con inicialización vía comando).
+  - Decorador `@Public()` para rutas públicas.
+  - Gestión de sesiones de usuario.
+  - Revocación de tokens (Logout).
+- **Gestión de Usuarios:** CRUD completo, cambio de contraseña, asignación a empresas.
+- **Gestión de Empresas:** CRUD completo, gestión de direcciones, asignación de usuarios.
+- **Gestión de Roles y Permisos:** Definición de roles, permisos y asignación a usuarios y roles.
+- **Carga de Archivos:** Carga de imágenes a AWS S3, procesamiento con Sharp (redimensionar, formato WebP), asociación con entidades (Usuarios, Empresas, Productos, Documentos).
+- **Envío de Correos:** Integración con Resend para correos transaccionales (ej. reseteo de contraseña).
+- **Base de Datos:** PostgreSQL con ORM Prisma, schema detallado y migraciones.
+- **Documentación API:** Generación automática con Swagger UI accesible en `/api`.
+- **Validación:** DTOs con `class-validator` y `class-transformer`.
+- **Configuración:** Manejo centralizado con `@nestjs/config` y archivo `.env`.
+- **Logging:** Logger integrado de NestJS.
+- **Seguridad:** Hashing de contraseñas (bcrypt), CORS configurable, protección contra ataques comunes.
 
-### Requisitos previos
+## 🚀 Puesta en Marcha
 
-- Node.js (v18 o superior)
-- PostgreSQL (v14 o superior)
-- npm o yarn
-- Cuenta en Resend para envío de correos
+### Requisitos Previos
 
-### Pasos de instalación
+- Node.js (v18 o superior recomendado)
+- npm (o yarn)
+- PostgreSQL (v14 o superior recomendado)
+- Una base de datos PostgreSQL creada.
+- Credenciales de AWS (Access Key ID, Secret Access Key) con permisos para un bucket S3.
+- Un bucket S3 creado en AWS.
+- Una API Key de [Resend](https://resend.com/) para el envío de correos.
 
-1. Clona este repositorio:
+### Pasos de Instalación
 
-   ```bash
-   git clone https://github.com/tu-usuario/business-go.git
-   cd business-go
-   ```
+1.  **Clonar el repositorio:**
 
-2. Instala las dependencias:
+    ```bash
+    git clone <URL_DEL_REPOSITORIO>
+    cd business-go
+    ```
 
-   ```bash
-   npm install
-   ```
+2.  **Instalar dependencias:**
 
-3. Configura las variables de entorno:
+    ```bash
+    npm install
+    ```
 
-   - Copia el archivo `.env.example` a `.env`:
-     ```bash
-     cp .env.example .env
-     ```
-   - Edita el archivo `.env` y completa con tus credenciales reales
-   - **⚠️ IMPORTANTE**: Nunca subas el archivo `.env` con tus credenciales al repositorio
+3.  **Configurar Variables de Entorno:**
 
-4. Configura la base de datos:
+    - Copia el archivo `.env.example` a `.env`:
+      ```bash
+      cp .env.example .env
+      ```
+    - Edita el archivo `.env` y rellena **TODAS** las variables con tus valores reales (URL de base de datos, secretos JWT, credenciales AWS S3, API Key de Resend, etc.). Revisa los comentarios en `.env.example` para más detalles.
+    - **⚠️ IMPORTANTE:** Asegúrate de que el archivo `.env` nunca sea subido a tu repositorio Git.
 
-   ```bash
-   # Generar migraciones
-   npx prisma migrate dev
+4.  **Aplicar Migraciones de Base de Datos:**
+    Asegúrate de que tu servidor PostgreSQL esté corriendo y que la `DATABASE_URL` en tu `.env` sea correcta.
 
-   # Poblar la base de datos con datos iniciales
-   npx prisma db seed
-   ```
+    ```bash
+    npx prisma migrate dev
+    ```
 
-5. Ejecuta la aplicación:
+    Esto aplicará las migraciones necesarias para crear la estructura de tablas definida en `prisma/schema.prisma`.
 
-   ```bash
-   # Desarrollo
-   npm run start:dev
+5.  **Inicializar Roles y Permisos (Opcional pero Recomendado):**
+    Este comando ejecuta el script para crear roles y permisos básicos.
 
-   # Producción
-   npm run build
-   npm run start:prod
-   ```
+    ```bash
+    npx nest start --entryFile init-permisos
+    ```
 
-## ⚙️ Configuración
+    _Nota: Puede que necesites ajustar la configuración de `nest-commander` o la forma en que se ejecuta el script si encuentras problemas._
 
-### Variables de entorno
+6.  **Ejecutar la Aplicación:**
 
-El proyecto utiliza un archivo `.env` para gestionar la configuración de forma segura:
+    - **Modo Desarrollo (con hot-reloading):**
+      ```bash
+      npm run start:dev
+      ```
+    - **Modo Producción:**
+      ```bash
+      npm run build
+      npm run start:prod
+      ```
 
-| Variable                   | Descripción                     | Ejemplo                                                     |
-| -------------------------- | ------------------------------- | ----------------------------------------------------------- |
-| `DATABASE_URL`             | URL de conexión a PostgreSQL    | `postgresql://usuario:contraseña@localhost:5432/businessgo` |
-| `JWT_ACCESS_TOKEN_SECRET`  | Secreto para tokens de acceso   | `tu_secreto_seguro`                                         |
-| `JWT_REFRESH_TOKEN_SECRET` | Secreto para tokens de refresco | `tu_secreto_seguro`                                         |
-| `RESEND_API_KEY`           | API Key de Resend               | `re_xxxxx`                                                  |
-| `FRONTEND_URL`             | URL del frontend                | `http://localhost:3000`                                     |
+7.  **Acceder a la Documentación API:**
+    Una vez que la aplicación esté corriendo (por defecto en `http://localhost:3000`), puedes acceder a la documentación interactiva de Swagger en `http://localhost:3000/api` (o la ruta que hayas configurado con `API_PREFIX`).
 
-### ⚠️ Seguridad
+## ⚙️ Configuración Adicional
 
-Para garantizar la seguridad de las credenciales y datos sensibles:
+Revisa el archivo `.env.example` para ver todas las variables de configuración disponibles, incluyendo opciones para CORS, Rate Limiting, Logging, etc.
 
-- El archivo `.env` está incluido en `.gitignore`
-- **NUNCA** guardes credenciales reales en el código fuente
-- **NUNCA** incluyas información sensible en commits o PRs
-- Utiliza servicios seguros para compartir credenciales
-- Si crees que has expuesto accidentalmente alguna credencial, cámbiala inmediatamente
+## 🏗️ Estructura del Proyecto
 
-## 🏗️ Arquitectura
-
-El proyecto sigue una arquitectura modular organizada por funcionalidades:
+El proyecto sigue una arquitectura modular estándar de NestJS:
 
 ```
 src/
-├── auth/           # Autenticación y autorización
-│   ├── guards/     # Guards de autenticación
-│   ├── decorators/ # Decoradores personalizados
-│   └── strategies/ # Estrategias de autenticación
-├── users/          # Gestión de usuarios
-├── email/          # Servicios de correo
-├── prisma/         # Modelos y migraciones
-└── config/         # Configuraciones
+├── main.ts         # Punto de entrada de la aplicación
+├── app.module.ts     # Módulo raíz
+├── prisma/         # Módulo y servicio de Prisma
+├── config/         # Configuraciones (si aplica)
+├── common/         # Elementos comunes (interceptors, decorators, etc.)
+├── auth/           # Módulo de Autenticación y Autorización
+├── users/          # Módulo de Gestión de Usuarios
+├── empresas/       # Módulo de Gestión de Empresas
+├── roles/          # Módulo de Gestión de Roles (si separado)
+├── permisos/       # Módulo de Gestión de Permisos (si separado)
+├── files/          # Módulo de Gestión de Archivos (S3)
+├── email/          # Módulo de Envío de Correos
+└── ...             # Otros módulos de funcionalidades
+prisma/
+├── schema.prisma   # Definición del schema de la base de datos
+├── migrations/     # Directorio de migraciones generadas
+└── seed.ts         # Script de seed (si aplica)
 ```
 
-### Patrones y frameworks utilizados:
+## 🛠️ Pila Tecnológica
 
-- **NestJS**: Framework principal para la construcción de la API
-- **Prisma**: ORM para gestión de base de datos
-- **JWT**: Para autenticación y autorización
-- **Resend**: Para envío de correos electrónicos
-- **Repository Pattern**: Para separar la lógica de acceso a datos
-- **Service Pattern**: Para encapsular lógica de negocio reutilizable
-
-## 📡 API Endpoints
-
-### Autenticación
-
-| Método | Ruta               | Descripción         |
-| ------ | ------------------ | ------------------- |
-| POST   | /api/auth/register | Registro de usuario |
-| POST   | /api/auth/login    | Inicio de sesión    |
-| POST   | /api/auth/logout   | Cierre de sesión    |
-| GET    | /api/auth/profile  | Perfil de usuario   |
-| POST   | /api/auth/refresh  | Refrescar token     |
-
-### Usuarios
-
-| Método | Ruta          | Descripción        |
-| ------ | ------------- | ------------------ |
-| GET    | /usuarios     | Listar usuarios    |
-| GET    | /usuarios/:id | Obtener usuario    |
-| POST   | /usuarios     | Crear usuario      |
-| PATCH  | /usuarios/:id | Actualizar usuario |
-| DELETE | /usuarios/:id | Eliminar usuario   |
-
-## 📧 Sistema de Correos
-
-El sistema utiliza Resend para el envío de correos:
-
-- Correos de bienvenida
-- Recuperación de contraseña
-- Confirmación de citas
-- Notificaciones del sistema
-
-## 🔍 Logging
-
-Sistema de logging configurable:
-
-- Niveles de log ajustables
-- Rotación de archivos
-- Formato personalizable
-- Almacenamiento en archivo y consola
+- **Framework Backend:** [NestJS](https://nestjs.com/) (^11.0)
+- **Lenguaje:** [TypeScript](https://www.typescriptlang.org/) (^5.7)
+- **Base de Datos:** [PostgreSQL](https://www.postgresql.org/)
+- **ORM:** [Prisma](https://www.prisma.io/) (^6.6)
+- **Autenticación:** JWT (con `@nestjs/jwt`, `passport-jwt`)
+- **Carga de Archivos:** [AWS SDK v3 for S3](https://aws.amazon.com/sdk-for-javascript/) (`@aws-sdk/client-s3`), [Multer](https://github.com/expressjs/multer), [Sharp](https://sharp.pixelplumbing.com/)
+- **Envío de Correos:** [Resend](https://resend.com/)
+- **Documentación API:** [Swagger](https://swagger.io/) (OpenAPI) via `@nestjs/swagger`
+- **Validación:** `class-validator`, `class-transformer`
+- **CLI Comandos:** `nest-commander`
 
 ## 📝 Licencia
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para más detalles.
+Distribuido bajo la Licencia MIT. Ver `LICENSE` para más información.
 
-## 👥 Desarrollo
+## 👤 Contacto
 
-Proyecto desarrollado por Gianpierre Mio.
+Gianpierre Mio - gianxs296@gmail.com
 
-### Desarrollador Principal
-
-- **Gianpierre Mio**: Desarrollador de software, encargado de implementar esta solución.
-
-Para contribuir al proyecto:
-
-1. Revisa las guías de estilo de código
-2. Crea una rama para tu funcionalidad (`git checkout -b feature/nueva-funcionalidad`)
-3. Haz commit de tus cambios (`git commit -m 'Agrega nueva funcionalidad'`)
-4. Envía un Pull Request
-
-## 📞 Contacto
-
-Para soporte o consultas, contacta al desarrollador:
-
-- Nombre: Gianpierre Mio
-- Email: gianxs296@gmail.com
-- Teléfono: +51952164832
+Link del Proyecto: [https://github.com/DarkCodex29/Business-GO---Backend](https://github.com/DarkCodex29/Business-GO---Backend)

@@ -60,20 +60,30 @@ model Usuario {
   id_usuario    BigInt    @id @default(autoincrement())
   nombre        String
   email         String    @unique
-  telefono      String?
   contrasena    String
+  telefono      String?
+  dni           String?   @unique
+  tipo_documento String?  @default("DNI")
+  fecha_nacimiento DateTime?
+  genero        String?
+  estado_civil  String?
+  foto_perfil   String?
+  fecha_registro DateTime @default(now())
+  ultimo_acceso DateTime?
+  activo        Boolean   @default(true)
   rol           Rol       @relation(fields: [rol_id], references: [id_rol])
   rol_id        Int
-  // Relaciones uno a uno (opcionales)
-  perfil_cliente Cliente?
   // Relaciones muchos a muchos
   empresas      UsuarioEmpresa[]
-  autenticacion2FA Autenticacion2FA?
-  logsPagos     LogPago[]
-  auditoriaCambios AuditoriaCambio[]
+  perfil_cliente Cliente? @relation("UsuarioCliente")
   sesiones      SesionUsuario[]
-  tokensRevocados TokenRevocado[]
-  permisos_directos PermisoUsuario[]
+  tokens_revocados TokenRevocado[]
+  autenticacion_2fa Autenticacion2FA[]
+  permisos_usuario PermisoUsuario[]
+  logs_pagos    LogPago[]
+  auditoria_cambios AuditoriaCambio[]
+  documentos    Documento[]
+  archivos      ArchivoMultimedia[]
 }
 
 // Tabla intermedia para la relación muchos a muchos entre Usuario y Empresa
@@ -83,7 +93,17 @@ model UsuarioEmpresa {
   usuario_id         BigInt
   empresa            Empresa @relation(fields: [empresa_id], references: [id_empresa])
   empresa_id         BigInt
+  cargo              String?
+  departamento       String?
   es_dueno           Boolean @default(false)
+  fecha_inicio       DateTime @default(now())
+  fecha_fin          DateTime?
+  estado             String  @default("activo") // activo, inactivo, vacaciones
+  tipo_contrato      String  @default("indefinido") // indefinido, temporal, practicante
+  salario            Decimal? @db.Decimal(10,2)
+  horario_trabajo    Json?   // Horario en formato JSON
+  beneficios         Json?   // Beneficios en formato JSON
+  notas              String?
   fecha_asignacion   DateTime @default(now())
 
   @@unique([usuario_id, empresa_id])
@@ -103,11 +123,15 @@ model ClienteEmpresa {
 
 model Cliente {
   id_cliente    BigInt    @id @default(autoincrement())
-  usuario       Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  usuario       Usuario   @relation("UsuarioCliente", fields: [id_usuario], references: [id_usuario])
   id_usuario    BigInt    @unique
   nombre        String
   email         String
   telefono      String?
+  tipo_cliente  String    @default("individual")
+  preferencias  Json?
+  limite_credito Decimal? @db.Decimal(10,2)
+  dias_credito  Int?
   // Relaciones muchos a muchos
   empresas      ClienteEmpresa[]
   historialCompras HistorialCompra[]
@@ -121,10 +145,18 @@ model Cliente {
 model Empresa {
   id_empresa    BigInt    @id @default(autoincrement())
   nombre        String
+  razon_social  String
+  nombre_comercial String?
+  ruc           String    @unique
   telefono      String?
   tipo_empresa  String
+  tipo_contribuyente String @default("RER")
+  estado        String    @default("activo")
   latitud       Decimal   @db.Decimal(9,6)
   longitud      Decimal   @db.Decimal(9,6)
+  logo          String?
+  sitio_web     String?
+  redes_sociales Json?
   // Relaciones muchos a muchos
   usuarios      UsuarioEmpresa[]
   clientes      ClienteEmpresa[]
@@ -132,15 +164,22 @@ model Empresa {
   productos     ProductoServicio[]
   citas         Cita[]
   comunicacion  Comunicacion[]
+  documentos    Documento[]
+  archivos      ArchivoMultimedia[]
 }
 
 model Direccion {
-  id_direccion  BigInt    @id @default(autoincrement())
-  empresa       Empresa   @relation(fields: [id_empresa], references: [id_empresa])
-  id_empresa    BigInt
-  direccion     String
-  latitud       Decimal   @db.Decimal(9,6)
-  longitud      Decimal   @db.Decimal(9,6)
+  id_direccion Int      @id @default(autoincrement())
+  direccion    String
+  departamento String
+  provincia    String
+  distrito     String
+  id_empresa   BigInt
+  empresa      Empresa  @relation(fields: [id_empresa], references: [id_empresa])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("direcciones")
 }
 
 model Categoria {
@@ -174,6 +213,7 @@ model ProductoServicio {
   valoraciones   Valoracion[]
   disponibilidad Disponibilidad?
   stock          Stock?
+  archivos       ArchivoMultimedia[]
 }
 
 model Atributo {
@@ -296,11 +336,13 @@ model AuditoriaCambio {
   id_auditoria   BigInt    @id @default(autoincrement())
   tabla_nombre   String
   id_registro    Int
-  accion         String
+  tipo_operacion String    // creación, actualización, eliminación
+  ip_address     String?
+  user_agent     String?
+  detalles_cambio Json     // JSON con los cambios específicos
   fecha_accion   DateTime  @default(now())
   usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
   id_usuario     BigInt
-  detalles       Json
 }
 
 model Autenticacion2FA {
@@ -341,4 +383,64 @@ model TokenRevocado {
   razon          String?   // Por ejemplo: "logout", "cambio_contraseña", "seguridad"
   id_usuario     BigInt
   usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model Documento {
+  id_documento   BigInt    @id @default(autoincrement())
+  tipo_documento String    // DNI, RUC, licencia, etc.
+  numero_documento String
+  fecha_emision  DateTime
+  fecha_vencimiento DateTime?
+  url_documento  String
+  estado         String    @default("vigente") // vigente, expirado, revocado
+  notas          String?
+  fecha_registro DateTime  @default(now())
+  // Relaciones opcionales (un documento puede pertenecer a un usuario o una empresa)
+  usuario        Usuario?  @relation(fields: [usuario_id], references: [id_usuario])
+  usuario_id     BigInt?
+  empresa        Empresa?  @relation(fields: [empresa_id], references: [id_empresa])
+  empresa_id     BigInt?
+  archivos       ArchivoMultimedia[]
+}
+
+model ConfiguracionRegional {
+  id_configuracion BigInt    @id @default(autoincrement())
+  departamento    String
+  provincia       String?
+  distrito        String?
+  configuracion   Json      // Configuraciones específicas en formato JSON
+  impuestos       Json      // Tasas de impuestos en formato JSON
+  horarios_operacion Json   // Horarios de operación en formato JSON
+  moneda          String    @default("PEN")
+  zona_horaria    String    @default("America/Lima")
+  formato_fecha   String    @default("DD/MM/YYYY")
+  formato_hora    String    @default("HH:mm")
+  formato_numero  String    @default("es-PE")
+  activo          Boolean   @default(true)
+  fecha_registro  DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@unique([departamento, provincia, distrito])
+}
+
+model ArchivoMultimedia {
+  id_archivo    BigInt    @id @default(autoincrement())
+  nombre_archivo String
+  tipo_archivo  String    // imagen, documento, video, etc.
+  mime_type     String    // image/jpeg, application/pdf, etc.
+  url_archivo   String    // URL completa al archivo en el almacenamiento
+  tamanio_bytes BigInt    // Tamaño en bytes
+  dimensiones   Json?     // Para imágenes: {ancho: number, alto: number}
+  metadata      Json?     // Metadatos adicionales en formato JSON
+  fecha_subida  DateTime  @default(now())
+  activo        Boolean   @default(true)
+  // Relaciones opcionales (un archivo puede pertenecer a diferentes entidades)
+  usuario       Usuario?  @relation(fields: [usuario_id], references: [id_usuario])
+  usuario_id    BigInt?
+  empresa       Empresa?  @relation(fields: [empresa_id], references: [id_empresa])
+  empresa_id    BigInt?
+  producto      ProductoServicio? @relation(fields: [producto_id], references: [id_producto])
+  producto_id   BigInt?
+  documento     Documento? @relation(fields: [documento_id], references: [id_documento])
+  documento_id  BigInt?
 }
