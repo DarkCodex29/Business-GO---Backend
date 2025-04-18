@@ -63,6 +63,7 @@ model Cliente {
   feedback      Feedback[]
   fidelizacion  Fidelizacion[]
   cotizaciones  Cotizacion[]
+  ordenesVenta  OrdenVenta[]
 
   @@map("clientes")
 }
@@ -122,6 +123,9 @@ model ProductoServicio {
   precios_zona   PrecioZona[]
   descuentos     ProductoDescuento[]
   items_cotizacion ItemCotizacion[]
+  items_orden_venta ItemOrdenVenta[]
+  items_nota_credito ItemNotaCredito[]
+  items_nota_debito ItemNotaDebito[]
 
   @@map("productos_servicios")
 }
@@ -419,8 +423,9 @@ model Empresa {
   comunicacion  Comunicacion[]
   documentos    Documento[]
   archivos      ArchivoMultimedia[]
-  roles_empresa  RolEmpresa[]
+  roles_empresa RolEmpresa[]
   cotizaciones  Cotizacion[]
+  ordenesVenta  OrdenVenta[]
 
   @@map("empresas")
 }
@@ -658,19 +663,38 @@ model ItemCotizacion {
 
 model OrdenVenta {
   id_orden_venta     Int       @id @default(autoincrement())
-  cotizacion         Cotizacion @relation(fields: [id_cotizacion], references: [id_cotizacion])
-  id_cotizacion      Int       @unique
+  id_empresa         Int
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_cliente         Int
+  cliente            Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cotizacion      Int?      @unique
+  cotizacion         Cotizacion? @relation(fields: [id_cotizacion], references: [id_cotizacion])
   fecha_emision      DateTime  @default(now())
   fecha_entrega      DateTime?
   subtotal           Decimal   @db.Decimal(10,2)
   descuento          Decimal   @db.Decimal(10,2)
   igv                Decimal   @db.Decimal(10,2)
   total              Decimal   @db.Decimal(10,2)
-  estado             String    @default("pendiente") @db.VarChar(20)
+  estado             String    @default("PENDIENTE") @db.VarChar(20)
   notas              String?   @db.Text
   factura            Factura?
+  items              ItemOrdenVenta[]
 
   @@map("ordenes_venta")
+}
+
+model ItemOrdenVenta {
+  id_item_orden_venta Int       @id @default(autoincrement())
+  id_orden_venta      Int
+  orden_venta         OrdenVenta @relation(fields: [id_orden_venta], references: [id_orden_venta])
+  id_producto         Int
+  producto            ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  cantidad            Int
+  precio_unitario     Decimal   @db.Decimal(10,2)
+  descuento           Decimal   @db.Decimal(10,2)
+  subtotal            Decimal   @db.Decimal(10,2)
+
+  @@map("items_orden_venta")
 }
 
 model Factura {
@@ -700,8 +724,25 @@ model NotaCredito {
   motivo             String    @db.Text
   monto              Decimal   @db.Decimal(10,2)
   estado             String    @default("emitida") @db.VarChar(20)
+  items              ItemNotaCredito[]
 
   @@map("notas_credito")
+}
+
+model ItemNotaCredito {
+  id_item_nota_credito Int       @id @default(autoincrement())
+  nota_credito         NotaCredito @relation(fields: [id_nota_credito], references: [id_nota_credito])
+  id_nota_credito      Int
+  producto             ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto          Int
+  cantidad             Int
+  precio_unitario      Decimal   @db.Decimal(10,2)
+  igv_porcentaje       Decimal   @db.Decimal(5,2)
+  subtotal             Decimal   @db.Decimal(10,2)
+  igv                  Decimal   @db.Decimal(10,2)
+  total                Decimal   @db.Decimal(10,2)
+
+  @@map("items_nota_credito")
 }
 
 model NotaDebito {
@@ -713,6 +754,23 @@ model NotaDebito {
   motivo             String    @db.Text
   monto              Decimal   @db.Decimal(10,2)
   estado             String    @default("emitida") @db.VarChar(20)
+  items              ItemNotaDebito[]
 
   @@map("notas_debito")
+}
+
+model ItemNotaDebito {
+  id_item_nota_debito Int       @id @default(autoincrement())
+  nota_debito         NotaDebito @relation(fields: [id_nota_debito], references: [id_nota_debito])
+  id_nota_debito      Int
+  producto            ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto         Int
+  cantidad            Int
+  precio_unitario     Decimal   @db.Decimal(10,2)
+  igv_porcentaje      Decimal   @db.Decimal(5,2)
+  subtotal            Decimal   @db.Decimal(10,2)
+  igv                 Decimal   @db.Decimal(10,2)
+  total               Decimal   @db.Decimal(10,2)
+
+  @@map("items_nota_debito")
 }

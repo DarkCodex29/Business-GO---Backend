@@ -9,6 +9,7 @@ import { FilesModule } from './files/files.module';
 import { ProductsModule } from './productos/products.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
+import { VentasModule } from './ventas/ventas.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { EmailModule } from './email/email.module';
     EmpresasModule, // 5. Empresas
     FilesModule, // 6. Archivos
     ProductsModule, // 7. Productos (incluye Stock, Precios, etc.)
+    VentasModule, // 8. Ventas y Facturación
   ],
 })
 export class AppModule {}
