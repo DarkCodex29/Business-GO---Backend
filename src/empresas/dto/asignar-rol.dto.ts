@@ -1,21 +1,31 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsNumber, IsOptional, IsDateString } from 'class-validator';
 
 export class AsignarRolDto {
   @ApiProperty({
-    description: 'ID del usuario al que se asignará el rol',
-    example: '123',
+    description: 'ID de la empresa',
+    example: 1,
   })
-  @IsString()
-  id_usuario: string;
+  @IsNumber()
+  id_empresa: number;
 
-  @ApiProperty({ description: 'ID del rol a asignar', example: '456' })
-  @IsString()
-  id_rol: string;
+  @ApiProperty({
+    description: 'ID del usuario',
+    example: 1,
+  })
+  @IsNumber()
+  id_usuario: number;
+
+  @ApiProperty({
+    description: 'ID del rol',
+    example: 1,
+  })
+  @IsNumber()
+  id_rol: number;
 
   @ApiProperty({
     description: 'Fecha de inicio de la asignación',
-    example: '2024-03-20',
+    example: '2024-03-20T00:00:00Z',
     required: false,
   })
   @IsOptional()
@@ -24,7 +34,7 @@ export class AsignarRolDto {
 
   @ApiProperty({
     description: 'Fecha de fin de la asignación',
-    example: '2024-12-31',
+    example: '2024-12-31T23:59:59Z',
     required: false,
   })
   @IsOptional()

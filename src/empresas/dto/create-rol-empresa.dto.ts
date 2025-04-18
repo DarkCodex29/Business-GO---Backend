@@ -11,22 +11,22 @@ import { Type } from 'class-transformer';
 
 export class PermisoDto {
   @ApiProperty({
-    description: 'ID del permiso',
     example: 1,
+    description: 'ID del permiso a asignar',
   })
   @IsNumber()
   id_permiso: number;
 
   @ApiProperty({
-    description: 'Recurso al que se aplica el permiso',
     example: 'usuarios',
+    description: 'Recurso al que se aplica el permiso',
   })
   @IsString()
   recurso: string;
 
   @ApiProperty({
-    description: 'Acción permitida sobre el recurso',
     example: 'crear',
+    description: 'Acción permitida sobre el recurso',
   })
   @IsString()
   accion: string;
@@ -34,65 +34,66 @@ export class PermisoDto {
 
 export class CreateRolEmpresaDto {
   @ApiProperty({
-    description: 'Nombre del rol',
     example: 'Administrador',
+    description: 'Nombre del rol',
   })
   @IsString()
   nombre: string;
 
   @ApiProperty({
-    description: 'Descripción del rol',
     example: 'Rol con acceso total al sistema',
-    required: false,
+    description: 'Descripción del rol',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   descripcion?: string;
 
   @ApiProperty({
-    description: 'Lista de permisos asignados al rol',
-    type: [PermisoDto],
-    required: false,
+    example: 1,
+    description: 'ID de la empresa a la que pertenece el rol',
   })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PermisoDto)
-  @IsOptional()
-  permisos?: PermisoDto[];
+  @IsNumber()
+  id_empresa: number;
 
   @ApiProperty({
-    description: 'Hora de inicio del rol (formato HH:mm)',
     example: '09:00',
-    required: false,
+    description: 'Hora de inicio del horario permitido',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   horario_inicio?: string;
 
   @ApiProperty({
-    description: 'Hora de fin del rol (formato HH:mm)',
     example: '18:00',
-    required: false,
+    description: 'Hora de fin del horario permitido',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   horario_fin?: string;
 
   @ApiProperty({
-    description: 'Fecha de inicio de vigencia del rol',
     example: '2024-01-01',
-    required: false,
+    description: 'Fecha de inicio de validez del rol',
   })
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   fecha_inicio?: Date;
 
   @ApiProperty({
-    description: 'Fecha de fin de vigencia del rol',
     example: '2024-12-31',
-    required: false,
+    description: 'Fecha de fin de validez del rol',
   })
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   fecha_fin?: Date;
+
+  @ApiProperty({
+    type: [PermisoDto],
+    description: 'Lista de permisos asignados al rol',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PermisoDto)
+  permisos?: PermisoDto[];
 }

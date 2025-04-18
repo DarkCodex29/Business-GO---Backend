@@ -99,7 +99,7 @@ export class AuthService {
   }
 
   async getProfile(userId: number) {
-    return this.usersService.findOne(userId.toString());
+    return this.usersService.findOne(userId);
   }
 
   async refreshToken(refreshToken: string) {

@@ -1,56 +1,38 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { BigIntSerializationInterceptor } from './common/interceptors/bigint-serialization.interceptor';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Configurar validación global
+  // Configuración global de pipes
   app.useGlobalPipes(
     new ValidationPipe({
-      transform: true,
       whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
     }),
   );
-  app.useGlobalInterceptors(new BigIntSerializationInterceptor());
 
-  // Configurar CORS
+  // Configuración de CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    origin: process.env.CORS_ORIGIN ?? '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  // Configurar Swagger
+  // Configuración de Swagger
   const config = new DocumentBuilder()
     .setTitle('BusinessGo API')
-    .setDescription('API para la gestión de negocios y citas')
+    .setDescription('API para el sistema de gestión empresarial BusinessGo')
     .setVersion('1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      in: 'header',
-    })
-    .addTag('Auth', 'Endpoints de autenticación y gestión de sesiones')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-    customSiteTitle: 'BusinessGo API Documentation',
-  });
+  SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(
-    `Aplicación iniciada en: http://localhost:${process.env.PORT ?? 3000}`,
-  );
-  console.log(
-    `Documentación disponible en: http://localhost:${process.env.PORT ?? 3000}/api`,
-  );
+  await app.listen(3000);
 }
 bootstrap();

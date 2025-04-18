@@ -125,7 +125,7 @@ export class UsersService {
 
   private async obtenerTotalClientes(
     rolNombre: string,
-    empresaId?: bigint,
+    empresaId?: number,
   ): Promise<number | null> {
     if (rolNombre === 'ADMIN') {
       return await this.prisma.cliente.count();
@@ -142,15 +142,15 @@ export class UsersService {
     return null;
   }
 
-  async findOne(id: string) {
+  async findOne(id: number) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: BigInt(id) },
+      where: { id_usuario: id },
       include: {
         rol: {
           include: {
-            permisos: {
+            PermisoRol: {
               include: {
-                permiso: true,
+                Permiso: true,
               },
             },
           },
@@ -169,9 +169,7 @@ export class UsersService {
     }
 
     // Obtener permisos del usuario
-    const permisos = await this.permisosService.obtenerPermisosUsuario(
-      BigInt(id),
-    );
+    const permisos = await this.permisosService.obtenerPermisosUsuario(id);
 
     // Obtener empresas a las que tiene acceso (si es admin)
     let empresasAcceso: any[] = [];
@@ -246,7 +244,7 @@ export class UsersService {
     // Devolver una respuesta más limpia y organizada
     return {
       usuario: {
-        id: user.id_usuario.toString(),
+        id: user.id_usuario,
         nombre: user.nombre,
         email: user.email,
         telefono: user.telefono,
@@ -257,7 +255,7 @@ export class UsersService {
         },
       },
       permisos: permisos.map((p) => ({
-        id: p.id,
+        id: p.id_permiso,
         nombre: p.nombre,
         descripcion: p.descripcion,
         recurso: p.recurso,
@@ -272,9 +270,9 @@ export class UsersService {
     };
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: number, updateUserDto: UpdateUserDto) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: BigInt(id) },
+      where: { id_usuario: id },
     });
 
     if (!user) {
@@ -298,7 +296,7 @@ export class UsersService {
 
     // Actualizar el usuario
     const updatedUser = await this.prisma.usuario.update({
-      where: { id_usuario: BigInt(id) },
+      where: { id_usuario: id },
       data: {
         nombre: updateUserDto.nombre,
         email: updateUserDto.email,
@@ -326,7 +324,7 @@ export class UsersService {
       await this.prisma.usuarioEmpresa.upsert({
         where: {
           usuario_id_empresa_id: {
-            usuario_id: BigInt(id),
+            usuario_id: id,
             empresa_id: updateUserDto.empresaId,
           },
         },
@@ -334,7 +332,7 @@ export class UsersService {
           es_dueno: updateUserDto.esDueno || false,
         },
         create: {
-          usuario_id: BigInt(id),
+          usuario_id: id,
           empresa_id: updateUserDto.empresaId,
           es_dueno: updateUserDto.esDueno || false,
         },
@@ -344,9 +342,9 @@ export class UsersService {
     return updatedUser;
   }
 
-  async remove(id: string) {
+  async remove(id: number) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: BigInt(id) },
+      where: { id_usuario: id },
     });
 
     if (!user) {
@@ -355,12 +353,12 @@ export class UsersService {
 
     // Eliminar relaciones primero
     await this.prisma.usuarioEmpresa.deleteMany({
-      where: { usuario_id: BigInt(id) },
+      where: { usuario_id: id },
     });
 
     // Eliminar el usuario
     await this.prisma.usuario.delete({
-      where: { id_usuario: BigInt(id) },
+      where: { id_usuario: id },
     });
 
     return { message: 'Usuario eliminado correctamente' };
@@ -382,7 +380,7 @@ export class UsersService {
 
   async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: BigInt(userId) },
+      where: { id_usuario: userId },
     });
 
     if (!user) {
@@ -413,7 +411,7 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
 
     await this.prisma.usuario.update({
-      where: { id_usuario: BigInt(userId) },
+      where: { id_usuario: userId },
       data: {
         contrasena: hashedPassword,
       },
@@ -426,8 +424,8 @@ export class UsersService {
 
   // Nuevos métodos para gestionar las relaciones usuario-empresa
   async asignarEmpresa(
-    usuarioId: bigint,
-    empresaId: bigint,
+    usuarioId: number,
+    empresaId: number,
     esDueno: boolean = false,
   ) {
     return this.prisma.usuarioEmpresa.create({
@@ -443,7 +441,7 @@ export class UsersService {
     });
   }
 
-  async removerEmpresa(usuarioId: bigint, empresaId: bigint) {
+  async removerEmpresa(usuarioId: number, empresaId: number) {
     return this.prisma.usuarioEmpresa.delete({
       where: {
         usuario_id_empresa_id: {
@@ -454,7 +452,7 @@ export class UsersService {
     });
   }
 
-  async obtenerEmpresasUsuario(usuarioId: bigint) {
+  async obtenerEmpresasUsuario(usuarioId: number) {
     return this.prisma.usuarioEmpresa.findMany({
       where: { usuario_id: usuarioId },
       include: { empresa: true },

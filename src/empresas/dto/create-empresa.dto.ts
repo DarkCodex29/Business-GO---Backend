@@ -66,14 +66,14 @@ export class CreateEmpresaDto {
     example: -12.0464,
   })
   @IsNumber()
-  @IsNotEmpty()
-  latitud: number;
+  @IsOptional()
+  latitud?: number;
 
   @ApiProperty({
     description: 'Longitud de la ubicación de la empresa',
     example: -77.0428,
   })
   @IsNumber()
-  @IsNotEmpty()
-  longitud: number;
+  @IsOptional()
+  longitud?: number;
 }

@@ -1,132 +1,189 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePermisoDto } from '../dto/create-permiso.dto';
-import { AsignarPermisoDto } from '../dto/asignar-permiso.dto';
+import { UpdatePermisoDto } from '../dto/update-permiso.dto';
 
 @Injectable()
 export class PermisosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async crearPermiso(createPermisoDto: CreatePermisoDto) {
-    try {
-      return await this.prisma.permiso.create({
-        data: {
-          nombre: createPermisoDto.nombre,
-          descripcion: createPermisoDto.descripcion,
-          recurso: createPermisoDto.recurso,
-          accion: createPermisoDto.accion,
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException('Ya existe un permiso con este nombre');
-      }
-      throw error;
-    }
+  async create(createPermisoDto: CreatePermisoDto) {
+    return this.prisma.permiso.create({
+      data: {
+        nombre: createPermisoDto.nombre,
+        descripcion: createPermisoDto.descripcion,
+        recurso: createPermisoDto.recurso,
+        accion: createPermisoDto.accion,
+      },
+    });
   }
 
-  async asignarPermisoRol(asignarPermisoDto: AsignarPermisoDto) {
-    const { rol_id, permiso_id, condiciones } = asignarPermisoDto;
-
-    if (!rol_id) {
-      throw new BadRequestException('El ID del rol es requerido');
-    }
-
-    // Verificar que el rol existe
-    const rol = await this.prisma.rol.findUnique({
-      where: { id_rol: rol_id },
-    });
-    if (!rol) {
-      throw new NotFoundException(`Rol con ID ${rol_id} no encontrado`);
-    }
-
-    // Verificar que el permiso existe
-    const permiso = await this.prisma.permiso.findUnique({
-      where: { id_permiso: permiso_id },
-    });
-    if (!permiso) {
-      throw new NotFoundException(`Permiso con ID ${permiso_id} no encontrado`);
-    }
-
-    try {
-      return await this.prisma.permisoRol.create({
-        data: {
-          rol_id,
-          permiso_id,
-          condiciones: condiciones ? JSON.stringify(condiciones) : null,
-        },
-        include: {
-          rol: true,
-          permiso: true,
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException('Este permiso ya está asignado al rol');
-      }
-      throw error;
-    }
-  }
-
-  async asignarPermisoUsuario(asignarPermisoDto: AsignarPermisoDto) {
-    const { usuario_id, permiso_id, condiciones } = asignarPermisoDto;
-
-    if (!usuario_id) {
-      throw new BadRequestException('El ID del usuario es requerido');
-    }
-
-    // Verificar que el usuario existe
-    const usuario = await this.prisma.usuario.findUnique({
-      where: { id_usuario: usuario_id },
-    });
-    if (!usuario) {
-      throw new NotFoundException(`Usuario con ID ${usuario_id} no encontrado`);
-    }
-
-    // Verificar que el permiso existe
-    const permiso = await this.prisma.permiso.findUnique({
-      where: { id_permiso: permiso_id },
-    });
-    if (!permiso) {
-      throw new NotFoundException(`Permiso con ID ${permiso_id} no encontrado`);
-    }
-
-    try {
-      return await this.prisma.permisoUsuario.create({
-        data: {
-          usuario_id,
-          permiso_id,
-          condiciones: condiciones ? JSON.stringify(condiciones) : null,
-        },
-        include: {
-          usuario: true,
-          permiso: true,
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException(
-          'Este permiso ya está asignado al usuario',
-        );
-      }
-      throw error;
-    }
-  }
-
-  async obtenerPermisosUsuario(userId: bigint) {
-    // Obtener el usuario con su rol
-    const usuario = await this.prisma.usuario.findUnique({
-      where: { id_usuario: userId },
+  async findAll() {
+    return this.prisma.permiso.findMany({
       include: {
+        PermisoRol: {
+          include: {
+            Rol: true,
+          },
+        },
+        PermisoUsuario: {
+          include: {
+            Usuario: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const permiso = await this.prisma.permiso.findUnique({
+      where: { id_permiso: id },
+      include: {
+        PermisoRol: {
+          include: {
+            Rol: true,
+          },
+        },
+        PermisoUsuario: {
+          include: {
+            Usuario: true,
+          },
+        },
+      },
+    });
+
+    if (!permiso) {
+      throw new NotFoundException('Permiso no encontrado');
+    }
+
+    return permiso;
+  }
+
+  async update(id: number, updatePermisoDto: UpdatePermisoDto) {
+    const permiso = await this.prisma.permiso.findUnique({
+      where: { id_permiso: id },
+    });
+
+    if (!permiso) {
+      throw new NotFoundException('Permiso no encontrado');
+    }
+
+    return this.prisma.permiso.update({
+      where: { id_permiso: id },
+      data: {
+        nombre: updatePermisoDto.nombre,
+        descripcion: updatePermisoDto.descripcion,
+        recurso: updatePermisoDto.recurso,
+        accion: updatePermisoDto.accion,
+      },
+    });
+  }
+
+  async remove(id: number) {
+    const permiso = await this.prisma.permiso.findUnique({
+      where: { id_permiso: id },
+    });
+
+    if (!permiso) {
+      throw new NotFoundException('Permiso no encontrado');
+    }
+
+    // Eliminar relaciones primero
+    await this.prisma.permisoRol.deleteMany({
+      where: { permiso_id: id },
+    });
+
+    await this.prisma.permisoUsuario.deleteMany({
+      where: { permiso_id: id },
+    });
+
+    // Eliminar el permiso
+    await this.prisma.permiso.delete({
+      where: { id_permiso: id },
+    });
+
+    return { message: 'Permiso eliminado correctamente' };
+  }
+
+  async asignarPermisoRol(permisoId: number, rolId: number) {
+    return this.prisma.permisoRol.create({
+      data: {
+        permiso_id: permisoId,
+        rol_id: rolId,
+      },
+      include: {
+        Permiso: true,
+        Rol: true,
+      },
+    });
+  }
+
+  async asignarPermisoUsuario(permisoId: number, usuarioId: number) {
+    return this.prisma.permisoUsuario.create({
+      data: {
+        permiso_id: permisoId,
+        usuario_id: usuarioId,
+      },
+      include: {
+        Permiso: true,
+        Usuario: true,
+      },
+    });
+  }
+
+  async removerPermisoRol(permisoId: number, rolId: number) {
+    return this.prisma.permisoRol.delete({
+      where: {
+        rol_id_permiso_id: {
+          permiso_id: permisoId,
+          rol_id: rolId,
+        },
+      },
+    });
+  }
+
+  async removerPermisoUsuario(permisoId: number, usuarioId: number) {
+    return this.prisma.permisoUsuario.delete({
+      where: {
+        usuario_id_permiso_id: {
+          permiso_id: permisoId,
+          usuario_id: usuarioId,
+        },
+      },
+    });
+  }
+
+  async obtenerPermisosUsuario(usuarioId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: usuarioId },
+      include: {
+        permisos_usuario: {
+          include: {
+            Permiso: true,
+          },
+        },
+        empresas: {
+          include: {
+            empresa: {
+              include: {
+                roles_empresa: {
+                  include: {
+                    permisos: {
+                      include: {
+                        Permiso: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         rol: {
           include: {
-            permisos: {
+            PermisoRol: {
               include: {
-                permiso: true,
+                Permiso: true,
               },
             },
           },
@@ -138,78 +195,41 @@ export class PermisosService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Extraer los permisos del rol
-    const permisos = usuario.rol.permisos.map((pr) => ({
-      id: pr.permiso.id_permiso,
-      nombre: pr.permiso.nombre,
-      descripcion: pr.permiso.descripcion,
-      recurso: pr.permiso.recurso,
-      accion: pr.permiso.accion,
-      condiciones: pr.condiciones,
-    }));
+    // Obtener permisos directos del usuario
+    const permisosDirectos = usuario.permisos_usuario.map((pu) => pu.Permiso);
 
-    return permisos;
-  }
+    // Obtener permisos del rol
+    const permisosRol = usuario.rol.PermisoRol.map((pr) => pr.Permiso);
 
-  async verificarPermiso(usuario_id: bigint, recurso: string, accion: string) {
-    const permisos = await this.obtenerPermisosUsuario(usuario_id);
-
-    return permisos.some(
-      (permiso) => permiso.recurso === recurso && permiso.accion === accion,
+    // Obtener permisos de las empresas
+    const permisosEmpresas = usuario.empresas.flatMap((ue) =>
+      ue.empresa.roles_empresa.flatMap((re) =>
+        re.permisos.map((pre) => pre.Permiso),
+      ),
     );
-  }
 
-  async eliminarPermisoRol(rol_id: number, permiso_id: number) {
-    try {
-      return await this.prisma.permisoRol.delete({
-        where: {
-          rol_id_permiso_id: {
-            rol_id,
-            permiso_id,
-          },
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('La asignación de permiso no existe');
-      }
-      throw error;
-    }
-  }
+    // Combinar todos los permisos y eliminar duplicados
+    const todosLosPermisos = [
+      ...permisosDirectos,
+      ...permisosRol,
+      ...permisosEmpresas,
+    ];
 
-  async eliminarPermisoUsuario(usuario_id: bigint, permiso_id: number) {
-    try {
-      return await this.prisma.permisoUsuario.delete({
-        where: {
-          usuario_id_permiso_id: {
-            usuario_id,
-            permiso_id,
-          },
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('La asignación de permiso no existe');
-      }
-      throw error;
-    }
-  }
+    const permisosUnicos = todosLosPermisos.filter(
+      (permiso, index, self) =>
+        index === self.findIndex((p) => p.id_permiso === permiso.id_permiso),
+    );
 
-  async findAll() {
-    return this.prisma.permiso.findMany({
-      orderBy: {
-        nombre: 'asc',
-      },
-    });
+    return permisosUnicos;
   }
 
   async obtenerPermisosRol(rolId: number) {
     const rol = await this.prisma.rol.findUnique({
       where: { id_rol: rolId },
       include: {
-        permisos: {
+        PermisoRol: {
           include: {
-            permiso: true,
+            Permiso: true,
           },
         },
       },
@@ -219,98 +239,24 @@ export class PermisosService {
       throw new NotFoundException('Rol no encontrado');
     }
 
-    return rol.permisos.map((pr) => ({
-      id: pr.permiso.id_permiso,
-      nombre: pr.permiso.nombre,
-      descripcion: pr.permiso.descripcion,
-      recurso: pr.permiso.recurso,
-      accion: pr.permiso.accion,
-      condiciones: pr.condiciones,
-    }));
+    return rol.PermisoRol.map((pr) => pr.Permiso);
   }
 
-  async asignarPermisoARol(
-    rolId: number,
-    permisoId: number,
-    condiciones?: string,
-  ) {
-    // Verificar que el rol y el permiso existen
-    const [rol, permiso] = await Promise.all([
-      this.prisma.rol.findUnique({ where: { id_rol: rolId } }),
-      this.prisma.permiso.findUnique({ where: { id_permiso: permisoId } }),
-    ]);
-
-    if (!rol) {
-      throw new NotFoundException('Rol no encontrado');
-    }
-
-    if (!permiso) {
-      throw new NotFoundException('Permiso no encontrado');
-    }
-
-    // Verificar si ya existe la asignación
-    const asignacionExistente = await this.prisma.permisoRol.findUnique({
+  async verificarPermisoUsuario(
+    id_usuario: number,
+    recurso: string,
+    accion: string,
+  ): Promise<boolean> {
+    const permisos = await this.prisma.permisoUsuario.findMany({
       where: {
-        rol_id_permiso_id: {
-          rol_id: rolId,
-          permiso_id: permisoId,
+        usuario_id: id_usuario,
+        Permiso: {
+          recurso,
+          accion,
         },
       },
     });
 
-    if (asignacionExistente) {
-      // Si ya existe, actualizar las condiciones si se proporcionan
-      if (condiciones !== undefined) {
-        return this.prisma.permisoRol.update({
-          where: {
-            rol_id_permiso_id: {
-              rol_id: rolId,
-              permiso_id: permisoId,
-            },
-          },
-          data: { condiciones },
-          include: { permiso: true },
-        });
-      }
-      return asignacionExistente;
-    }
-
-    // Crear la nueva asignación
-    return this.prisma.permisoRol.create({
-      data: {
-        rol_id: rolId,
-        permiso_id: permisoId,
-        condiciones,
-      },
-      include: { permiso: true },
-    });
-  }
-
-  async eliminarPermisoDeRol(rolId: number, permisoId: number) {
-    // Verificar que la asignación existe
-    const asignacion = await this.prisma.permisoRol.findUnique({
-      where: {
-        rol_id_permiso_id: {
-          rol_id: rolId,
-          permiso_id: permisoId,
-        },
-      },
-    });
-
-    if (!asignacion) {
-      throw new NotFoundException('Asignación de permiso no encontrada');
-    }
-
-    // Eliminar la asignación
-    await this.prisma.permisoRol.delete({
-      where: {
-        rol_id_permiso_id: {
-          rol_id: rolId,
-          permiso_id: permisoId,
-        },
-      },
-    });
-
-    return { message: 'Permiso eliminado correctamente' };
+    return permisos.length > 0;
   }
 }

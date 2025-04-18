@@ -29,7 +29,7 @@ export class RolesService {
       include: {
         _count: {
           select: {
-            usuarios: true,
+            Usuario: true,
           },
         },
       },
@@ -40,7 +40,7 @@ export class RolesService {
     const rol = await this.prisma.rol.findUnique({
       where: { id_rol: id },
       include: {
-        usuarios: {
+        Usuario: {
           select: {
             id_usuario: true,
             nombre: true,

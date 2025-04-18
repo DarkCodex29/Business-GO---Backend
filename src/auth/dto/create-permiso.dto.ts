@@ -1,35 +1,23 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreatePermisoDto {
-  @ApiProperty({
-    description: 'Nombre único del permiso',
-    example: 'crear_usuario',
-  })
+  @ApiProperty({ description: 'Nombre del permiso' })
   @IsString()
   @IsNotEmpty()
   nombre: string;
 
-  @ApiPropertyOptional({
-    description: 'Descripción detallada del permiso',
-    example: 'Permite crear nuevos usuarios en el sistema',
-  })
+  @ApiProperty({ description: 'Descripción del permiso' })
   @IsString()
-  @IsOptional()
-  descripcion?: string;
+  @IsNotEmpty()
+  descripcion: string;
 
-  @ApiProperty({
-    description: 'Recurso al que se aplica el permiso',
-    example: 'usuario',
-  })
+  @ApiProperty({ description: 'Recurso al que se aplica el permiso' })
   @IsString()
   @IsNotEmpty()
   recurso: string;
 
-  @ApiProperty({
-    description: 'Acción permitida sobre el recurso',
-    example: 'crear',
-  })
+  @ApiProperty({ description: 'Acción que se puede realizar sobre el recurso' })
   @IsString()
   @IsNotEmpty()
   accion: string;

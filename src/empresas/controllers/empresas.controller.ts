@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -64,7 +65,7 @@ export class EmpresasController {
     description: 'Empresa encontrada exitosamente',
   })
   @ApiResponse({ status: 404, description: 'Empresa no encontrada' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.empresasService.findOne(id);
   }
 
@@ -75,7 +76,10 @@ export class EmpresasController {
     description: 'Empresa actualizada exitosamente',
   })
   @ApiResponse({ status: 404, description: 'Empresa no encontrada' })
-  update(@Param('id') id: string, @Body() updateEmpresaDto: UpdateEmpresaDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateEmpresaDto: UpdateEmpresaDto,
+  ) {
     return this.empresasService.update(id, updateEmpresaDto);
   }
 
@@ -86,7 +90,7 @@ export class EmpresasController {
     description: 'Empresa eliminada exitosamente',
   })
   @ApiResponse({ status: 404, description: 'Empresa no encontrada' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.empresasService.remove(id);
   }
 
@@ -99,10 +103,10 @@ export class EmpresasController {
   })
   @ApiResponse({ status: 404, description: 'Empresa no encontrada' })
   createDireccion(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() createDireccionDto: CreateDireccionDto,
   ) {
-    createDireccionDto.id_empresa = BigInt(id);
+    createDireccionDto.id_empresa = id;
     return this.empresasService.createDireccion(createDireccionDto);
   }
 
@@ -114,8 +118,8 @@ export class EmpresasController {
   })
   @ApiResponse({ status: 404, description: 'Dirección no encontrada' })
   updateDireccion(
-    @Param('id') id: string,
-    @Param('direccionId') direccionId: string,
+    @Param('id') id: number,
+    @Param('direccionId') direccionId: number,
     @Body() updateDireccionDto: UpdateDireccionDto,
   ) {
     return this.empresasService.updateDireccion(
@@ -133,8 +137,8 @@ export class EmpresasController {
   })
   @ApiResponse({ status: 404, description: 'Dirección no encontrada' })
   removeDireccion(
-    @Param('id') id: string,
-    @Param('direccionId') direccionId: string,
+    @Param('id') id: number,
+    @Param('direccionId') direccionId: number,
   ) {
     return this.empresasService.removeDireccion(id, direccionId);
   }
@@ -148,8 +152,8 @@ export class EmpresasController {
   })
   @ApiResponse({ status: 404, description: 'Empresa o usuario no encontrado' })
   asignarUsuario(
-    @Param('id') id: string,
-    @Param('usuarioId') usuarioId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('usuarioId', ParseIntPipe) usuarioId: number,
     @Body('esDueno') esDueno: boolean = false,
   ) {
     return this.empresasService.asignarUsuario(id, usuarioId, esDueno);
@@ -166,8 +170,8 @@ export class EmpresasController {
     description: 'Relación usuario-empresa no encontrada',
   })
   removerUsuario(
-    @Param('id') id: string,
-    @Param('usuarioId') usuarioId: string,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('usuarioId', ParseIntPipe) usuarioId: number,
   ) {
     return this.empresasService.removerUsuario(id, usuarioId);
   }

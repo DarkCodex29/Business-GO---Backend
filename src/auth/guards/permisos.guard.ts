@@ -35,7 +35,7 @@ export class PermisosGuard implements CanActivate {
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    const tienePermiso = await this.permisosService.verificarPermiso(
+    const tienePermiso = await this.permisosService.verificarPermisoUsuario(
       usuario.id_usuario,
       permisoRequerido.recurso,
       permisoRequerido.accion,

@@ -9,9 +9,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
 import { SessionService } from './session.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { BigIntInterceptor } from '../common/interceptors/bigint.interceptor';
 import { TokenValidationMiddleware } from './middlewares/token-validation.middleware';
 import { RolesGuard } from './guards/roles.guard';
 import { PermisosService } from './services/permisos.service';
@@ -59,10 +58,6 @@ import { PermisosController } from './controllers/permisos.controller';
     {
       provide: APP_GUARD,
       useClass: PermisosGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: BigIntInterceptor,
     },
   ],
   exports: [AuthService, JwtModule, SessionService, PermisosService],

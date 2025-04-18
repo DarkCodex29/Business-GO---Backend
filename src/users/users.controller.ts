@@ -64,7 +64,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Obtener un usuario por ID' })
   @ApiResponse({ status: 200, description: 'Usuario encontrado' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
   }
 
@@ -74,7 +74,10 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Usuario actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   @ApiResponse({ status: 409, description: 'El email ya está en uso' })
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     return this.usersService.update(id, updateUserDto);
   }
 
@@ -84,7 +87,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Eliminar un usuario' })
   @ApiResponse({ status: 200, description: 'Usuario eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.remove(id);
   }
 
@@ -103,5 +106,36 @@ export class UsersController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(req.user.id, changePasswordDto);
+  }
+
+  @Post(':id/empresas/:empresaId')
+  @ApiOperation({ summary: 'Asignar empresa a usuario' })
+  @ApiResponse({ status: 201, description: 'Empresa asignada' })
+  @ApiResponse({ status: 404, description: 'Usuario o empresa no encontrado' })
+  asignarEmpresa(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Body('esDueno') esDueno: boolean = false,
+  ) {
+    return this.usersService.asignarEmpresa(id, empresaId, esDueno);
+  }
+
+  @Delete(':id/empresas/:empresaId')
+  @ApiOperation({ summary: 'Remover empresa de usuario' })
+  @ApiResponse({ status: 200, description: 'Empresa removida' })
+  @ApiResponse({ status: 404, description: 'Usuario o empresa no encontrado' })
+  removerEmpresa(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+  ) {
+    return this.usersService.removerEmpresa(id, empresaId);
+  }
+
+  @Get(':id/empresas')
+  @ApiOperation({ summary: 'Obtener empresas de usuario' })
+  @ApiResponse({ status: 200, description: 'Lista de empresas' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  obtenerEmpresas(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.obtenerEmpresasUsuario(id);
   }
 }

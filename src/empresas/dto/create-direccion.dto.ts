@@ -11,44 +11,30 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateDireccionDto {
-  @ApiProperty({
-    description: 'Dirección completa',
-    example: 'Av. Javier Prado Este 123',
-  })
+  @ApiProperty({ description: 'ID de la empresa' })
+  @IsNumber()
+  @IsNotEmpty()
+  id_empresa: number;
+
+  @ApiProperty({ description: 'Dirección física' })
   @IsString()
   @IsNotEmpty()
   direccion: string;
 
-  @ApiProperty({
-    description: 'Departamento',
-    example: 'Lima',
-  })
+  @ApiProperty({ description: 'Departamento' })
   @IsString()
   @IsNotEmpty()
   departamento: string;
 
-  @ApiProperty({
-    description: 'Provincia',
-    example: 'Lima',
-  })
+  @ApiProperty({ description: 'Provincia' })
   @IsString()
   @IsNotEmpty()
   provincia: string;
 
-  @ApiProperty({
-    description: 'Distrito',
-    example: 'San Isidro',
-  })
+  @ApiProperty({ description: 'Distrito' })
   @IsString()
   @IsNotEmpty()
   distrito: string;
-
-  @ApiProperty({
-    description: 'ID de la empresa asociada',
-    example: '1',
-  })
-  @IsNotEmpty()
-  id_empresa: bigint;
 
   @ApiProperty({
     description: 'Tipo de dirección',

@@ -21,7 +21,7 @@ export class SessionService {
     // Crear nueva sesión
     const session = await this.prisma.sesionUsuario.create({
       data: {
-        id_usuario: BigInt(data.userId),
+        id_usuario: data.userId,
         token: data.token,
         dispositivo: data.userAgent,
         ip_address: data.ipAddress,
@@ -89,7 +89,7 @@ export class SessionService {
     // Desactivar todas las sesiones del usuario excepto la actual
     await this.prisma.sesionUsuario.updateMany({
       where: {
-        id_usuario: BigInt(userId),
+        id_usuario: userId,
         token: {
           not: exceptToken,
         },
@@ -125,7 +125,7 @@ export class SessionService {
   async getUserSessions(userId: number) {
     const sessions = await this.prisma.sesionUsuario.findMany({
       where: {
-        id_usuario: BigInt(userId),
+        id_usuario: userId,
         activa: true,
       },
       select: {

@@ -1,35 +1,21 @@
-import { IsNumber, IsOptional, IsObject } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, IsString, IsOptional } from 'class-validator';
 
 export class AsignarPermisoDto {
-  @ApiProperty({
-    description: 'ID del permiso a asignar',
-    example: 1,
-  })
+  @ApiProperty({ description: 'ID del rol o usuario' })
+  @IsNumber()
+  rol_id?: number;
+
+  @ApiProperty({ description: 'ID del usuario' })
+  @IsNumber()
+  usuario_id?: number;
+
+  @ApiProperty({ description: 'ID del permiso' })
   @IsNumber()
   permiso_id: number;
 
-  @ApiPropertyOptional({
-    description: 'ID del rol al que asignar el permiso',
-    example: 1,
-  })
-  @IsNumber()
+  @ApiProperty({ description: 'Condiciones del permiso', required: false })
+  @IsString()
   @IsOptional()
-  rol_id?: number;
-
-  @ApiPropertyOptional({
-    description: 'ID del usuario al que asignar el permiso',
-    example: 1,
-  })
-  @IsNumber()
-  @IsOptional()
-  usuario_id?: bigint;
-
-  @ApiPropertyOptional({
-    description: 'Condiciones para el permiso en formato JSON',
-    example: { empresa_id: 1 },
-  })
-  @IsObject()
-  @IsOptional()
-  condiciones?: Record<string, any>;
+  condiciones?: string;
 }

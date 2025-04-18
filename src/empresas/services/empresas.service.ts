@@ -28,8 +28,12 @@ export class EmpresasService {
           tipo_empresa: createEmpresaDto.tipo_empresa,
           tipo_contribuyente: createEmpresaDto.tipo_contribuyente ?? 'RER',
           estado: 'activo',
-          latitud: createEmpresaDto.latitud,
-          longitud: createEmpresaDto.longitud,
+          latitud: createEmpresaDto.latitud
+            ? String(createEmpresaDto.latitud)
+            : '0',
+          longitud: createEmpresaDto.longitud
+            ? String(createEmpresaDto.longitud)
+            : '0',
         },
       });
     } catch (error) {
@@ -90,39 +94,14 @@ export class EmpresasService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: number) {
     const empresa = await this.prisma.empresa.findUnique({
-      where: { id_empresa: BigInt(id) },
+      where: { id_empresa: id },
       include: {
         direcciones: true,
         usuarios: {
           include: {
-            usuario: {
-              select: {
-                id_usuario: true,
-                nombre: true,
-                email: true,
-                telefono: true,
-              },
-            },
-          },
-        },
-        clientes: {
-          include: {
-            cliente: {
-              select: {
-                id_cliente: true,
-                nombre: true,
-                email: true,
-                telefono: true,
-              },
-            },
-          },
-        },
-        productos: {
-          include: {
-            categoria: true,
-            subcategoria: true,
+            usuario: true,
           },
         },
       },
@@ -135,17 +114,11 @@ export class EmpresasService {
     return empresa;
   }
 
-  async update(id: string, updateEmpresaDto: UpdateEmpresaDto) {
+  async update(id: number, updateEmpresaDto: UpdateEmpresaDto) {
     try {
       return await this.prisma.empresa.update({
-        where: { id_empresa: BigInt(id) },
-        data: {
-          nombre: updateEmpresaDto.nombre,
-          telefono: updateEmpresaDto.telefono,
-          tipo_empresa: updateEmpresaDto.tipo_empresa,
-          latitud: updateEmpresaDto.latitud,
-          longitud: updateEmpresaDto.longitud,
-        },
+        where: { id_empresa: id },
+        data: updateEmpresaDto,
       });
     } catch (error) {
       if (error.code === 'P2025') {
@@ -158,10 +131,10 @@ export class EmpresasService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: number) {
     try {
       await this.prisma.empresa.delete({
-        where: { id_empresa: BigInt(id) },
+        where: { id_empresa: id },
       });
       return { message: 'Empresa eliminada correctamente' };
     } catch (error) {
@@ -178,7 +151,7 @@ export class EmpresasService {
       return await this.prisma.direccion.create({
         data: {
           empresa: {
-            connect: { id_empresa: BigInt(createDireccionDto.id_empresa) },
+            connect: { id_empresa: createDireccionDto.id_empresa },
           },
           departamento: createDireccionDto.departamento,
           provincia: createDireccionDto.provincia,
@@ -193,13 +166,13 @@ export class EmpresasService {
   }
 
   async updateDireccion(
-    empresaId: string,
-    direccionId: string,
+    empresaId: number,
+    direccionId: number,
     updateDireccionDto: UpdateDireccionDto,
   ) {
     try {
       return await this.prisma.direccion.update({
-        where: { id_direccion: parseInt(direccionId) },
+        where: { id_direccion: direccionId },
         data: {
           direccion: updateDireccionDto.direccion,
           departamento: updateDireccionDto.departamento,
@@ -217,10 +190,10 @@ export class EmpresasService {
     }
   }
 
-  async removeDireccion(empresaId: string, direccionId: string) {
+  async removeDireccion(empresaId: number, direccionId: number) {
     try {
       await this.prisma.direccion.delete({
-        where: { id_direccion: parseInt(direccionId) },
+        where: { id_direccion: direccionId },
       });
       return { message: 'Dirección eliminada correctamente' };
     } catch (error) {
@@ -235,26 +208,19 @@ export class EmpresasService {
 
   // Métodos para gestionar la relación usuario-empresa
   async asignarUsuario(
-    empresaId: string,
-    usuarioId: string,
+    empresaId: number,
+    usuarioId: number,
     esDueno: boolean = false,
   ) {
     try {
       return await this.prisma.usuarioEmpresa.create({
         data: {
-          usuario_id: BigInt(usuarioId),
-          empresa_id: BigInt(empresaId),
+          usuario_id: usuarioId,
+          empresa_id: empresaId,
           es_dueno: esDueno,
         },
         include: {
-          usuario: {
-            select: {
-              id_usuario: true,
-              nombre: true,
-              email: true,
-              telefono: true,
-            },
-          },
+          usuario: true,
           empresa: true,
         },
       });
@@ -273,13 +239,13 @@ export class EmpresasService {
     }
   }
 
-  async removerUsuario(empresaId: string, usuarioId: string) {
+  async removerUsuario(empresaId: number, usuarioId: number) {
     try {
       await this.prisma.usuarioEmpresa.delete({
         where: {
           usuario_id_empresa_id: {
-            usuario_id: BigInt(usuarioId),
-            empresa_id: BigInt(empresaId),
+            usuario_id: usuarioId,
+            empresa_id: empresaId,
           },
         },
       });

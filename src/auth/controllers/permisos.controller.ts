@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -39,8 +40,8 @@ export class PermisosController {
     status: 200,
     description: 'Permisos del usuario',
   })
-  async getPermisosUsuario(@Param('userId') userId: string) {
-    return this.permisosService.obtenerPermisosUsuario(BigInt(userId));
+  async getPermisosUsuario(@Param('userId', ParseIntPipe) userId: number) {
+    return this.permisosService.obtenerPermisosUsuario(userId);
   }
 
   @Get('rol/:rolId')
@@ -49,8 +50,8 @@ export class PermisosController {
     status: 200,
     description: 'Permisos del rol',
   })
-  async getPermisosRol(@Param('rolId') rolId: string) {
-    return this.permisosService.obtenerPermisosRol(Number(rolId));
+  async getPermisosRol(@Param('rolId', ParseIntPipe) rolId: number) {
+    return this.permisosService.obtenerPermisosRol(rolId);
   }
 
   @Post('rol/:rolId/permiso/:permisoId')
@@ -60,15 +61,11 @@ export class PermisosController {
     description: 'Permiso asignado correctamente',
   })
   async asignarPermisoARol(
-    @Param('rolId') rolId: string,
-    @Param('permisoId') permisoId: string,
+    @Param('rolId', ParseIntPipe) rolId: number,
+    @Param('permisoId', ParseIntPipe) permisoId: number,
     @Body('condiciones') condiciones?: string,
   ) {
-    return this.permisosService.asignarPermisoARol(
-      Number(rolId),
-      Number(permisoId),
-      condiciones,
-    );
+    return this.permisosService.asignarPermisoRol(permisoId, rolId);
   }
 
   @Delete('rol/:rolId/permiso/:permisoId')
@@ -78,12 +75,9 @@ export class PermisosController {
     description: 'Permiso eliminado correctamente',
   })
   async eliminarPermisoDeRol(
-    @Param('rolId') rolId: string,
-    @Param('permisoId') permisoId: string,
+    @Param('rolId', ParseIntPipe) rolId: number,
+    @Param('permisoId', ParseIntPipe) permisoId: number,
   ) {
-    return this.permisosService.eliminarPermisoDeRol(
-      Number(rolId),
-      Number(permisoId),
-    );
+    return this.permisosService.removerPermisoRol(permisoId, rolId);
   }
 }
