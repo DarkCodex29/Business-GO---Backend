@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { RolesModule } from './roles/roles.module';
+import { RolesEmpresaModule } from './roles-empresa/roles-empresa.module';
 import { UsersModule } from './users/users.module';
 import { ClientsModule } from './clients/clients.module';
 import { EmpresasModule } from './empresas/empresas.module';
@@ -23,6 +24,7 @@ import { VentasModule } from './ventas/ventas.module';
     // Módulos de la Aplicación (orden según menú)
     AuthModule, // 1. Autenticación
     RolesModule, // 2. Permisos
+    RolesEmpresaModule, // 2.1 Roles de Empresa
     UsersModule, // 3. Usuarios
     ClientsModule, // 4. Clientes
     EmpresasModule, // 5. Empresas
