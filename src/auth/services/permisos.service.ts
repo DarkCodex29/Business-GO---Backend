@@ -21,14 +21,14 @@ export class PermisosService {
   async findAll() {
     return this.prisma.permiso.findMany({
       include: {
-        PermisoRol: {
+        permisoRol: {
           include: {
-            Rol: true,
+            rol: true,
           },
         },
-        PermisoUsuario: {
+        permisoUsuario: {
           include: {
-            Usuario: true,
+            usuario: true,
           },
         },
       },
@@ -39,14 +39,14 @@ export class PermisosService {
     const permiso = await this.prisma.permiso.findUnique({
       where: { id_permiso: id },
       include: {
-        PermisoRol: {
+        permisoRol: {
           include: {
-            Rol: true,
+            rol: true,
           },
         },
-        PermisoUsuario: {
+        permisoUsuario: {
           include: {
-            Usuario: true,
+            usuario: true,
           },
         },
       },
@@ -112,8 +112,8 @@ export class PermisosService {
         rol_id: rolId,
       },
       include: {
-        Permiso: true,
-        Rol: true,
+        permiso: true,
+        rol: true,
       },
     });
   }
@@ -125,8 +125,8 @@ export class PermisosService {
         usuario_id: usuarioId,
       },
       include: {
-        Permiso: true,
-        Usuario: true,
+        permiso: true,
+        usuario: true,
       },
     });
   }
@@ -159,7 +159,7 @@ export class PermisosService {
       include: {
         permisos_usuario: {
           include: {
-            Permiso: true,
+            permiso: true,
           },
         },
         empresas: {
@@ -170,7 +170,7 @@ export class PermisosService {
                   include: {
                     permisos: {
                       include: {
-                        Permiso: true,
+                        permiso: true,
                       },
                     },
                   },
@@ -181,9 +181,9 @@ export class PermisosService {
         },
         rol: {
           include: {
-            PermisoRol: {
+            permisoRol: {
               include: {
-                Permiso: true,
+                permiso: true,
               },
             },
           },
@@ -196,15 +196,15 @@ export class PermisosService {
     }
 
     // Obtener permisos directos del usuario
-    const permisosDirectos = usuario.permisos_usuario.map((pu) => pu.Permiso);
+    const permisosDirectos = usuario.permisos_usuario.map((pu) => pu.permiso);
 
     // Obtener permisos del rol
-    const permisosRol = usuario.rol.PermisoRol.map((pr) => pr.Permiso);
+    const permisosRol = usuario.rol.permisoRol.map((pr) => pr.permiso);
 
     // Obtener permisos de las empresas
     const permisosEmpresas = usuario.empresas.flatMap((ue) =>
       ue.empresa.roles_empresa.flatMap((re) =>
-        re.permisos.map((pre) => pre.Permiso),
+        re.permisos.map((pre) => pre.permiso),
       ),
     );
 
@@ -227,9 +227,9 @@ export class PermisosService {
     const rol = await this.prisma.rol.findUnique({
       where: { id_rol: rolId },
       include: {
-        PermisoRol: {
+        permisoRol: {
           include: {
-            Permiso: true,
+            permiso: true,
           },
         },
       },
@@ -239,7 +239,7 @@ export class PermisosService {
       throw new NotFoundException('Rol no encontrado');
     }
 
-    return rol.PermisoRol.map((pr) => pr.Permiso);
+    return rol.permisoRol.map((pr) => pr.permiso);
   }
 
   async verificarPermisoUsuario(
@@ -250,7 +250,7 @@ export class PermisosService {
     const permisos = await this.prisma.permisoUsuario.findMany({
       where: {
         usuario_id: id_usuario,
-        Permiso: {
+        permiso: {
           recurso,
           accion,
         },

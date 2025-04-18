@@ -39,7 +39,7 @@ export class RolesEmpresaService {
         include: {
           permisos: {
             include: {
-              Permiso: true,
+              permiso: true,
             },
           },
         },
@@ -61,7 +61,7 @@ export class RolesEmpresaService {
       include: {
         permisos: {
           include: {
-            Permiso: true,
+            permiso: true,
           },
         },
         usuarios: true,
@@ -75,7 +75,7 @@ export class RolesEmpresaService {
       include: {
         permisos: {
           include: {
-            Permiso: true,
+            permiso: true,
           },
         },
         usuarios: true,
@@ -115,7 +115,7 @@ export class RolesEmpresaService {
           include: {
             permisos: {
               include: {
-                Permiso: true,
+                permiso: true,
               },
             },
           },
@@ -128,7 +128,7 @@ export class RolesEmpresaService {
         include: {
           permisos: {
             include: {
-              Permiso: true,
+              permiso: true,
             },
           },
         },
@@ -165,10 +165,10 @@ export class RolesEmpresaService {
       const { id_usuario, id_rol, fecha_inicio, fecha_fin } = asignarRolDto;
       return await this.prisma.usuarioRolEmpresa.create({
         data: {
-          Usuario: {
+          usuario: {
             connect: { id_usuario },
           },
-          RolEmpresa: {
+          rolEmpresa: {
             connect: { id_rol },
           },
           fecha_inicio,
@@ -259,11 +259,11 @@ export class RolesEmpresaService {
     const rolesUsuario = await this.prisma.usuarioRolEmpresa.findMany({
       where: {
         id_usuario,
-        RolEmpresa: { id_empresa },
+        rolEmpresa: { id_empresa },
         OR: [{ fecha_fin: null }, { fecha_fin: { gt: new Date() } }],
       },
       include: {
-        RolEmpresa: {
+        rolEmpresa: {
           include: {
             permisos: true,
           },
@@ -273,22 +273,22 @@ export class RolesEmpresaService {
 
     // Verificar permisos en cada rol
     for (const rolUsuario of rolesUsuario) {
-      const { RolEmpresa } = rolUsuario;
+      const { rolEmpresa } = rolUsuario;
 
       // Verificar horarios si están definidos
-      if (RolEmpresa.horario_inicio && RolEmpresa.horario_fin) {
+      if (rolEmpresa.horario_inicio && rolEmpresa.horario_fin) {
         const ahora = new Date();
         const horaActual = ahora.getHours() + ':' + ahora.getMinutes();
         if (
-          horaActual < RolEmpresa.horario_inicio ||
-          horaActual > RolEmpresa.horario_fin
+          horaActual < rolEmpresa.horario_inicio ||
+          horaActual > rolEmpresa.horario_fin
         ) {
           continue;
         }
       }
 
       // Verificar permisos
-      const tienePermiso = RolEmpresa.permisos.some(
+      const tienePermiso = rolEmpresa.permisos.some(
         (permiso) => permiso.recurso === recurso && permiso.accion === accion,
       );
 
@@ -314,7 +314,7 @@ export class RolesEmpresaService {
             create: permisos.map((permiso) => ({
               recurso: permiso.recurso,
               accion: permiso.accion,
-              Permiso: {
+              permiso: {
                 connect: {
                   id_permiso: permiso.id_permiso,
                 },
@@ -391,7 +391,7 @@ export class RolesEmpresaService {
       include: {
         permisos: {
           include: {
-            Permiso: true,
+            permiso: true,
           },
         },
       },
@@ -424,7 +424,7 @@ export class RolesEmpresaService {
               create: permisos.map((permiso) => ({
                 recurso: permiso.recurso,
                 accion: permiso.accion,
-                Permiso: {
+                permiso: {
                   connect: {
                     id_permiso: permiso.id_permiso,
                   },

@@ -429,9 +429,9 @@ model Permiso {
   descripcion       String?
   recurso           String
   accion            String
-  PermisoRol        PermisoRol[]
-  PermisoRolEmpresa PermisoRolEmpresa[]
-  PermisoUsuario    PermisoUsuario[]
+  permisoRol        PermisoRol[]
+  permisoRolEmpresa PermisoRolEmpresa[]
+  permisoUsuario    PermisoUsuario[]
 
   @@map("permisos")
 }
@@ -441,8 +441,8 @@ model PermisoRol {
   rol_id         Int
   permiso_id     Int
   condiciones    String?
-  Permiso        Permiso @relation(fields: [permiso_id], references: [id_permiso])
-  Rol            Rol     @relation(fields: [rol_id], references: [id_rol])
+  permiso        Permiso @relation(fields: [permiso_id], references: [id_permiso])
+  rol            Rol     @relation(fields: [rol_id], references: [id_rol])
 
   @@unique([rol_id, permiso_id])
   @@map("permisos_rol")
@@ -455,8 +455,8 @@ model PermisoRolEmpresa {
   accion         String
   fecha_creacion DateTime   @default(now())
   permiso_id     Int
-  RolEmpresa     RolEmpresa @relation(fields: [id_rol], references: [id_rol])
-  Permiso        Permiso    @relation(fields: [permiso_id], references: [id_permiso])
+  rolEmpresa     RolEmpresa @relation(fields: [id_rol], references: [id_rol])
+  permiso        Permiso    @relation(fields: [permiso_id], references: [id_permiso])
 
   @@unique([id_rol, recurso, accion])
   @@map("permisos_rol_empresa")
@@ -467,8 +467,8 @@ model PermisoUsuario {
   usuario_id         Int
   permiso_id         Int
   condiciones        String?
-  Permiso            Permiso @relation(fields: [permiso_id], references: [id_permiso])
-  Usuario            Usuario @relation(fields: [usuario_id], references: [id_usuario])
+  permiso            Permiso @relation(fields: [permiso_id], references: [id_permiso])
+  usuario            Usuario @relation(fields: [usuario_id], references: [id_usuario])
 
   @@unique([usuario_id, permiso_id])
   @@map("permisos_usuario")
@@ -479,10 +479,10 @@ model Rol {
   nombre       String       @unique
   descripcion  String?
   rol_padre_id Int?
-  PermisoRol   PermisoRol[]
-  Rol          Rol?         @relation("RolToRol", fields: [rol_padre_id], references: [id_rol])
+  permisoRol   PermisoRol[]
+  rol          Rol?         @relation("RolToRol", fields: [rol_padre_id], references: [id_rol])
   other_Rol    Rol[]        @relation("RolToRol")
-  Usuario      Usuario[]
+  usuario      Usuario[]
 
   @@map("roles")
 }
@@ -546,8 +546,8 @@ model UsuarioRolEmpresa {
   id_rol         Int
   fecha_inicio   DateTime   @default(now())
   fecha_fin      DateTime?
-  RolEmpresa     RolEmpresa @relation(fields: [id_rol], references: [id_rol])
-  Usuario        Usuario    @relation(fields: [id_usuario], references: [id_usuario])
+  rolEmpresa     RolEmpresa @relation(fields: [id_rol], references: [id_rol])
+  usuario        Usuario    @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_usuario, id_rol])
   @@map("usuario_roles_empresa")

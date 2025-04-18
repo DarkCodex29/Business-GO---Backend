@@ -148,9 +148,9 @@ export class UsersService {
       include: {
         rol: {
           include: {
-            PermisoRol: {
+            permisoRol: {
               include: {
-                Permiso: true,
+                permiso: true,
               },
             },
           },
