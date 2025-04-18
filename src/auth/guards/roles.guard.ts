@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.get<string[]>(
@@ -15,11 +15,6 @@ export class RolesGuard implements CanActivate {
     }
 
     const { user } = context.switchToHttp().getRequest();
-    if (!user || !user.rol) {
-      return false;
-    }
-
-    // Verificar si el rol del usuario coincide con los roles requeridos
-    return requiredRoles.includes(user.rol.nombre);
+    return requiredRoles.includes(user?.rol?.nombre);
   }
 }

@@ -1,29 +1,25 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import {
   IsEmail,
   IsString,
   MinLength,
   IsOptional,
-  IsInt,
+  IsNumber,
 } from 'class-validator';
-import { PartialType, OmitType } from '@nestjs/swagger';
 import { CreateUserDto } from './create-user.dto';
 
-export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['password'] as const),
-) {
+export class UpdateUserDto extends PartialType(CreateUserDto) {
   @ApiProperty({
-    description: 'Nombre completo del usuario',
+    description: 'Nombre del usuario',
     example: 'Juan Pérez',
     required: false,
   })
   @IsString()
-  @MinLength(2)
   @IsOptional()
   nombre?: string;
 
   @ApiProperty({
-    description: 'Correo electrónico del usuario',
+    description: 'Email del usuario',
     example: 'juan@ejemplo.com',
     required: false,
   })
@@ -32,8 +28,18 @@ export class UpdateUserDto extends PartialType(
   email?: string;
 
   @ApiProperty({
-    description: 'Número de teléfono del usuario',
-    example: '123456789',
+    description: 'Contraseña del usuario',
+    example: 'contraseña123',
+    required: false,
+  })
+  @IsString()
+  @MinLength(8)
+  @IsOptional()
+  contrasena?: string;
+
+  @ApiProperty({
+    description: 'Teléfono del usuario',
+    example: '+1234567890',
     required: false,
   })
   @IsString()
@@ -45,7 +51,25 @@ export class UpdateUserDto extends PartialType(
     example: 1,
     required: false,
   })
-  @IsInt()
+  @IsNumber()
   @IsOptional()
-  rol_id?: number;
+  rolId?: number;
+
+  @ApiProperty({
+    description: 'ID del cliente asociado',
+    example: 1,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  clienteId?: number;
+
+  @ApiProperty({
+    description: 'ID de la empresa asociada',
+    example: 1,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  empresaId?: number;
 }

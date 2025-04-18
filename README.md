@@ -189,4 +189,3 @@ Para soporte o consultas, contacta al desarrollador:
 - Nombre: Gianpierre Mio
 - Email: gianxs296@gmail.com
 - Teléfono: +51952164832
-# Business-GO---Backend

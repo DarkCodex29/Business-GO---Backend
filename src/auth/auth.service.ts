@@ -1,144 +1,77 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SessionService } from './session.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly sessionService: SessionService,
+    private readonly usersService: UsersService,
   ) {}
 
-  async register(registerDto: RegisterDto, req: Request) {
-    // Verificar si el usuario ya existe
-    const existingUser = await this.prisma.usuario.findUnique({
-      where: { email: registerDto.email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('El email ya está registrado');
+  async validateUser(email: string, password: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (user && (await bcrypt.compare(password, user.contrasena))) {
+      const { contrasena, ...result } = user;
+      return result;
     }
-
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-
-    try {
-      // Crear el usuario
-      const user = await this.prisma.usuario.create({
-        data: {
-          nombre: registerDto.nombre,
-          email: registerDto.email,
-          contrasena: hashedPassword,
-          telefono: registerDto.telefono,
-          rol: {
-            connect: {
-              id_rol: registerDto.rolId,
-            },
-          },
-        },
-        include: {
-          rol: true,
-        },
-      });
-
-      // Enviar email de bienvenida
-      await this.emailService.sendWelcomeEmail(user.email, user.nombre);
-
-      // Generar tokens
-      const tokens = await this.generateTokens(user);
-
-      // Crear sesión
-      await this.createSession(user.id_usuario, tokens.accessToken, req);
-
-      // Excluir la contraseña y convertir BigInt a string
-      const { contrasena, ...userData } = user;
-      const userResponse = {
-        ...userData,
-        id_usuario: userData.id_usuario.toString(),
-      };
-
-      return {
-        user: userResponse,
-        ...tokens,
-      };
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new ConflictException('El email ya está registrado');
-      }
-      throw error;
-    }
+    return null;
   }
 
-  async login(loginDto: LoginDto, req: Request) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: loginDto.email },
-      include: {
-        rol: true,
-      },
-    });
+  async register(registerDto: any, req: Request) {
+    const user = await this.usersService.create(registerDto);
+    const tokens = await this.generateTokens(user, req);
 
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.contrasena,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    // Generar tokens
-    const tokens = await this.generateTokens(user);
-
-    // Crear sesión
-    await this.createSession(user.id_usuario, tokens.accessToken, req);
-
-    // Excluir la contraseña y convertir BigInt a string
-    const { contrasena, ...userData } = user;
-    const userResponse = {
-      ...userData,
-      id_usuario: userData.id_usuario.toString(),
-    };
+    // Enviar email de bienvenida
+    await this.emailService.sendWelcomeEmail(user.email, user.nombre);
 
     return {
-      user: userResponse,
+      user,
       ...tokens,
     };
   }
 
-  private async generateTokens(user: any) {
-    const jti = uuidv4(); // Generar ID único para el token
+  async login(email: string, password: string, req: Request) {
+    const user = await this.validateUser(email, password);
+    if (!user) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
 
+    const tokens = await this.generateTokens(user, req);
+    return {
+      user,
+      ...tokens,
+    };
+  }
+
+  private async generateTokens(user: any, req: Request) {
     const payload = {
       sub: user.id_usuario.toString(),
       email: user.email,
-      role: user.rol.nombre,
-      jti,
+      rol: user.rol?.nombre,
     };
 
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '15m',
-    });
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        expiresIn: '15m',
+      }),
+      this.jwtService.signAsync(payload, {
+        expiresIn: '7d',
+      }),
+    ]);
 
-    const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: '7d',
+    // Crear sesión
+    await this.sessionService.createSession({
+      userId: Number(user.id_usuario),
+      token: accessToken,
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip,
     });
 
     return {
@@ -147,125 +80,37 @@ export class AuthService {
     };
   }
 
-  private async createSession(userId: bigint, token: string, req: Request) {
-    const userAgent = req.headers['user-agent'];
-    const ip = req.ip;
-
-    return this.prisma.sesionUsuario.create({
-      data: {
-        usuario: {
-          connect: {
-            id_usuario: userId,
-          },
-        },
-        token,
-        dispositivo: userAgent,
-        ip_address: ip,
-        fecha_expiracion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
-      },
-    });
-  }
-
   async logout(token: string) {
-    const session = await this.prisma.sesionUsuario.findUnique({
-      where: { token },
-    });
-
-    if (!session) {
-      throw new NotFoundException('Sesión no encontrada');
-    }
-
-    await this.prisma.sesionUsuario.update({
-      where: { id_sesion: session.id_sesion },
-      data: { activa: false },
-    });
-
-    await this.prisma.tokenRevocado.create({
-      data: {
-        token_jti: token,
-        razon: 'logout',
-        usuario: {
-          connect: {
-            id_usuario: session.id_usuario,
-          },
-        },
-      },
-    });
-
+    await this.sessionService.revokeSession(token, 'logout');
     return { message: 'Sesión cerrada exitosamente' };
   }
 
-  async logoutAllSessions(userId: bigint, currentToken: string) {
-    await this.prisma.sesionUsuario.updateMany({
-      where: {
-        id_usuario: userId,
-        token: { not: currentToken },
-        activa: true,
-      },
-      data: { activa: false },
-    });
-
-    return { message: 'Todas las sesiones han sido cerradas exitosamente' };
+  async logoutAllSessions(userId: number, currentToken: string) {
+    await this.sessionService.revokeAllUserSessions(userId, currentToken);
+    return { message: 'Todas las sesiones han sido cerradas' };
   }
 
-  async getUserSessions(userId: bigint) {
-    return this.prisma.sesionUsuario.findMany({
-      where: {
-        id_usuario: userId,
-        activa: true,
-      },
-      select: {
-        id_sesion: true,
-        dispositivo: true,
-        ip_address: true,
-        ultima_actividad: true,
-        fecha_creacion: true,
-      },
-    });
+  async getUserSessions(userId: number) {
+    return this.sessionService.getUserSessions(userId);
   }
 
-  async getProfile(userId: bigint) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: userId },
-      select: {
-        id_usuario: true,
-        nombre: true,
-        email: true,
-        telefono: true,
-        rol: {
-          select: {
-            id_rol: true,
-            nombre: true,
-          },
-        },
-        // No incluimos cliente y empresa a menos que sean necesarios
-        sesiones: {
-          where: { activa: true },
-          select: {
-            id_sesion: true,
-            dispositivo: true,
-            ultima_actividad: true,
-            fecha_creacion: true,
-          },
-          orderBy: {
-            ultima_actividad: 'desc',
-          },
-          take: 5, // Limitamos a las últimas 5 sesiones
-        },
-      },
-    });
+  async getProfile(userId: number) {
+    return this.usersService.findOne(userId.toString());
+  }
 
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken);
+      const user = await this.usersService.findOne(payload.sub);
+
+      if (!user) {
+        throw new UnauthorizedException('Usuario no encontrado');
+      }
+
+      const tokens = await this.generateTokens(user, {} as Request);
+      return tokens;
+    } catch {
+      throw new UnauthorizedException('Token de refresco inválido');
     }
-
-    return {
-      ...user,
-      id_usuario: user.id_usuario.toString(),
-      sesiones: user.sesiones.map((sesion) => ({
-        ...sesion,
-        id_sesion: sesion.id_sesion.toString(),
-      })),
-    };
   }
 }

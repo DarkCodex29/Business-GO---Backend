@@ -11,8 +11,8 @@ import { SessionService } from '../session.service';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
-    private reflector: Reflector,
-    private sessionService: SessionService,
+    private readonly reflector: Reflector,
+    private readonly sessionService: SessionService,
   ) {
     super();
   }

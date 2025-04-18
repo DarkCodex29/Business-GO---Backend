@@ -9,36 +9,41 @@ import {
 
 export class CreateUserDto {
   @ApiProperty({
-    description: 'Nombre completo del usuario',
+    description: 'Nombre del usuario',
     example: 'Juan Pérez',
   })
   @IsString()
-  @MinLength(3)
+  @MinLength(2)
   nombre: string;
 
   @ApiProperty({
-    description: 'Correo electrónico del usuario',
-    example: 'juan@email.com',
+    description: 'Email del usuario',
+    example: 'juan@ejemplo.com',
   })
   @IsEmail()
   email: string;
 
   @ApiProperty({
     description: 'Contraseña del usuario',
-    example: 'Password123!',
+    example: 'contraseña123',
   })
   @IsString()
   @MinLength(8)
-  password: string;
+  contrasena: string;
+
+  @ApiProperty({
+    description: 'Teléfono del usuario',
+    example: '+1234567890',
+  })
+  @IsString()
+  telefono: string;
 
   @ApiProperty({
     description: 'ID del rol del usuario',
     example: 1,
-    required: false,
   })
   @IsNumber()
-  @IsOptional()
-  rolId?: number;
+  rolId: number;
 
   @ApiProperty({
     description: 'ID del cliente asociado',

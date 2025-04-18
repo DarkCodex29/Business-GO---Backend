@@ -24,14 +24,12 @@ export class TokenValidationMiddleware implements NestMiddleware {
 
       // Decodificar el token para obtener el JTI
       const decoded = this.jwtService.decode(token);
-      if (!decoded || !decoded['jti']) {
+      if (!decoded?.jti) {
         throw new UnauthorizedException('Token inválido');
       }
 
       // Verificar si el token está revocado
-      const isRevoked = await this.sessionService.isTokenRevoked(
-        decoded['jti'],
-      );
+      const isRevoked = await this.sessionService.isTokenRevoked(decoded.jti);
       if (isRevoked) {
         throw new UnauthorizedException('Token revocado');
       }
@@ -47,6 +45,9 @@ export class TokenValidationMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Token inválido o expirado');
     }
   }

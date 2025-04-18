@@ -14,7 +14,7 @@ export class EmailService {
     }
     this.resend = new Resend(apiKey);
     this.fromEmail =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('RESEND_FROM_EMAIL') ??
       'BusinessGo <onboarding@resend.dev>';
   }
 
@@ -50,7 +50,7 @@ export class EmailService {
   async sendPasswordResetEmail(email: string, resetToken: string) {
     try {
       const frontendUrl =
-        this.configService.get<string>('FRONTEND_URL') ||
+        this.configService.get<string>('FRONTEND_URL') ??
         'http://localhost:3000';
       const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 

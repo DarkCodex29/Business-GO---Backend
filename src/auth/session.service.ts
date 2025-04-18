@@ -1,25 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Request } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+
+interface CreateSessionDto {
+  userId: number;
+  token: string;
+  userAgent?: string;
+  ipAddress?: string;
+}
 
 @Injectable()
 export class SessionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createSession(userId: number, req: Request, token: string) {
-    const userAgent = req.headers['user-agent'];
-    const ipAddress = req.ip;
+  async createSession(data: CreateSessionDto) {
     const jti = uuidv4(); // Identificador único para el token
 
     // Crear nueva sesión
     const session = await this.prisma.sesionUsuario.create({
       data: {
-        id_usuario: userId,
-        token: token,
-        dispositivo: userAgent,
-        ip_address: ipAddress,
+        id_usuario: BigInt(data.userId),
+        token: data.token,
+        dispositivo: data.userAgent,
+        ip_address: data.ipAddress,
         fecha_expiracion: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 año
+        activa: true,
       },
     });
 
@@ -40,7 +45,7 @@ export class SessionService {
     return session;
   }
 
-  async revokeSession(token: string, reason: string) {
+  async revokeSession(token: string, reason: string = 'logout') {
     // Buscar la sesión primero
     const session = await this.prisma.sesionUsuario.findFirst({
       where: {
@@ -49,7 +54,7 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new Error('Sesión no encontrada');
+      return; // Si no existe la sesión, no hacemos nada
     }
 
     // Desactivar la sesión
@@ -76,7 +81,7 @@ export class SessionService {
     // Desactivar todas las sesiones del usuario excepto la actual
     await this.prisma.sesionUsuario.updateMany({
       where: {
-        id_usuario: userId,
+        id_usuario: BigInt(userId),
         token: {
           not: exceptToken,
         },
@@ -101,6 +106,7 @@ export class SessionService {
     await this.prisma.sesionUsuario.updateMany({
       where: {
         token: token,
+        activa: true,
       },
       data: {
         ultima_actividad: new Date(),
@@ -109,9 +115,9 @@ export class SessionService {
   }
 
   async getUserSessions(userId: number) {
-    return this.prisma.sesionUsuario.findMany({
+    const sessions = await this.prisma.sesionUsuario.findMany({
       where: {
-        id_usuario: userId,
+        id_usuario: BigInt(userId),
         activa: true,
       },
       select: {
@@ -120,7 +126,10 @@ export class SessionService {
         ip_address: true,
         ultima_actividad: true,
         fecha_creacion: true,
+        fecha_expiracion: true,
       },
     });
+
+    return sessions;
   }
 }

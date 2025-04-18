@@ -9,7 +9,7 @@ import { UpdateRolDto } from './dto/update-rol.dto';
 
 @Injectable()
 export class RolesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createRolDto: CreateRolDto) {
     try {

@@ -15,7 +15,6 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    // Verificar si el email ya existe
     const existingUser = await this.prisma.usuario.findUnique({
       where: { email: createUserDto.email },
     });
@@ -24,52 +23,37 @@ export class UsersService {
       throw new ConflictException('El email ya está registrado');
     }
 
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(createUserDto.contrasena, 10);
 
-    try {
-      // Crear el usuario
-      const user = await this.prisma.usuario.create({
-        data: {
-          nombre: createUserDto.nombre,
-          email: createUserDto.email,
-          contrasena: hashedPassword,
-          rol: {
-            connect: {
-              id_rol: createUserDto.rolId,
-            },
+    const user = await this.prisma.usuario.create({
+      data: {
+        nombre: createUserDto.nombre,
+        email: createUserDto.email,
+        contrasena: hashedPassword,
+        telefono: createUserDto.telefono,
+        rol: {
+          connect: { id_rol: createUserDto.rolId },
+        },
+        ...(createUserDto.clienteId && {
+          cliente: {
+            connect: { id_cliente: createUserDto.clienteId },
           },
-          ...(createUserDto.clienteId && {
-            cliente: {
-              connect: {
-                id_cliente: createUserDto.clienteId,
-              },
-            },
-          }),
-          ...(createUserDto.empresaId && {
-            empresa: {
-              connect: {
-                id_empresa: createUserDto.empresaId,
-              },
-            },
-          }),
-        },
-        include: {
-          rol: true,
-          cliente: true,
-          empresa: true,
-        },
-      });
+        }),
+        ...(createUserDto.empresaId && {
+          empresa: {
+            connect: { id_empresa: createUserDto.empresaId },
+          },
+        }),
+      },
+      include: {
+        rol: true,
+        cliente: true,
+        empresa: true,
+      },
+    });
 
-      // Excluir la contraseña de la respuesta
-      const { contrasena, ...result } = user;
-      return result;
-    } catch (error) {
-      if (error.code === 'P2002') {
-        throw new ConflictException('El email ya está registrado');
-      }
-      throw error;
-    }
+    const { contrasena, ...result } = user;
+    return result;
   }
 
   async findAll(page = 1, limit = 10, search?: string) {
@@ -100,26 +84,9 @@ export class UsersService {
       this.prisma.usuario.count({ where }),
     ]);
 
-    // Excluir las contraseñas y convertir BigInt a string
     const usersWithoutPassword = users.map((user) => {
       const { contrasena, ...userWithoutPassword } = user;
-      return {
-        ...userWithoutPassword,
-        id_usuario: userWithoutPassword.id_usuario.toString(),
-        // Convertir otros campos BigInt si existen
-        cliente: userWithoutPassword.cliente
-          ? {
-              ...userWithoutPassword.cliente,
-              id_cliente: userWithoutPassword.cliente.id_cliente.toString(),
-            }
-          : null,
-        empresa: userWithoutPassword.empresa
-          ? {
-              ...userWithoutPassword.empresa,
-              id_empresa: userWithoutPassword.empresa.id_empresa.toString(),
-            }
-          : null,
-      };
+      return userWithoutPassword;
     });
 
     return {
@@ -133,107 +100,68 @@ export class UsersService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: string) {
     const user = await this.prisma.usuario.findUnique({
       where: { id_usuario: BigInt(id) },
-      select: {
-        id_usuario: true,
-        nombre: true,
-        email: true,
-        telefono: true,
-        rol: {
-          select: {
-            id_rol: true,
-            nombre: true,
-          },
-        },
-        // Solo incluimos cliente y empresa si son necesarios y solo los campos relevantes
-        cliente: {
-          select: {
-            id_cliente: true,
-            nombre: true,
-          },
-        },
-        empresa: {
-          select: {
-            id_empresa: true,
-            nombre: true,
-          },
-        },
-        sesiones: {
-          where: { activa: true },
-          select: {
-            id_sesion: true,
-            dispositivo: true,
-            ultima_actividad: true,
-          },
-          orderBy: {
-            ultima_actividad: 'desc',
-          },
-          take: 5, // Limitamos a las últimas 5 sesiones activas
-        },
+      include: {
+        rol: true,
+        cliente: true,
+        empresa: true,
       },
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      throw new NotFoundException('Usuario no encontrado');
     }
 
-    return {
-      ...user,
-      id_usuario: user.id_usuario.toString(),
-      cliente: user.cliente
-        ? {
-            ...user.cliente,
-            id_cliente: user.cliente.id_cliente.toString(),
-          }
-        : null,
-      empresa: user.empresa
-        ? {
-            ...user.empresa,
-            id_empresa: user.empresa.id_empresa.toString(),
-          }
-        : null,
-      sesiones: user.sesiones.map((sesion) => ({
-        ...sesion,
-        id_sesion: sesion.id_sesion.toString(),
-      })),
-    };
+    const { contrasena, ...result } = user;
+    return result;
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
-    // Verificar si el usuario existe
-    const existingUser = await this.prisma.usuario.findUnique({
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.prisma.usuario.findUnique({
       where: { id_usuario: BigInt(id) },
     });
 
-    if (!existingUser) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Verificar si el nuevo email ya está en uso
-    if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
-      const emailExists = await this.prisma.usuario.findUnique({
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existingUser = await this.prisma.usuario.findUnique({
         where: { email: updateUserDto.email },
       });
 
-      if (emailExists) {
-        throw new ConflictException('El email ya está en uso');
+      if (existingUser) {
+        throw new ConflictException('El email ya está registrado');
       }
     }
 
-    // Actualizar el usuario
+    let hashedPassword;
+    if (updateUserDto.contrasena) {
+      hashedPassword = await bcrypt.hash(updateUserDto.contrasena, 10);
+    }
+
     const updatedUser = await this.prisma.usuario.update({
       where: { id_usuario: BigInt(id) },
       data: {
         nombre: updateUserDto.nombre,
         email: updateUserDto.email,
+        contrasena: hashedPassword,
         telefono: updateUserDto.telefono,
-        ...(updateUserDto.rol_id && {
+        ...(updateUserDto.rolId && {
           rol: {
-            connect: {
-              id_rol: updateUserDto.rol_id,
-            },
+            connect: { id_rol: updateUserDto.rolId },
+          },
+        }),
+        ...(updateUserDto.clienteId && {
+          cliente: {
+            connect: { id_cliente: updateUserDto.clienteId },
+          },
+        }),
+        ...(updateUserDto.empresaId && {
+          empresa: {
+            connect: { id_empresa: updateUserDto.empresaId },
           },
         }),
       },
@@ -244,26 +172,24 @@ export class UsersService {
       },
     });
 
-    // Excluir la contraseña
     const { contrasena, ...result } = updatedUser;
     return result;
   }
 
-  async remove(id: number) {
-    try {
-      await this.prisma.usuario.delete({
-        where: { id_usuario: BigInt(id) },
-      });
+  async remove(id: string) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { id_usuario: BigInt(id) },
+    });
 
-      return {
-        message: `Usuario con ID ${id} eliminado exitosamente`,
-      };
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-      }
-      throw error;
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
     }
+
+    await this.prisma.usuario.delete({
+      where: { id_usuario: BigInt(id) },
+    });
+
+    return { message: 'Usuario eliminado correctamente' };
   }
 
   async findByEmail(email: string) {

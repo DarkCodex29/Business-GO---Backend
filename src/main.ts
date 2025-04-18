@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { BigIntSerializationInterceptor } from './common/interceptors/bigint-serialization.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,10 +14,11 @@ async function bootstrap() {
       whitelist: true,
     }),
   );
+  app.useGlobalInterceptors(new BigIntSerializationInterceptor());
 
   // Configurar CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   });
@@ -43,12 +45,12 @@ async function bootstrap() {
     customSiteTitle: 'BusinessGo API Documentation',
   });
 
-  await app.listen(process.env.PORT || 3000);
+  await app.listen(process.env.PORT ?? 3000);
   console.log(
-    `Aplicación iniciada en: http://localhost:${process.env.PORT || 3000}`,
+    `Aplicación iniciada en: http://localhost:${process.env.PORT ?? 3000}`,
   );
   console.log(
-    `Documentación disponible en: http://localhost:${process.env.PORT || 3000}/api`,
+    `Documentación disponible en: http://localhost:${process.env.PORT ?? 3000}/api`,
   );
 }
 bootstrap();

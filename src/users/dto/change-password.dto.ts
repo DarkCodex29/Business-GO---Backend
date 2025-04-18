@@ -18,7 +18,7 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   @MaxLength(50)
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/, {
     message:
       'La contraseña debe contener al menos una mayúscula, una minúscula y un número',
   })

@@ -7,6 +7,9 @@ import {
   Request,
   Delete,
   Param,
+  Req,
+  HttpCode,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -20,9 +23,10 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
+import { Request as ExpressRequest } from 'express';
 
 @ApiTags('Auth')
-@Controller('api/auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -36,7 +40,7 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 409, description: 'El email ya está registrado' })
   @ApiBody({ type: RegisterDto })
-  async register(@Body() registerDto: RegisterDto, @Request() req) {
+  async register(@Body() registerDto: RegisterDto, @Req() req: ExpressRequest) {
     return this.authService.register(registerDto, req);
   }
 
@@ -49,11 +53,12 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   @ApiBody({ type: LoginDto })
-  async login(@Body() loginDto: LoginDto, @Request() req) {
-    return this.authService.login(loginDto, req);
+  async login(@Body() loginDto: LoginDto, @Req() req: ExpressRequest) {
+    return this.authService.login(loginDto.email, loginDto.password, req);
   }
 
   @Post('logout')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cerrar sesión' })
@@ -62,8 +67,12 @@ export class AuthController {
     description: 'Sesión cerrada exitosamente',
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async logout(@Request() req) {
-    return this.authService.logout(req.headers.authorization?.split(' ')[1]);
+  async logout(@Req() req: ExpressRequest) {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) {
+      throw new UnauthorizedException('Token no proporcionado');
+    }
+    return this.authService.logout(token);
   }
 
   @Post('logout-all')
@@ -119,7 +128,17 @@ export class AuthController {
     description: 'Perfil del usuario',
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getProfile(@Request() req) {
-    return this.authService.getProfile(req.user.id_usuario);
+  async getProfile(@Req() req: any) {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Usuario no autenticado');
+    }
+    return this.authService.getProfile(userId);
+  }
+
+  @Public()
+  @Post('refresh')
+  async refreshToken(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refreshToken(refreshToken);
   }
 }

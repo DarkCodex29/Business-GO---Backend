@@ -1,7 +1,6 @@
 # compiled output
 /dist
 /node_modules
-/build
 
 # Logs
 logs
@@ -27,30 +26,34 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 
-# dotenv environment variable files
+# Environment variables
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+!.env.example
 
-# temp directory
-.temp
-.tmp
+# Database
+*.sqlite
+*.sqlite3
+/prisma/migrations/
+/prisma/*.db
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Temporary files
+tmp/
+temp/
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# Uploads
+uploads/
+
+# Cache
+.cache/
+.npm/
+
+# Build files
+build/
+dist/
+out/
+
+# Local development
+docker-compose.override.yml

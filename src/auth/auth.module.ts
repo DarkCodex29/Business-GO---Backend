@@ -9,8 +9,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
 import { SessionService } from './session.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { BigIntInterceptor } from '../common/interceptors/bigint.interceptor';
 
 @Global()
 @Module({
@@ -25,9 +26,9 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
             'JWT_ACCESS_TOKEN_SECRET no está configurado en las variables de entorno',
           );
         }
-        const expiresIn =
-          configService.get<string>('JWT_ACCESS_TOKEN_EXPIRATION_TIME') ||
-          '365d';
+        const expiresIn = configService.get<string>(
+          'JWT_ACCESS_TOKEN_EXPIRATION_TIME',
+        );
         return {
           secret,
           signOptions: {
@@ -49,6 +50,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: BigIntInterceptor,
     },
   ],
   exports: [AuthService, JwtModule, SessionService],
