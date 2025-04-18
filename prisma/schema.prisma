@@ -1,0 +1,276 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id_rol     Int       @id @default(autoincrement())
+  nombre     String    @unique
+  usuarios   Usuario[]
+}
+
+model Usuario {
+  id_usuario    BigInt    @id @default(autoincrement())
+  nombre        String
+  email         String    @unique
+  telefono      String?
+  contrasena    String
+  rol           Rol       @relation(fields: [rol_id], references: [id_rol])
+  rol_id        Int
+  cliente       Cliente?
+  empresa       Empresa?
+  autenticacion2FA Autenticacion2FA?
+  logsPagos     LogPago[]
+  auditoriaCambios AuditoriaCambio[]
+  sesiones      SesionUsuario[]
+  tokensRevocados TokenRevocado[]
+}
+
+model Cliente {
+  id_cliente    BigInt    @id @default(autoincrement())
+  usuario       Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario    BigInt    @unique
+  nombre        String
+  email         String
+  telefono      String?
+  historialCompras HistorialCompra[]
+  citas         Cita[]
+  valoraciones  Valoracion[]
+  notificaciones Notificacion[]
+  feedback      Feedback[]
+  fidelizacion  Fidelizacion[]
+}
+
+model Empresa {
+  id_empresa    BigInt    @id @default(autoincrement())
+  usuario       Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario    BigInt    @unique
+  nombre        String
+  telefono      String?
+  tipo_empresa  String
+  latitud       Decimal   @db.Decimal(9,6)
+  longitud      Decimal   @db.Decimal(9,6)
+  direcciones   Direccion[]
+  productos     ProductoServicio[]
+  citas         Cita[]
+  comunicacion  Comunicacion[]
+}
+
+model Direccion {
+  id_direccion  BigInt    @id @default(autoincrement())
+  empresa       Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa    BigInt
+  direccion     String
+  latitud       Decimal   @db.Decimal(9,6)
+  longitud      Decimal   @db.Decimal(9,6)
+}
+
+model Categoria {
+  id_categoria  Int       @id @default(autoincrement())
+  nombre        String
+  subcategorias Subcategoria[]
+  productos     ProductoServicio[]
+}
+
+model Subcategoria {
+  id_subcategoria Int      @id @default(autoincrement())
+  categoria       Categoria @relation(fields: [id_categoria], references: [id_categoria])
+  id_categoria    Int
+  nombre          String
+  productos       ProductoServicio[]
+}
+
+model ProductoServicio {
+  id_producto    BigInt    @id @default(autoincrement())
+  nombre         String
+  precio         Decimal   @db.Decimal(10,2)
+  empresa        Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa     BigInt
+  categoria      Categoria @relation(fields: [id_categoria], references: [id_categoria])
+  id_categoria   Int
+  subcategoria   Subcategoria? @relation(fields: [id_subcategoria], references: [id_subcategoria])
+  id_subcategoria Int?
+  es_servicio    Boolean   @default(false)
+  atributos      Atributo[]
+  historialCompras HistorialCompra[]
+  valoraciones   Valoracion[]
+  disponibilidad Disponibilidad?
+  stock          Stock?
+}
+
+model Atributo {
+  id_atributo    BigInt    @id @default(autoincrement())
+  producto       ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto    BigInt
+  nombre         String
+  valor          String
+}
+
+model HistorialCompra {
+  id_historial   BigInt    @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  producto       ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto    BigInt
+  fecha_compra   DateTime  @default(now())
+  pagos          Pago[]
+}
+
+model Cita {
+  id_cita        BigInt    @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  empresa        Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa     BigInt
+  fecha_cita     DateTime
+}
+
+model MetodoPago {
+  id_metodo_pago BigInt    @id @default(autoincrement())
+  nombre         String    @unique
+  descripcion    String?
+  tipo_pago      String
+  tiene_comision Boolean   @default(false)
+  porcentaje_comision Decimal? @db.Decimal(5,2)
+  pagos          Pago[]
+}
+
+model Pago {
+  id_pago        BigInt    @id @default(autoincrement())
+  historial      HistorialCompra @relation(fields: [id_historial], references: [id_historial])
+  id_historial   BigInt
+  metodoPago     MetodoPago @relation(fields: [id_metodo_pago], references: [id_metodo_pago])
+  id_metodo_pago BigInt
+  monto          Decimal   @db.Decimal(10,2)
+  fecha_pago     DateTime  @default(now())
+  estado_pago    String    @default("pendiente")
+  logsPagos      LogPago[]
+  reembolsos     Reembolso[]
+}
+
+model LogPago {
+  id_log_pago    BigInt    @id @default(autoincrement())
+  pago           Pago      @relation(fields: [id_pago], references: [id_pago])
+  id_pago        BigInt
+  usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario     BigInt
+  accion         String
+  fecha_accion   DateTime  @default(now())
+}
+
+model Valoracion {
+  id_valoracion  BigInt    @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  producto       ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto    BigInt
+  puntuacion     Int
+  comentario     String?
+}
+
+model Notificacion {
+  id_notificacion BigInt   @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  mensaje        String
+  fecha_notificacion DateTime @default(now())
+}
+
+model Feedback {
+  id_feedback    BigInt    @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  comentario     String
+  fecha_feedback DateTime  @default(now())
+}
+
+model Fidelizacion {
+  id_fidelizacion BigInt   @id @default(autoincrement())
+  cliente        Cliente   @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente     BigInt
+  fecha_inicio   DateTime
+  fecha_fin      DateTime?
+}
+
+model Disponibilidad {
+  id_disponibilidad BigInt @id @default(autoincrement())
+  producto         ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto      BigInt  @unique
+  cantidad_disponible Int
+}
+
+model Comunicacion {
+  id_comunicacion BigInt   @id @default(autoincrement())
+  empresa         Empresa  @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa      BigInt
+  mensaje         String
+  fecha_comunicacion DateTime @default(now())
+}
+
+model Stock {
+  id_stock       BigInt    @id @default(autoincrement())
+  producto       ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto    BigInt    @unique
+  cantidad       Int
+}
+
+model AuditoriaCambio {
+  id_auditoria   BigInt    @id @default(autoincrement())
+  tabla_nombre   String
+  id_registro    Int
+  accion         String
+  fecha_accion   DateTime  @default(now())
+  usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario     BigInt
+  detalles       Json
+}
+
+model Autenticacion2FA {
+  id_2fa         BigInt    @id @default(autoincrement())
+  usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario     BigInt    @unique
+  codigo_verificacion String
+  fecha_expiracion DateTime
+  estado         String
+}
+
+model Reembolso {
+  id_reembolso   BigInt    @id @default(autoincrement())
+  pago           Pago      @relation(fields: [id_pago], references: [id_pago])
+  id_pago        BigInt
+  monto          Decimal   @db.Decimal(10,2)
+  fecha_reembolso DateTime @default(now())
+  motivo         String
+}
+
+model SesionUsuario {
+  id_sesion      BigInt    @id @default(autoincrement())
+  usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario     BigInt
+  token          String    @unique
+  dispositivo    String?   // User agent o información del dispositivo
+  ip_address     String?
+  ultima_actividad DateTime @default(now())
+  activa         Boolean   @default(true)
+  fecha_creacion DateTime @default(now())
+  fecha_expiracion DateTime
+}
+
+model TokenRevocado {
+  id_token       BigInt    @id @default(autoincrement())
+  token_jti      String    @unique // JWT ID único
+  fecha_revocacion DateTime @default(now())
+  razon          String?   // Por ejemplo: "logout", "cambio_contraseña", "seguridad"
+  id_usuario     BigInt
+  usuario        Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+}
