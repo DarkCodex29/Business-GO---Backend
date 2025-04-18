@@ -1,11 +1,12 @@
 import { Controller, Post, Get, Patch, Body, Param } from '@nestjs/common';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { CreateFidelizacionDto } from './dto/create-fidelizacion.dto';
 
-@Controller('clients')
+@ApiTags('Clientes')
+@Controller('clientes')
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 

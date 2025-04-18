@@ -22,7 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('Archivos')
-@Controller('files')
+@Controller('archivos')
 @UseGuards(JwtAuthGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}

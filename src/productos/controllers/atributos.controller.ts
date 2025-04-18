@@ -13,7 +13,7 @@ import { AtributosService } from '../services/atributos.service';
 import { CreateAtributoDto } from '../dto/create-atributo.dto';
 import { UpdateAtributoDto } from '../dto/update-atributo.dto';
 
-@ApiTags('atributos')
+@ApiTags('Atributos')
 @Controller('atributos')
 export class AtributosController {
   constructor(private readonly atributosService: AtributosService) {}

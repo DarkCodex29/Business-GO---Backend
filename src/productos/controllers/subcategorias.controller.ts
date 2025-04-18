@@ -13,7 +13,7 @@ import { SubcategoriasService } from '../services/subcategorias.service';
 import { CreateSubcategoriaDto } from '../dto/create-subcategoria.dto';
 import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
 
-@ApiTags('subcategorias')
+@ApiTags('Subcategorias')
 @Controller('subcategorias')
 export class SubcategoriasController {
   constructor(private readonly subcategoriasService: SubcategoriasService) {}

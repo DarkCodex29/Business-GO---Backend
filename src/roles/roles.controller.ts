@@ -23,7 +23,7 @@ import {
 } from '@nestjs/swagger';
 
 @ApiTags('Roles')
-@Controller('api/roles')
+@Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class RolesController {
