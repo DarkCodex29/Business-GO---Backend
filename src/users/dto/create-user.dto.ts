@@ -5,11 +5,12 @@ import {
   MinLength,
   IsOptional,
   IsNumber,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateUserDto {
   @ApiProperty({
-    description: 'Nombre del usuario',
+    description: 'Nombre completo del usuario',
     example: 'Juan Pérez',
   })
   @IsString()
@@ -17,26 +18,29 @@ export class CreateUserDto {
   nombre: string;
 
   @ApiProperty({
-    description: 'Email del usuario',
-    example: 'juan@ejemplo.com',
+    description: 'Correo electrónico del usuario',
+    example: 'juan@example.com',
   })
   @IsEmail()
   email: string;
 
   @ApiProperty({
-    description: 'Contraseña del usuario',
-    example: 'contraseña123',
+    description: 'Contraseña del usuario (mínimo 8 caracteres)',
+    example: 'Contraseña123',
+    minLength: 8,
   })
   @IsString()
   @MinLength(8)
   contrasena: string;
 
   @ApiProperty({
-    description: 'Teléfono del usuario',
+    description: 'Número de teléfono del usuario',
     example: '+1234567890',
+    required: false,
   })
   @IsString()
-  telefono: string;
+  @IsOptional()
+  telefono?: string;
 
   @ApiProperty({
     description: 'ID del rol del usuario',
@@ -55,11 +59,21 @@ export class CreateUserDto {
   clienteId?: number;
 
   @ApiProperty({
-    description: 'ID de la empresa asociada',
+    description: 'ID de la empresa a la que pertenece el usuario',
     example: 1,
     required: false,
   })
   @IsNumber()
   @IsOptional()
   empresaId?: number;
+
+  @ApiProperty({
+    description: 'Indica si el usuario es dueño de la empresa',
+    example: false,
+    required: false,
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  esDueno?: boolean;
 }

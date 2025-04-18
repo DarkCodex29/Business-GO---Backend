@@ -5,6 +5,7 @@ import { SessionService } from './session.service';
 import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
 import { UsersService } from '../users/users.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -51,10 +52,12 @@ export class AuthService {
   }
 
   private async generateTokens(user: any, req: Request) {
+    const jti = uuidv4();
     const payload = {
       sub: user.id_usuario.toString(),
       email: user.email,
       rol: user.rol?.nombre,
+      jti: jti,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -72,6 +75,7 @@ export class AuthService {
       token: accessToken,
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip,
+      jti: jti,
     });
 
     return {

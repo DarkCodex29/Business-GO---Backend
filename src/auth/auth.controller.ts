@@ -129,11 +129,11 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async getProfile(@Req() req: any) {
-    const userId = req.user?.sub;
+    const userId = req.user?.id_usuario;
     if (!userId) {
       throw new UnauthorizedException('Usuario no autenticado');
     }
-    return this.authService.getProfile(userId);
+    return this.authService.getProfile(Number(userId));
   }
 
   @Public()

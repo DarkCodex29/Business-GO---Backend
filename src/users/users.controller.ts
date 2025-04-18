@@ -24,6 +24,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { RequierePermiso } from '../auth/decorators/permisos.decorator';
 
 @ApiTags('Usuarios')
 @ApiBearerAuth()
@@ -34,6 +35,7 @@ export class UsersController {
 
   @Post()
   @Roles('ADMIN')
+  @RequierePermiso({ recurso: 'usuario', accion: 'crear' })
   @ApiOperation({ summary: 'Crear un nuevo usuario' })
   @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
@@ -43,7 +45,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles('ADMIN')
+  @RequierePermiso({ recurso: 'usuario', accion: 'leer' })
   @ApiOperation({ summary: 'Obtener lista de usuarios' })
   @ApiResponse({
     status: 200,
@@ -58,7 +60,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles('ADMIN')
+  @RequierePermiso({ recurso: 'usuario', accion: 'leer' })
   @ApiOperation({ summary: 'Obtener un usuario por ID' })
   @ApiResponse({ status: 200, description: 'Usuario encontrado' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
@@ -67,7 +69,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN')
+  @RequierePermiso({ recurso: 'usuario', accion: 'actualizar' })
   @ApiOperation({ summary: 'Actualizar un usuario' })
   @ApiResponse({ status: 200, description: 'Usuario actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
@@ -78,6 +80,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles('ADMIN')
+  @RequierePermiso({ recurso: 'usuario', accion: 'eliminar' })
   @ApiOperation({ summary: 'Eliminar un usuario' })
   @ApiResponse({ status: 200, description: 'Usuario eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })

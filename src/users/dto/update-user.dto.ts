@@ -5,6 +5,7 @@ import {
   MinLength,
   IsOptional,
   IsNumber,
+  IsBoolean,
 } from 'class-validator';
 import { CreateUserDto } from './create-user.dto';
 
@@ -65,11 +66,20 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   clienteId?: number;
 
   @ApiProperty({
-    description: 'ID de la empresa asociada',
+    description: 'ID de la empresa a la que pertenece el usuario',
     example: 1,
     required: false,
   })
   @IsNumber()
   @IsOptional()
   empresaId?: number;
+
+  @ApiProperty({
+    description: 'Indica si el usuario es dueño de la empresa',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  esDueno?: boolean;
 }

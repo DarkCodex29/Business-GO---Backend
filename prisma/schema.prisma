@@ -16,7 +16,44 @@ datasource db {
 model Rol {
   id_rol     Int       @id @default(autoincrement())
   nombre     String    @unique
+  descripcion String?
   usuarios   Usuario[]
+  permisos   PermisoRol[]
+  rol_padre  Rol?      @relation("JerarquiaRoles", fields: [rol_padre_id], references: [id_rol])
+  rol_padre_id Int?
+  roles_hijos Rol[]    @relation("JerarquiaRoles")
+}
+
+model Permiso {
+  id_permiso Int       @id @default(autoincrement())
+  nombre     String    @unique
+  descripcion String?
+  recurso    String    // El recurso al que se aplica el permiso (ej: "usuario", "empresa")
+  accion     String    // La acción permitida (ej: "crear", "leer", "actualizar", "eliminar")
+  roles      PermisoRol[]
+  permisos_usuario PermisoUsuario[]
+}
+
+model PermisoRol {
+  id_permiso_rol Int     @id @default(autoincrement())
+  rol            Rol     @relation(fields: [rol_id], references: [id_rol])
+  rol_id         Int
+  permiso        Permiso @relation(fields: [permiso_id], references: [id_permiso])
+  permiso_id     Int
+  condiciones    String? // Condiciones en formato JSON para permisos condicionales
+
+  @@unique([rol_id, permiso_id])
+}
+
+model PermisoUsuario {
+  id_permiso_usuario Int     @id @default(autoincrement())
+  usuario            Usuario @relation(fields: [usuario_id], references: [id_usuario])
+  usuario_id         BigInt
+  permiso            Permiso @relation(fields: [permiso_id], references: [id_permiso])
+  permiso_id         Int
+  condiciones        String? // Condiciones en formato JSON para permisos condicionales
+
+  @@unique([usuario_id, permiso_id])
 }
 
 model Usuario {
@@ -27,13 +64,41 @@ model Usuario {
   contrasena    String
   rol           Rol       @relation(fields: [rol_id], references: [id_rol])
   rol_id        Int
-  cliente       Cliente?
-  empresa       Empresa?
+  // Relaciones uno a uno (opcionales)
+  perfil_cliente Cliente?
+  // Relaciones muchos a muchos
+  empresas      UsuarioEmpresa[]
   autenticacion2FA Autenticacion2FA?
   logsPagos     LogPago[]
   auditoriaCambios AuditoriaCambio[]
   sesiones      SesionUsuario[]
   tokensRevocados TokenRevocado[]
+  permisos_directos PermisoUsuario[]
+}
+
+// Tabla intermedia para la relación muchos a muchos entre Usuario y Empresa
+model UsuarioEmpresa {
+  id_usuario_empresa Int     @id @default(autoincrement())
+  usuario            Usuario @relation(fields: [usuario_id], references: [id_usuario])
+  usuario_id         BigInt
+  empresa            Empresa @relation(fields: [empresa_id], references: [id_empresa])
+  empresa_id         BigInt
+  es_dueno           Boolean @default(false)
+  fecha_asignacion   DateTime @default(now())
+
+  @@unique([usuario_id, empresa_id])
+}
+
+// Tabla intermedia para la relación muchos a muchos entre Cliente y Empresa
+model ClienteEmpresa {
+  id_cliente_empresa Int     @id @default(autoincrement())
+  cliente            Cliente @relation(fields: [cliente_id], references: [id_cliente])
+  cliente_id         BigInt
+  empresa            Empresa @relation(fields: [empresa_id], references: [id_empresa])
+  empresa_id         BigInt
+  fecha_registro     DateTime @default(now())
+
+  @@unique([cliente_id, empresa_id])
 }
 
 model Cliente {
@@ -43,6 +108,8 @@ model Cliente {
   nombre        String
   email         String
   telefono      String?
+  // Relaciones muchos a muchos
+  empresas      ClienteEmpresa[]
   historialCompras HistorialCompra[]
   citas         Cita[]
   valoraciones  Valoracion[]
@@ -53,13 +120,14 @@ model Cliente {
 
 model Empresa {
   id_empresa    BigInt    @id @default(autoincrement())
-  usuario       Usuario   @relation(fields: [id_usuario], references: [id_usuario])
-  id_usuario    BigInt    @unique
   nombre        String
   telefono      String?
   tipo_empresa  String
   latitud       Decimal   @db.Decimal(9,6)
   longitud      Decimal   @db.Decimal(9,6)
+  // Relaciones muchos a muchos
+  usuarios      UsuarioEmpresa[]
+  clientes      ClienteEmpresa[]
   direcciones   Direccion[]
   productos     ProductoServicio[]
   citas         Cita[]

@@ -12,6 +12,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { BigIntInterceptor } from '../common/interceptors/bigint.interceptor';
+import { TokenValidationMiddleware } from './middlewares/token-validation.middleware';
+import { RolesGuard } from './guards/roles.guard';
+import { PermisosService } from './services/permisos.service';
+import { PermisosGuard } from './guards/permisos.guard';
+import { InitPermisosCommand } from './commands/init-permisos.command';
+import { PermisosController } from './controllers/permisos.controller';
 
 @Global()
 @Module({
@@ -19,43 +25,46 @@ import { BigIntInterceptor } from '../common/interceptors/bigint.interceptor';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_ACCESS_TOKEN_SECRET');
-        if (!secret) {
-          throw new Error(
-            'JWT_ACCESS_TOKEN_SECRET no está configurado en las variables de entorno',
-          );
-        }
-        const expiresIn = configService.get<string>(
-          'JWT_ACCESS_TOKEN_EXPIRATION_TIME',
-        );
-        return {
-          secret,
-          signOptions: {
-            expiresIn,
-          },
-        };
-      },
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string>(
+            'JWT_ACCESS_TOKEN_EXPIRATION_TIME',
+            '1d',
+          ),
+        },
+      }),
       inject: [ConfigService],
     }),
     UsersModule,
     PrismaModule,
     EmailModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, PermisosController],
   providers: [
-    SessionService,
     AuthService,
     JwtStrategy,
+    SessionService,
+    TokenValidationMiddleware,
+    PermisosService,
+    InitPermisosCommand,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermisosGuard,
     },
     {
       provide: APP_INTERCEPTOR,
       useClass: BigIntInterceptor,
     },
   ],
-  exports: [AuthService, JwtModule, SessionService],
+  exports: [AuthService, JwtModule, SessionService, PermisosService],
 })
 export class AuthModule {}

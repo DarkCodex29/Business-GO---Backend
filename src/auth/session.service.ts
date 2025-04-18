@@ -1,21 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { v4 as uuidv4 } from 'uuid';
+import { JwtService } from '@nestjs/jwt';
 
 interface CreateSessionDto {
   userId: number;
   token: string;
   userAgent?: string;
   ipAddress?: string;
+  jti: string;
 }
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async createSession(data: CreateSessionDto) {
-    const jti = uuidv4(); // Identificador único para el token
-
     // Crear nueva sesión
     const session = await this.prisma.sesionUsuario.create({
       data: {
@@ -28,7 +30,7 @@ export class SessionService {
       },
     });
 
-    return { session, jti };
+    return { session, jti: data.jti };
   }
 
   async validateSession(token: string) {
@@ -67,10 +69,16 @@ export class SessionService {
       },
     });
 
+    // Obtener el jti del token
+    const decoded = this.jwtService.decode(token);
+    if (!decoded?.jti) {
+      return; // Si no hay jti, no hacemos nada
+    }
+
     // Registrar el token como revocado
     await this.prisma.tokenRevocado.create({
       data: {
-        token_jti: token,
+        token_jti: decoded.jti,
         razon: reason,
         id_usuario: session.id_usuario,
       },
