@@ -2,13 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmpresaDto } from '../dto/create-empresa.dto';
 import { UpdateEmpresaDto } from '../dto/update-empresa.dto';
 import { CreateDireccionDto } from '../dto/create-direccion.dto';
 import { UpdateDireccionDto } from '../dto/update-direccion.dto';
-import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class EmpresasService {
@@ -26,7 +26,7 @@ export class EmpresasService {
           ruc: createEmpresaDto.ruc,
           telefono: createEmpresaDto.telefono,
           tipo_empresa: createEmpresaDto.tipo_empresa,
-          tipo_contribuyente: createEmpresaDto.tipo_contribuyente || 'RER',
+          tipo_contribuyente: createEmpresaDto.tipo_contribuyente ?? 'RER',
           estado: 'activo',
           latitud: createEmpresaDto.latitud,
           longitud: createEmpresaDto.longitud,
@@ -180,7 +180,7 @@ export class EmpresasService {
           empresa: {
             connect: { id_empresa: createDireccionDto.id_empresa },
           },
-          tipo_direccion: createDireccionDto.tipo_direccion || 'principal',
+          tipo_direccion: createDireccionDto.tipo_direccion ?? 'principal',
           departamento: createDireccionDto.departamento,
           provincia: createDireccionDto.provincia,
           distrito: createDireccionDto.distrito,
