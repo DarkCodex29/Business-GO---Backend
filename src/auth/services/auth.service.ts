@@ -7,6 +7,7 @@ import { Request } from 'express';
 import { UsersService } from '../../users/users.service';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LoginDto } from '../dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -21,13 +22,31 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({
       where: { email },
+      include: {
+        rol: true,
+        empresas: {
+          include: {
+            rol_empresa: {
+              include: {
+                permisos: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    if (user && (await bcrypt.compare(password, user.contrasena))) {
-      const { contrasena, ...result } = user;
-      return result;
+    if (!user) {
+      throw new UnauthorizedException('Credenciales inválidas');
     }
-    return null;
+
+    const isPasswordValid = await bcrypt.compare(password, user.contrasena);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    return user;
   }
 
   async register(registerDto: any, req: Request) {
@@ -43,24 +62,54 @@ export class AuthService {
     };
   }
 
-  async login(user: any, ip: string, userAgent: string) {
-    const payload = { email: user.email, sub: user.id_usuario };
+  async login(loginDto: LoginDto) {
+    const user = await this.validateUser(loginDto.email, loginDto.password);
 
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const payload = {
+      sub: user.id_usuario,
+      email: user.email,
+      rol: {
+        id: user.rol.id_rol,
+        nombre: user.rol.nombre,
+      },
+      empresas: user.empresas.map((empresa) => ({
+        id: empresa.empresa_id,
+        rol: empresa.rol_empresa
+          ? {
+              id: empresa.rol_empresa.id_rol,
+              nombre: empresa.rol_empresa.nombre,
+              permisos: empresa.rol_empresa.permisos.map((permiso) => ({
+                recurso: permiso.recurso,
+                accion: permiso.accion,
+              })),
+            }
+          : null,
+      })),
+    };
 
-    // Crear sesión
-    await this.sessionService.createSession({
-      userId: user.id_usuario,
-      token: refreshToken,
-      userAgent,
-      ipAddress: ip,
-      jti: refreshToken,
+    const token = this.jwtService.sign(payload);
+
+    // Registrar la sesión
+    await this.prisma.sesionUsuario.create({
+      data: {
+        id_usuario: user.id_usuario,
+        token,
+        fecha_expiracion: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+      },
     });
 
     return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
+      access_token: token,
+      user: {
+        id: user.id_usuario,
+        email: user.email,
+        nombre: user.nombre,
+        rol: user.rol.nombre,
+        empresas: user.empresas.map((empresa) => ({
+          id: empresa.empresa_id,
+          rol: empresa.rol_empresa?.nombre,
+        })),
+      },
     };
   }
 
@@ -98,8 +147,18 @@ export class AuthService {
   }
 
   async logout(token: string) {
-    await this.sessionService.revokeSession(token, 'logout');
-    return { message: 'Sesión cerrada exitosamente' };
+    // Revocar el token
+    await this.prisma.tokenRevocado.create({
+      data: {
+        token_jti: token,
+        id_usuario: 0, // Se actualizará con el ID real del usuario
+      },
+    });
+
+    // Eliminar la sesión
+    await this.prisma.sesionUsuario.deleteMany({
+      where: { token },
+    });
   }
 
   async logoutAllSessions(userId: number, currentToken: string) {
