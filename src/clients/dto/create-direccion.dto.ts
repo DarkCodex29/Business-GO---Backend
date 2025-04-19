@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsNumber } from 'class-validator';
 
-export class CreateDireccionDto {
+export class CreateClienteDireccionDto {
   @ApiProperty({
     description: 'Dirección completa',
     example: 'Av. Principal 123',

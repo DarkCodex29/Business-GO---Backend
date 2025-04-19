@@ -10,8 +10,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { RolesEmpresaService } from '../services/roles-empresa.service';
-import { CreateRolEmpresaDto } from '../dto/create-rol-empresa.dto';
-import { UpdateRolEmpresaDto } from '../dto/update-rol-empresa.dto';
+import { CreateEmpresaRolDto } from '../dto/create-rol-empresa.dto';
+import { UpdateEmpresaRolDto } from '../dto/update-rol-empresa.dto';
 import { AsignarPermisoRolEmpresaDto } from '../dto/asignar-permiso-rol-empresa.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequierePermiso } from '../../auth/decorators/permisos.decorator';
@@ -20,13 +20,15 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiExtraModels,
 } from '@nestjs/swagger';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PermisosGuard } from '../../auth/guards/permisos.guard';
 import { AsignarRolDto } from '../dto/asignar-rol.dto';
 
-@ApiTags('Roles de Empresa')
+@ApiTags('Roles Empresa')
+@ApiExtraModels(CreateEmpresaRolDto, UpdateEmpresaRolDto)
 @Controller('empresas/:id_empresa/roles')
 @UseGuards(JwtAuthGuard, RolesGuard, PermisosGuard)
 @ApiBearerAuth()
@@ -41,7 +43,7 @@ export class RolesEmpresaController {
   @ApiResponse({ status: 403, description: 'No autorizado' })
   async crearRol(
     @Param('id_empresa') id_empresa: number,
-    @Body() createRolDto: CreateRolEmpresaDto,
+    @Body() createRolDto: CreateEmpresaRolDto,
   ) {
     createRolDto.id_empresa = id_empresa;
     return this.rolesEmpresaService.crearRolEmpresa(createRolDto);
@@ -114,7 +116,7 @@ export class RolesEmpresaController {
   update(
     @Param('id_empresa') id_empresa: number,
     @Param('id') id: number,
-    @Body() updateRolEmpresaDto: UpdateRolEmpresaDto,
+    @Body() updateRolEmpresaDto: UpdateEmpresaRolDto,
   ) {
     return this.rolesEmpresaService.actualizarRol(
       id_empresa,

@@ -3,11 +3,9 @@ import {
   IsString,
   IsOptional,
   IsArray,
-  ValidateNested,
-  IsDateString,
   IsNumber,
+  IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class PermisoDto {
   @ApiProperty({
@@ -32,68 +30,76 @@ export class PermisoDto {
   accion: string;
 }
 
-export class CreateRolEmpresaDto {
+export class CreateEmpresaRolDto {
   @ApiProperty({
-    example: 'Administrador',
     description: 'Nombre del rol',
+    example: 'Administrador',
   })
   @IsString()
+  @IsNotEmpty()
   nombre: string;
 
   @ApiProperty({
-    example: 'Rol con acceso total al sistema',
     description: 'Descripción del rol',
+    example: 'Rol con acceso total al sistema',
+    required: false,
   })
   @IsOptional()
   @IsString()
   descripcion?: string;
 
   @ApiProperty({
+    description: 'ID de la empresa',
     example: 1,
-    description: 'ID de la empresa a la que pertenece el rol',
   })
   @IsNumber()
+  @IsNotEmpty()
   id_empresa: number;
 
   @ApiProperty({
+    description: 'Horario de inicio',
     example: '09:00',
-    description: 'Hora de inicio del horario permitido',
+    required: false,
   })
   @IsOptional()
   @IsString()
   horario_inicio?: string;
 
   @ApiProperty({
+    description: 'Horario de fin',
     example: '18:00',
-    description: 'Hora de fin del horario permitido',
+    required: false,
   })
   @IsOptional()
   @IsString()
   horario_fin?: string;
 
   @ApiProperty({
+    description: 'Fecha de inicio',
     example: '2024-01-01',
-    description: 'Fecha de inicio de validez del rol',
+    required: false,
   })
   @IsOptional()
-  @IsDateString()
-  fecha_inicio?: Date;
+  @IsString()
+  fecha_inicio?: string;
 
   @ApiProperty({
+    description: 'Fecha de fin',
     example: '2024-12-31',
-    description: 'Fecha de fin de validez del rol',
+    required: false,
   })
   @IsOptional()
-  @IsDateString()
-  fecha_fin?: Date;
+  @IsString()
+  fecha_fin?: string;
 
   @ApiProperty({
-    type: [PermisoDto],
-    description: 'Lista de permisos asignados al rol',
+    description: 'Lista de IDs de permisos',
+    example: [1, 2, 3],
+    required: false,
+    type: [Number],
   })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PermisoDto)
-  permisos?: PermisoDto[];
+  @IsNumber({}, { each: true })
+  permisos?: number[];
 }

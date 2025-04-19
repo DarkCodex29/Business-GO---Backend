@@ -401,25 +401,58 @@ model ConfiguracionMoneda {
   @@map("configuracion_moneda")
 }
 
+model CategoriaArchivo {
+  id_categoria_archivo Int      @id @default(autoincrement())
+  nombre              String
+  descripcion         String?
+  archivos           ArchivoMultimedia[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("categorias_archivo")
+}
+
+model VersionArchivo {
+  id_version         Int      @id @default(autoincrement())
+  id_archivo         Int
+  archivo            ArchivoMultimedia @relation(fields: [id_archivo], references: [id_archivo])
+  numero_version     Int
+  url_archivo        String
+  cambios            String?
+  fecha_version      DateTime @default(now())
+  usuario_id         Int
+  usuario            Usuario  @relation(fields: [usuario_id], references: [id_usuario])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([id_archivo, numero_version])
+  @@map("versiones_archivo")
+}
+
 model ArchivoMultimedia {
-  id_archivo    Int         @id @default(autoincrement())
-  nombre_archivo String
-  tipo_archivo  String
-  mime_type     String
-  url_archivo   String
-  tamanio_bytes Int
-  dimensiones   Json?
-  metadata      Json?
-  fecha_subida  DateTime    @default(now())
-  activo        Boolean     @default(true)
-  usuario       Usuario?    @relation(fields: [usuario_id], references: [id_usuario])
-  usuario_id    Int?
-  empresa       Empresa?     @relation(fields: [empresa_id], references: [id_empresa])
-  empresa_id    Int?
-  producto      ProductoServicio? @relation(fields: [producto_id], references: [id_producto])
-  producto_id   Int?
-  documento     Documento?    @relation(fields: [documento_id], references: [id_documento])
-  documento_id  Int?
+  id_archivo         Int      @id @default(autoincrement())
+  nombre_archivo     String
+  tipo_archivo       String
+  mime_type          String
+  url_archivo        String
+  tamanio_bytes      Int
+  dimensiones        Json?
+  metadata           Json?
+  fecha_subida       DateTime @default(now())
+  activo             Boolean  @default(true)
+  usuario_id         Int?
+  usuario            Usuario? @relation(fields: [usuario_id], references: [id_usuario])
+  empresa_id         Int?
+  empresa            Empresa? @relation(fields: [empresa_id], references: [id_empresa])
+  producto_id        Int?
+  producto           ProductoServicio? @relation(fields: [producto_id], references: [id_producto])
+  documento_id       Int?
+  documento          Documento? @relation(fields: [documento_id], references: [id_documento])
+  categoria_id       Int?
+  categoria          CategoriaArchivo? @relation(fields: [categoria_id], references: [id_categoria_archivo])
+  versiones          VersionArchivo[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("archivos_multimedia")
 }
@@ -570,6 +603,7 @@ model Usuario {
   archivos      ArchivoMultimedia[]
   roles_empresa    UsuarioRolEmpresa[]
   historial_precios HistorialPrecio[]
+  versiones_archivo VersionArchivo[]
 
   @@map("usuarios")
 }
