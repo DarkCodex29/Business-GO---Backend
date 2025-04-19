@@ -8,25 +8,29 @@ import {
   Delete,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { SubcategoriasService } from '../services/subcategorias.service';
-import { CreateSubcategoriaDto } from '../dto/create-subcategoria.dto';
-import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
-import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { SubcategoriasService } from '../services/subcategorias.service';
+import { CreateSubcategoriaDto } from '../dto/create-subcategoria.dto';
+import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
 
 @ApiTags('Subcategorías')
+@ApiBearerAuth()
 @Controller('empresas/:empresaId/subcategorias')
-@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'EMPRESA')
 export class SubcategoriasController {
   constructor(private readonly subcategoriasService: SubcategoriasService) {}
 
   @Post(':categoriaId')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('subcategorias.crear')
   @ApiOperation({ summary: 'Crear una nueva subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
@@ -47,8 +51,6 @@ export class SubcategoriasController {
   }
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('subcategorias.ver')
   @ApiOperation({ summary: 'Obtener todas las subcategorías de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -60,8 +62,6 @@ export class SubcategoriasController {
   }
 
   @Get(':categoriaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('subcategorias.ver')
   @ApiOperation({ summary: 'Obtener una subcategoría específica' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
@@ -83,8 +83,6 @@ export class SubcategoriasController {
   }
 
   @Patch(':categoriaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('subcategorias.editar')
   @ApiOperation({ summary: 'Actualizar una subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
@@ -112,8 +110,6 @@ export class SubcategoriasController {
   }
 
   @Delete(':categoriaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('subcategorias.eliminar')
   @ApiOperation({ summary: 'Eliminar una subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({

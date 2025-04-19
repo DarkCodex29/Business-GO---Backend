@@ -7,12 +7,16 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
-import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 import { ClientesNotificacionesService } from '../services/clientes-notificaciones.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
@@ -21,8 +25,9 @@ import { CreateFidelizacionDto } from '../dto/create-fidelizacion.dto';
 import { UpdatePuntosFidelizacionDto } from '../dto/update-puntos-fidelizacion.dto';
 
 @ApiTags('Notificaciones y Fidelización')
+@ApiBearerAuth()
 @Controller('empresas/:empresaId')
-@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'EMPRESA')
 export class ClientesNotificacionesController {
   constructor(
@@ -31,7 +36,6 @@ export class ClientesNotificacionesController {
 
   // Notificaciones individuales
   @Post('clientes/:clienteId/notificaciones')
-  @EmpresaPermissions('clientes.notificaciones.crear')
   @ApiOperation({ summary: 'Crear notificación para un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -52,7 +56,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('clientes/:clienteId/notificaciones')
-  @EmpresaPermissions('clientes.notificaciones.ver')
   @ApiOperation({ summary: 'Obtener notificaciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -71,7 +74,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('notificaciones')
-  @EmpresaPermissions('clientes.notificaciones.ver')
   @ApiOperation({ summary: 'Obtener todas las notificaciones de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -85,7 +87,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('notificaciones/pendientes')
-  @EmpresaPermissions('clientes.notificaciones.ver')
   @ApiOperation({ summary: 'Obtener notificaciones pendientes de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -99,7 +100,6 @@ export class ClientesNotificacionesController {
   }
 
   @Patch('notificaciones/:notificacionId/leer')
-  @EmpresaPermissions('clientes.notificaciones.editar')
   @ApiOperation({ summary: 'Marcar notificación como leída' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'notificacionId', description: 'ID de la notificación' })
@@ -119,7 +119,6 @@ export class ClientesNotificacionesController {
 
   // Notificaciones masivas
   @Post('notificaciones/bulk')
-  @EmpresaPermissions('clientes.notificaciones.crear')
   @ApiOperation({ summary: 'Crear notificaciones masivas' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -138,7 +137,6 @@ export class ClientesNotificacionesController {
 
   // Feedback
   @Post('clientes/:clienteId/feedback')
-  @EmpresaPermissions('clientes.feedback.crear')
   @ApiOperation({ summary: 'Crear feedback de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -159,7 +157,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('clientes/:clienteId/feedback')
-  @EmpresaPermissions('clientes.feedback.ver')
   @ApiOperation({ summary: 'Obtener feedback de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -178,7 +175,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('feedback')
-  @EmpresaPermissions('clientes.feedback.ver')
   @ApiOperation({ summary: 'Obtener todos los feedback de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -191,7 +187,6 @@ export class ClientesNotificacionesController {
 
   // Fidelización
   @Post('fidelizacion')
-  @EmpresaPermissions('clientes.fidelizacion.crear')
   @ApiOperation({ summary: 'Crear programa de fidelización' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -209,7 +204,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('clientes/:clienteId/fidelizacion')
-  @EmpresaPermissions('clientes.fidelizacion.ver')
   @ApiOperation({ summary: 'Obtener programa de fidelización de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -228,7 +222,6 @@ export class ClientesNotificacionesController {
   }
 
   @Get('fidelizacion')
-  @EmpresaPermissions('clientes.fidelizacion.ver')
   @ApiOperation({
     summary: 'Obtener todos los programas de fidelización de la empresa',
   })
@@ -242,7 +235,6 @@ export class ClientesNotificacionesController {
   }
 
   @Patch('clientes/:clienteId/fidelizacion/puntos')
-  @EmpresaPermissions('clientes.fidelizacion.editar')
   @ApiOperation({ summary: 'Actualizar puntos de fidelización de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
