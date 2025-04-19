@@ -1,4 +1,20 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateAtributoDto } from './create-atributo.dto';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional } from 'class-validator';
 
-export class UpdateAtributoDto extends PartialType(CreateAtributoDto) {}
+export class UpdateAtributoDto {
+  @ApiProperty({
+    description: 'Nombre del atributo (ej: color, talla, material)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  nombre?: string;
+
+  @ApiProperty({
+    description: 'Valor del atributo (ej: rojo, XL, algodón)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  valor?: string;
+}

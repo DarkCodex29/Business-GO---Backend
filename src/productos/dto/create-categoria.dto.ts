@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateCategoriaDto {
   @ApiProperty({
@@ -7,5 +7,6 @@ export class CreateCategoriaDto {
     example: 'Electrónicos',
   })
   @IsString()
+  @IsNotEmpty()
   nombre: string;
 }

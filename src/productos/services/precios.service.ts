@@ -7,10 +7,13 @@ import { UpdatePrecioDto } from '../dto/update-precio.dto';
 export class PreciosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPrecioDto: CreatePrecioDto) {
-    // Verificar si el producto existe
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: createPrecioDto.id_producto },
+  async create(empresaId: number, createPrecioDto: CreatePrecioDto) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: createPrecioDto.id_producto,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -19,32 +22,44 @@ export class PreciosService {
       );
     }
 
+    // Crear el historial de precio
     return this.prisma.historialPrecio.create({
       data: {
         id_producto: createPrecioDto.id_producto,
-        precio_anterior: createPrecioDto.precio_anterior,
-        precio_nuevo: createPrecioDto.precio_nuevo,
+        precio_anterior: producto.precio,
+        precio_nuevo: createPrecioDto.precio,
         motivo: createPrecioDto.motivo,
         id_usuario: createPrecioDto.id_usuario,
       },
-    });
-  }
-
-  async findAll() {
-    return this.prisma.historialPrecio.findMany({
       include: {
         producto: true,
-        usuario: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const precio = await this.prisma.historialPrecio.findUnique({
-      where: { id_historial_precio: id },
+  async findAll(empresaId: number) {
+    return this.prisma.historialPrecio.findMany({
+      where: {
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
-        usuario: true,
+      },
+    });
+  }
+
+  async findOne(id: number, empresaId: number) {
+    const precio = await this.prisma.historialPrecio.findFirst({
+      where: {
+        id_historial_precio: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
+      include: {
+        producto: true,
       },
     });
 
@@ -55,10 +70,19 @@ export class PreciosService {
     return precio;
   }
 
-  async update(id: number, updatePrecioDto: UpdatePrecioDto) {
-    // Verificar si el precio existe
-    const precio = await this.prisma.historialPrecio.findUnique({
-      where: { id_historial_precio: id },
+  async update(
+    id: number,
+    empresaId: number,
+    updatePrecioDto: UpdatePrecioDto,
+  ) {
+    // Verificar que el precio pertenece a un producto de la empresa
+    const precio = await this.prisma.historialPrecio.findFirst({
+      where: {
+        id_historial_precio: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!precio) {
@@ -67,18 +91,22 @@ export class PreciosService {
 
     return this.prisma.historialPrecio.update({
       where: { id_historial_precio: id },
-      data: {
-        precio_anterior: updatePrecioDto.precio_anterior,
-        precio_nuevo: updatePrecioDto.precio_nuevo,
-        motivo: updatePrecioDto.motivo,
+      data: updatePrecioDto,
+      include: {
+        producto: true,
       },
     });
   }
 
-  async remove(id: number) {
-    // Verificar si el precio existe
-    const precio = await this.prisma.historialPrecio.findUnique({
-      where: { id_historial_precio: id },
+  async remove(id: number, empresaId: number) {
+    // Verificar que el precio pertenece a un producto de la empresa
+    const precio = await this.prisma.historialPrecio.findFirst({
+      where: {
+        id_historial_precio: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!precio) {

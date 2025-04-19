@@ -7,9 +7,13 @@ import { UpdateAtributoDto } from '../dto/update-atributo.dto';
 export class AtributosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createAtributoDto: CreateAtributoDto) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: createAtributoDto.id_producto },
+  async create(empresaId: number, createAtributoDto: CreateAtributoDto) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: createAtributoDto.id_producto,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -20,9 +24,9 @@ export class AtributosService {
 
     return this.prisma.atributo.create({
       data: {
+        id_producto: createAtributoDto.id_producto,
         nombre: createAtributoDto.nombre,
         valor: createAtributoDto.valor,
-        id_producto: createAtributoDto.id_producto,
       },
       include: {
         producto: true,
@@ -30,17 +34,27 @@ export class AtributosService {
     });
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.atributo.findMany({
+      where: {
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const atributo = await this.prisma.atributo.findUnique({
-      where: { id_atributo: id },
+  async findOne(id: number, empresaId: number) {
+    const atributo = await this.prisma.atributo.findFirst({
+      where: {
+        id_atributo: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
@@ -53,43 +67,43 @@ export class AtributosService {
     return atributo;
   }
 
-  async update(id: number, updateAtributoDto: UpdateAtributoDto) {
-    const atributo = await this.prisma.atributo.findUnique({
-      where: { id_atributo: id },
+  async update(
+    id: number,
+    empresaId: number,
+    updateAtributoDto: UpdateAtributoDto,
+  ) {
+    // Verificar que el atributo pertenece a un producto de la empresa
+    const atributo = await this.prisma.atributo.findFirst({
+      where: {
+        id_atributo: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!atributo) {
       throw new NotFoundException(`Atributo con ID ${id} no encontrado`);
     }
 
-    if (updateAtributoDto.id_producto) {
-      const producto = await this.prisma.productoServicio.findUnique({
-        where: { id_producto: updateAtributoDto.id_producto },
-      });
-
-      if (!producto) {
-        throw new NotFoundException(
-          `Producto con ID ${updateAtributoDto.id_producto} no encontrado`,
-        );
-      }
-    }
-
     return this.prisma.atributo.update({
       where: { id_atributo: id },
-      data: {
-        nombre: updateAtributoDto.nombre,
-        valor: updateAtributoDto.valor,
-        id_producto: updateAtributoDto.id_producto,
-      },
+      data: updateAtributoDto,
       include: {
         producto: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const atributo = await this.prisma.atributo.findUnique({
-      where: { id_atributo: id },
+  async remove(id: number, empresaId: number) {
+    // Verificar que el atributo pertenece a un producto de la empresa
+    const atributo = await this.prisma.atributo.findFirst({
+      where: {
+        id_atributo: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!atributo) {
@@ -101,9 +115,13 @@ export class AtributosService {
     });
   }
 
-  async findByProducto(id_producto: number) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto },
+  async findByProducto(id_producto: number, empresaId: number) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -113,7 +131,9 @@ export class AtributosService {
     }
 
     return this.prisma.atributo.findMany({
-      where: { id_producto },
+      where: {
+        id_producto,
+      },
       include: {
         producto: true,
       },

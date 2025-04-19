@@ -1,25 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt } from 'class-validator';
 
 export class CreateAtributoDto {
+  @ApiProperty({ description: 'ID del producto al que pertenece el atributo' })
+  @IsInt()
+  @IsNotEmpty()
+  id_producto: number;
+
   @ApiProperty({
-    description: 'Nombre del atributo',
-    example: 'Color',
+    description: 'Nombre del atributo (ej: color, talla, material)',
   })
   @IsString()
+  @IsNotEmpty()
   nombre: string;
 
-  @ApiProperty({
-    description: 'Valor del atributo',
-    example: 'Rojo',
-  })
+  @ApiProperty({ description: 'Valor del atributo (ej: rojo, XL, algodón)' })
   @IsString()
+  @IsNotEmpty()
   valor: string;
-
-  @ApiProperty({
-    description: 'ID del producto al que pertenece el atributo',
-    example: 1,
-  })
-  @IsInt()
-  id_producto: number;
 }

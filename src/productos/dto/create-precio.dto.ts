@@ -1,18 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString, IsOptional } from 'class-validator';
+import { IsNumber, IsString, IsInt, IsOptional } from 'class-validator';
 
 export class CreatePrecioDto {
   @ApiProperty({ description: 'ID del producto' })
-  @IsNumber()
+  @IsInt()
   id_producto: number;
-
-  @ApiProperty({ description: 'Precio anterior del producto' })
-  @IsNumber()
-  precio_anterior: number;
 
   @ApiProperty({ description: 'Nuevo precio del producto' })
   @IsNumber()
-  precio_nuevo: number;
+  precio: number;
 
   @ApiProperty({ description: 'Motivo del cambio de precio', required: false })
   @IsString()
@@ -20,6 +16,6 @@ export class CreatePrecioDto {
   motivo?: string;
 
   @ApiProperty({ description: 'ID del usuario que realiza el cambio' })
-  @IsNumber()
+  @IsInt()
   id_usuario: number;
 }

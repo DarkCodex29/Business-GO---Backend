@@ -10,68 +10,89 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
+  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiParam,
 } from '@nestjs/swagger';
-import { PreciosService } from '../services/precios.service';
-import { CreatePrecioDto } from '../dto/create-precio.dto';
-import { UpdatePrecioDto } from '../dto/update-precio.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { PreciosService } from '../services/precios.service';
+import { CreatePrecioDto } from '../dto/create-precio.dto';
+import { UpdatePrecioDto } from '../dto/update-precio.dto';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Precios')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('precios')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('empresas/:empresaId/precios')
 export class PreciosController {
   constructor(private readonly preciosService: PreciosService) {}
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('precios.crear')
   @ApiOperation({ summary: 'Crear un nuevo precio' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Precio creado exitosamente' })
-  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  create(@Body() createPrecioDto: CreatePrecioDto) {
-    return this.preciosService.create(createPrecioDto);
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 403, description: 'No autorizado' })
+  create(
+    @Param('empresaId') empresaId: string,
+    @Body() createPrecioDto: CreatePrecioDto,
+  ) {
+    return this.preciosService.create(+empresaId, createPrecioDto);
   }
 
   @Get()
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Obtener todos los precios' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de precios obtenida exitosamente',
-  })
-  findAll() {
-    return this.preciosService.findAll();
+  @EmpresaPermissions('precios.ver')
+  @ApiOperation({ summary: 'Obtener todos los precios de una empresa' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({ status: 200, description: 'Lista de precios' })
+  findAll(@Param('empresaId') empresaId: string) {
+    return this.preciosService.findAll(+empresaId);
   }
 
   @Get(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('precios.ver')
   @ApiOperation({ summary: 'Obtener un precio por ID' })
-  @ApiResponse({ status: 200, description: 'Precio encontrado exitosamente' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del precio' })
+  @ApiResponse({ status: 200, description: 'Precio encontrado' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })
-  findOne(@Param('id') id: string) {
-    return this.preciosService.findOne(+id);
+  findOne(@Param('empresaId') empresaId: string, @Param('id') id: string) {
+    return this.preciosService.findOne(+id, +empresaId);
   }
 
   @Patch(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('precios.editar')
   @ApiOperation({ summary: 'Actualizar un precio' })
-  @ApiResponse({ status: 200, description: 'Precio actualizado exitosamente' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del precio' })
+  @ApiResponse({ status: 200, description: 'Precio actualizado' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })
-  update(@Param('id') id: string, @Body() updatePrecioDto: UpdatePrecioDto) {
-    return this.preciosService.update(+id, updatePrecioDto);
+  update(
+    @Param('empresaId') empresaId: string,
+    @Param('id') id: string,
+    @Body() updatePrecioDto: UpdatePrecioDto,
+  ) {
+    return this.preciosService.update(+id, +empresaId, updatePrecioDto);
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('precios.eliminar')
   @ApiOperation({ summary: 'Eliminar un precio' })
-  @ApiResponse({ status: 200, description: 'Precio eliminado exitosamente' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del precio' })
+  @ApiResponse({ status: 200, description: 'Precio eliminado' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })
-  remove(@Param('id') id: string) {
-    return this.preciosService.remove(+id);
+  remove(@Param('empresaId') empresaId: string, @Param('id') id: string) {
+    return this.preciosService.remove(+id, +empresaId);
   }
 }
