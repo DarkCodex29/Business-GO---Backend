@@ -6,109 +6,133 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateNotaDebitoDto } from '../dto/create-nota-debito.dto';
 import { UpdateNotaDebitoDto } from '../dto/update-nota-debito.dto';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class NotasDebitoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createNotaDebitoDto: CreateNotaDebitoDto) {
-    // Validar que la factura existe
-    const factura = await this.prisma.factura.findUnique({
-      where: { id_factura: createNotaDebitoDto.id_factura },
+  async create(empresaId: number, createNotaDebitoDto: CreateNotaDebitoDto) {
+    // Verificar que la factura existe y pertenece a la empresa
+    const factura = await this.prisma.factura.findFirst({
+      where: {
+        id_factura: createNotaDebitoDto.id_factura,
+        orden_venta: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!factura) {
-      throw new NotFoundException('La factura no existe');
+      throw new NotFoundException('Factura no encontrada');
     }
 
-    // Validar que los productos existen
-    for (const item of createNotaDebitoDto.items) {
-      const producto = await this.prisma.productoServicio.findUnique({
-        where: { id_producto: item.id_producto },
-      });
+    // Generar número de nota de débito
+    const ultimaNota = await this.prisma.notaDebito.findFirst({
+      where: {
+        factura: {
+          orden_venta: {
+            id_empresa: empresaId,
+          },
+        },
+      },
+      orderBy: { numero_nota: 'desc' },
+    });
 
-      if (!producto) {
-        throw new NotFoundException(
-          `El producto con ID ${item.id_producto} no existe`,
-        );
-      }
-    }
+    const numeroNota = ultimaNota
+      ? this.generarSiguienteNumero(ultimaNota.numero_nota)
+      : this.generarPrimerNumero();
 
     // Calcular totales
-    const subtotal = createNotaDebitoDto.items.reduce(
-      (sum, item) => sum + item.cantidad * item.precio_unitario,
-      0,
-    );
+    let subtotal = new Decimal(0);
+    let igv = new Decimal(0);
+    let total = new Decimal(0);
 
-    const igv = createNotaDebitoDto.items.reduce(
-      (sum, item) =>
-        sum +
-        (item.cantidad * item.precio_unitario * item.igv_porcentaje) / 100,
-      0,
-    );
+    for (const item of createNotaDebitoDto.items) {
+      const subtotalItem = new Decimal(item.cantidad).mul(item.precio_unitario);
+      const igvItem = subtotalItem.mul(item.igv_porcentaje).div(100);
+      subtotal = subtotal.add(subtotalItem);
+      igv = igv.add(igvItem);
+    }
 
-    const total = subtotal + igv;
+    total = subtotal.add(igv);
 
     // Crear la nota de débito
     return this.prisma.notaDebito.create({
       data: {
         id_factura: createNotaDebitoDto.id_factura,
-        numero_nota: createNotaDebitoDto.numero_nota,
-        fecha_emision: createNotaDebitoDto.fecha_emision,
+        numero_nota: numeroNota,
+        fecha_emision: new Date(),
         motivo: createNotaDebitoDto.motivo,
-        estado: createNotaDebitoDto.estado,
         monto: total,
+        estado: 'EMITIDA',
         items: {
           create: createNotaDebitoDto.items.map((item) => ({
-            id_producto: item.id_producto,
+            producto: {
+              connect: { id_producto: item.id_producto },
+            },
             cantidad: item.cantidad,
             precio_unitario: item.precio_unitario,
             igv_porcentaje: item.igv_porcentaje,
-            subtotal: item.cantidad * item.precio_unitario,
-            igv:
-              (item.cantidad * item.precio_unitario * item.igv_porcentaje) /
-              100,
-            total:
-              item.cantidad *
-              item.precio_unitario *
-              (1 + item.igv_porcentaje / 100),
+            subtotal: new Decimal(item.cantidad).mul(item.precio_unitario),
+            igv: new Decimal(item.cantidad)
+              .mul(item.precio_unitario)
+              .mul(item.igv_porcentaje)
+              .div(100),
+            total: new Decimal(item.cantidad)
+              .mul(item.precio_unitario)
+              .mul(new Decimal(1).add(item.igv_porcentaje).div(100)),
           })),
         },
       },
       include: {
+        factura: true,
         items: {
           include: {
             producto: true,
           },
         },
-        factura: true,
       },
     });
   }
 
-  findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.notaDebito.findMany({
+      where: {
+        factura: {
+          orden_venta: {
+            id_empresa: empresaId,
+          },
+        },
+      },
       include: {
+        factura: true,
         items: {
           include: {
             producto: true,
           },
         },
-        factura: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const notaDebito = await this.prisma.notaDebito.findUnique({
-      where: { id_nota_debito: id },
+  async findOne(empresaId: number, id: number) {
+    const notaDebito = await this.prisma.notaDebito.findFirst({
+      where: {
+        id_nota_debito: id,
+        factura: {
+          orden_venta: {
+            id_empresa: empresaId,
+          },
+        },
+      },
       include: {
+        factura: true,
         items: {
           include: {
             producto: true,
           },
         },
-        factura: true,
       },
     });
 
@@ -119,86 +143,64 @@ export class NotasDebitoService {
     return notaDebito;
   }
 
-  async update(id: number, updateNotaDebitoDto: UpdateNotaDebitoDto) {
-    const notaDebito = await this.findOne(id);
+  async update(
+    empresaId: number,
+    id: number,
+    updateNotaDebitoDto: UpdateNotaDebitoDto,
+  ) {
+    const notaDebito = await this.findOne(empresaId, id);
 
-    // Validar que la nota no esté aplicada o cancelada
-    if (notaDebito.estado === 'APLICADA' || notaDebito.estado === 'CANCELADA') {
+    if (notaDebito.estado === 'ANULADA') {
       throw new BadRequestException(
-        'No se puede modificar una nota de débito aplicada o cancelada',
+        'No se puede modificar una nota de débito anulada',
       );
-    }
-
-    // Si se proporcionan nuevos items, recalcular totales
-    let data: any = {};
-
-    if (updateNotaDebitoDto.numero_nota)
-      data.numero_nota = updateNotaDebitoDto.numero_nota;
-    if (updateNotaDebitoDto.fecha_emision)
-      data.fecha_emision = updateNotaDebitoDto.fecha_emision;
-    if (updateNotaDebitoDto.motivo) data.motivo = updateNotaDebitoDto.motivo;
-    if (updateNotaDebitoDto.estado) data.estado = updateNotaDebitoDto.estado;
-
-    if (updateNotaDebitoDto.items) {
-      const subtotal = updateNotaDebitoDto.items.reduce(
-        (sum, item) => sum + item.cantidad * item.precio_unitario,
-        0,
-      );
-
-      const igv = updateNotaDebitoDto.items.reduce(
-        (sum, item) =>
-          sum +
-          (item.cantidad * item.precio_unitario * item.igv_porcentaje) / 100,
-        0,
-      );
-
-      const total = subtotal + igv;
-      data.monto = total;
-
-      data.items = {
-        deleteMany: {},
-        create: updateNotaDebitoDto.items.map((item) => ({
-          id_producto: item.id_producto,
-          cantidad: item.cantidad,
-          precio_unitario: item.precio_unitario,
-          igv_porcentaje: item.igv_porcentaje,
-          subtotal: item.cantidad * item.precio_unitario,
-          igv:
-            (item.cantidad * item.precio_unitario * item.igv_porcentaje) / 100,
-          total:
-            item.cantidad *
-            item.precio_unitario *
-            (1 + item.igv_porcentaje / 100),
-        })),
-      };
     }
 
     return this.prisma.notaDebito.update({
       where: { id_nota_debito: id },
-      data,
+      data: {
+        estado: updateNotaDebitoDto.estado,
+        motivo: updateNotaDebitoDto.motivo,
+      },
       include: {
+        factura: true,
         items: {
           include: {
             producto: true,
           },
         },
-        factura: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const notaDebito = await this.findOne(id);
+  async remove(empresaId: number, id: number) {
+    const notaDebito = await this.findOne(empresaId, id);
 
-    // Validar que la nota no esté aplicada
-    if (notaDebito.estado === 'APLICADA') {
+    if (notaDebito.estado === 'ANULADA') {
       throw new BadRequestException(
-        'No se puede eliminar una nota de débito aplicada',
+        'No se puede eliminar una nota de débito anulada',
       );
     }
 
-    return this.prisma.notaDebito.delete({
+    await this.prisma.notaDebito.update({
       where: { id_nota_debito: id },
+      data: { estado: 'ANULADA' },
     });
+
+    return { message: 'Nota de débito anulada exitosamente' };
+  }
+
+  private generarPrimerNumero(): string {
+    const fecha = new Date();
+    const año = fecha.getFullYear().toString().slice(-2);
+    return `ND-${año}-0001`;
+  }
+
+  private generarSiguienteNumero(ultimoNumero: string): string {
+    const [prefijo, año, secuencia] = ultimoNumero.split('-');
+    const siguienteSecuencia = (parseInt(secuencia) + 1)
+      .toString()
+      .padStart(4, '0');
+    return `${prefijo}-${año}-${siguienteSecuencia}`;
   }
 }
