@@ -180,22 +180,80 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
 
 ```
 src/
-├── main.ts                 # Punto de entrada
+├── main.ts                 # Punto de entrada de la aplicación
 ├── app.module.ts           # Módulo raíz
 ├── auth/                   # Autenticación y autorización
+│   ├── controllers/        # Controladores de autenticación
+│   ├── services/          # Servicios de autenticación
+│   ├── guards/            # Guards de autenticación
+│   ├── decorators/        # Decoradores personalizados
+│   └── dto/               # DTOs de autenticación
 ├── users/                  # Gestión de usuarios
+│   ├── controllers/        # Controladores de usuarios
+│   ├── services/          # Servicios de usuarios
+│   ├── dto/               # DTOs de usuarios
+│   └── entities/          # Entidades de usuarios
 ├── empresas/              # Gestión de empresas
+│   ├── controllers/        # Controladores de empresas
+│   │   ├── empresas.controller.ts
+│   │   ├── roles-empresa.controller.ts
+│   │   ├── configuracion-regional.controller.ts
+│   │   ├── configuracion-impuestos.controller.ts
+│   │   └── configuracion-moneda.controller.ts
+│   ├── services/          # Servicios de empresas
+│   │   ├── empresas.service.ts
+│   │   ├── roles-empresa.service.ts
+│   │   ├── configuracion-regional.service.ts
+│   │   ├── configuracion-impuestos.service.ts
+│   │   └── configuracion-moneda.service.ts
+│   ├── dto/               # DTOs de empresas
+│   └── entities/          # Entidades de empresas
 ├── productos/             # Gestión de productos
-│   ├── controllers/       # Controladores de productos
-│   ├── services/         # Servicios de productos
-│   └── dto/              # DTOs de productos
+│   ├── controllers/        # Controladores de productos
+│   │   ├── productos.controller.ts
+│   │   ├── categorias.controller.ts
+│   │   ├── atributos.controller.ts
+│   │   └── stock.controller.ts
+│   ├── services/          # Servicios de productos
+│   │   ├── productos.service.ts
+│   │   ├── categorias.service.ts
+│   │   ├── atributos.service.ts
+│   │   └── stock.service.ts
+│   ├── dto/               # DTOs de productos
+│   └── entities/          # Entidades de productos
 ├── ventas/               # Gestión de ventas
-│   ├── controllers/      # Controladores de ventas
-│   ├── services/        # Servicios de ventas
-│   └── dto/             # DTOs de ventas
+│   ├── controllers/        # Controladores de ventas
+│   │   ├── cotizaciones.controller.ts
+│   │   ├── ordenes-venta.controller.ts
+│   │   ├── facturas.controller.ts
+│   │   └── pagos.controller.ts
+│   ├── services/          # Servicios de ventas
+│   │   ├── cotizaciones.service.ts
+│   │   ├── ordenes-venta.service.ts
+│   │   ├── facturas.service.ts
+│   │   └── pagos.service.ts
+│   ├── dto/               # DTOs de ventas
+│   └── entities/          # Entidades de ventas
 ├── archivos/             # Gestión de archivos
+│   ├── controllers/        # Controladores de archivos
+│   ├── services/          # Servicios de archivos
+│   ├── dto/               # DTOs de archivos
+│   └── entities/          # Entidades de archivos
 ├── common/               # Utilidades comunes
-└── config/              # Configuraciones
+│   ├── decorators/        # Decoradores comunes
+│   ├── filters/          # Filtros de excepciones
+│   ├── guards/           # Guards comunes
+│   ├── interceptors/     # Interceptores
+│   └── middleware/       # Middleware común
+├── config/              # Configuraciones
+│   ├── database.config.ts
+│   ├── aws.config.ts
+│   ├── email.config.ts
+│   └── app.config.ts
+└── prisma/              # Configuración de Prisma
+    ├── schema.prisma    # Schema de la base de datos
+    ├── migrations/      # Migraciones de la base de datos
+    └── seed.ts          # Script de inicialización de datos
 ```
 
 ## 📝 Licencia
