@@ -357,24 +357,48 @@ model Documento {
 }
 
 model ConfiguracionRegional {
-  id_configuracion    Int   @id @default(autoincrement())
-  departamento        String
-  provincia           String?
-  distrito            String?
-  configuracion       Json
-  impuestos           Json
-  horarios_operacion  Json
-  moneda              String   @default("PEN")
-  zona_horaria        String   @default("America/Lima")
-  formato_fecha       String   @default("DD/MM/YYYY")
-  formato_hora        String   @default("HH:mm")
-  formato_numero      String   @default("es-PE")
-  activo              Boolean  @default(true)
-  fecha_registro      DateTime @default(now())
-  fecha_actualizacion DateTime @updatedAt
+  id_configuracion_regional Int      @id @default(autoincrement())
+  id_empresa               Int      @unique
+  empresa                  Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  zona_horaria            String
+  formato_fecha           String
+  formato_hora            String
+  idioma                  String
+  formato_numero          String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  @@unique([departamento, provincia, distrito])
-  @@map("configuraciones_regionales")
+  @@map("configuracion_regional")
+}
+
+model ConfiguracionImpuestos {
+  id_configuracion_impuestos Int      @id @default(autoincrement())
+  id_empresa                 Int      @unique
+  empresa                    Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  tasa_iva                  Decimal  @db.Decimal(5,2)
+  tasa_isc                  Decimal  @db.Decimal(5,2)
+  tasa_igv                  Decimal  @db.Decimal(5,2)
+  redondeo                  Int
+  incluir_impuestos         Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@map("configuracion_impuestos")
+}
+
+model ConfiguracionMoneda {
+  id_configuracion_moneda Int      @id @default(autoincrement())
+  id_empresa             Int      @unique
+  empresa                Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  moneda_principal       String
+  moneda_secundaria      String
+  tipo_cambio           Decimal  @db.Decimal(10,4)
+  redondeo              Int
+  formato_moneda        String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("configuracion_moneda")
 }
 
 model ArchivoMultimedia {
@@ -426,6 +450,9 @@ model Empresa {
   roles_empresa RolEmpresa[]
   cotizaciones  Cotizacion[]
   ordenesVenta  OrdenVenta[]
+  configuracionRegional    ConfiguracionRegional?
+  configuracionImpuestos   ConfiguracionImpuestos?
+  configuracionMoneda      ConfiguracionMoneda?
 
   @@map("empresas")
 }
