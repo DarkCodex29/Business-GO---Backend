@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateArchivoDto } from '../dto/create-archivo.dto';
 import { UpdateArchivoDto } from '../dto/update-archivo.dto';
+import { CreateVersionDto } from '../dto/create-version.dto';
 
 @Injectable()
 export class ArchivosService {
@@ -9,36 +10,14 @@ export class ArchivosService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async uploadImage(
-    file: Express.Multer.File,
-    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
-    entityId: number,
-  ) {
-    try {
-      // Aquí iría la lógica de subida del archivo a un servicio de almacenamiento
-      const url = `https://storage.example.com/${file.filename}`;
-
-      const whereClause = {
-        ...(entityType === 'usuario' && { usuario_id: entityId }),
-        ...(entityType === 'empresa' && { empresa_id: entityId }),
-        ...(entityType === 'producto' && { producto_id: entityId }),
-        ...(entityType === 'documento' && { documento_id: entityId }),
-      };
-
-      return await this.prisma.archivoMultimedia.create({
-        data: {
-          nombre_archivo: file.originalname,
-          tipo_archivo: file.mimetype.split('/')[0],
-          mime_type: file.mimetype,
-          url_archivo: url,
-          tamanio_bytes: file.size,
-          ...whereClause,
-        },
-      });
-    } catch (error) {
-      this.logger.error(`Error al subir archivo: ${error.message}`);
-      throw error;
-    }
+  async subirArchivo(file: Express.Multer.File, empresaId: number) {
+    // Aquí iría la lógica para subir el archivo a un servicio de almacenamiento
+    return {
+      url_archivo: 'url_del_archivo',
+      nombre_archivo: file.originalname,
+      mime_type: file.mimetype,
+      tamanio_bytes: file.size,
+    };
   }
 
   async deleteFile(id: number) {
@@ -63,7 +42,7 @@ export class ArchivosService {
   }
 
   async getEntityFiles(
-    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+    entityType: 'usuario' | 'empresa' | 'producto' | 'documento' | 'categoria',
     entityId: number,
   ) {
     try {
@@ -72,6 +51,7 @@ export class ArchivosService {
         ...(entityType === 'empresa' && { empresa_id: entityId }),
         ...(entityType === 'producto' && { producto_id: entityId }),
         ...(entityType === 'documento' && { documento_id: entityId }),
+        ...(entityType === 'categoria' && { categoria_id: entityId }),
       };
 
       return await this.prisma.archivoMultimedia.findMany({
@@ -84,58 +64,32 @@ export class ArchivosService {
     }
   }
 
-  async create(createArchivoDto: CreateArchivoDto, usuarioId: number) {
+  async create(createArchivoDto: CreateArchivoDto, empresaId: number) {
     return this.prisma.archivoMultimedia.create({
       data: {
         ...createArchivoDto,
-        usuario_id: usuarioId,
-      },
-      include: {
-        categoria: true,
-        empresa: true,
-        producto: true,
-        documento: true,
+        empresa_id: empresaId,
+        activo: true,
+        fecha_subida: new Date(),
       },
     });
   }
 
-  async findAll(filters?: {
-    categoria_id?: number;
-    empresa_id?: number;
-    producto_id?: number;
-    documento_id?: number;
-    activo?: boolean;
-  }) {
+  async findAll(empresaId: number) {
     return this.prisma.archivoMultimedia.findMany({
-      where: filters,
-      include: {
-        categoria: true,
-        empresa: true,
-        producto: true,
-        documento: true,
-        versiones: {
-          orderBy: {
-            numero_version: 'desc',
-          },
-          take: 1,
-        },
+      where: {
+        empresa_id: empresaId,
+        activo: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const archivo = await this.prisma.archivoMultimedia.findUnique({
-      where: { id_archivo: id },
-      include: {
-        categoria: true,
-        empresa: true,
-        producto: true,
-        documento: true,
-        versiones: {
-          orderBy: {
-            numero_version: 'desc',
-          },
-        },
+  async findOne(id: number, empresaId: number) {
+    const archivo = await this.prisma.archivoMultimedia.findFirst({
+      where: {
+        id_archivo: id,
+        empresa_id: empresaId,
+        activo: true,
       },
     });
 
@@ -146,98 +100,64 @@ export class ArchivosService {
     return archivo;
   }
 
-  async update(id: number, updateArchivoDto: UpdateArchivoDto) {
-    const archivo = await this.prisma.archivoMultimedia.findUnique({
-      where: { id_archivo: id },
-    });
-
-    if (!archivo) {
-      throw new NotFoundException(`Archivo con ID ${id} no encontrado`);
-    }
+  async update(
+    id: number,
+    updateArchivoDto: UpdateArchivoDto,
+    empresaId: number,
+  ) {
+    await this.findOne(id, empresaId);
 
     return this.prisma.archivoMultimedia.update({
       where: { id_archivo: id },
       data: updateArchivoDto,
-      include: {
-        categoria: true,
-        empresa: true,
-        producto: true,
-        documento: true,
-      },
     });
   }
 
-  async remove(id: number) {
-    const archivo = await this.prisma.archivoMultimedia.findUnique({
-      where: { id_archivo: id },
-    });
+  async remove(id: number, empresaId: number) {
+    await this.findOne(id, empresaId);
 
-    if (!archivo) {
-      throw new NotFoundException(`Archivo con ID ${id} no encontrado`);
-    }
-
-    return this.prisma.archivoMultimedia.delete({
+    return this.prisma.archivoMultimedia.update({
       where: { id_archivo: id },
+      data: { activo: false },
     });
   }
 
-  async crearVersion(
+  async createVersion(
     id: number,
-    urlArchivo: string,
-    cambios: string,
-    usuarioId: number,
+    createVersionDto: CreateVersionDto,
+    empresaId: number,
   ) {
-    const archivo = await this.prisma.archivoMultimedia.findUnique({
-      where: { id_archivo: id },
-      include: {
-        versiones: {
-          orderBy: {
-            numero_version: 'desc',
-          },
-          take: 1,
-        },
-      },
+    const archivo = await this.findOne(id, empresaId);
+
+    const ultimaVersion = await this.prisma.versionArchivo.findFirst({
+      where: { id_archivo: archivo.id_archivo },
+      orderBy: { numero_version: 'desc' },
     });
 
-    if (!archivo) {
-      throw new NotFoundException(`Archivo con ID ${id} no encontrado`);
-    }
-
-    const ultimaVersion = archivo.versiones[0];
-    const nuevoNumeroVersion = ultimaVersion
-      ? ultimaVersion.numero_version + 1
-      : 1;
+    const numeroVersion = ultimaVersion ? ultimaVersion.numero_version + 1 : 1;
 
     return this.prisma.versionArchivo.create({
       data: {
-        id_archivo: id,
-        numero_version: nuevoNumeroVersion,
-        url_archivo: urlArchivo,
-        cambios,
-        usuario_id: usuarioId,
+        ...createVersionDto,
+        id_archivo: archivo.id_archivo,
+        numero_version: numeroVersion,
+        fecha_version: new Date(),
+        url_archivo: archivo.url_archivo,
+        usuario_id: archivo.usuario_id ?? 1,
       },
     });
   }
 
-  async obtenerVersiones(id: number) {
-    const archivo = await this.prisma.archivoMultimedia.findUnique({
-      where: { id_archivo: id },
-      include: {
-        versiones: {
-          orderBy: {
-            numero_version: 'desc',
-          },
-          include: {
-            usuario: true,
-          },
-        },
+  async findVersions(id: number, empresaId: number) {
+    await this.findOne(id, empresaId);
+
+    return this.prisma.versionArchivo.findMany({
+      where: {
+        id_archivo: id,
+      },
+      orderBy: {
+        numero_version: 'desc',
       },
     });
-
-    if (!archivo) {
-      throw new NotFoundException(`Archivo con ID ${id} no encontrado`);
-    }
-
-    return archivo.versiones;
   }
 }

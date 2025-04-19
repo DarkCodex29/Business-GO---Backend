@@ -6,10 +6,8 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   ParseIntPipe,
   UseGuards,
-  Request,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -20,263 +18,163 @@ import { UpdateArchivoDto } from '../dto/update-archivo.dto';
 import {
   ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
-  ApiQuery,
   ApiBearerAuth,
   ApiConsumes,
   ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { CreateVersionDto } from '../dto/create-version.dto';
 
 @ApiTags('Archivos')
-@ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('archivos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('empresas/:empresaId/archivos')
 export class ArchivosController {
   constructor(private readonly archivosService: ArchivosService) {}
 
   @Post('subir/:entityType/:entityId')
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Subir un archivo multimedia' })
+  @EmpresaPermissions('archivos.crear')
+  @UseInterceptors(FileInterceptor('archivo'))
+  @ApiOperation({ summary: 'Subir archivo multimedia' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        file: {
+        archivo: {
           type: 'string',
           format: 'binary',
         },
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Archivo subido exitosamente' })
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
-    @Param('entityType')
-    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({
+    name: 'entityType',
+    description: 'Tipo de entidad (producto, documento, etc)',
+  })
+  @ApiParam({ name: 'entityId', description: 'ID de la entidad' })
+  subirArchivo(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('entityType') entityType: string,
     @Param('entityId', ParseIntPipe) entityId: number,
+    @UploadedFile() archivo: Express.Multer.File,
   ) {
-    return this.archivosService.uploadImage(file, entityType, entityId);
+    return this.archivosService.subirArchivo(archivo, empresaId);
   }
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Crear archivo',
-    description: 'Crea un nuevo archivo multimedia',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Archivo creado exitosamente',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Datos inválidos',
-  })
-  create(@Body() createArchivoDto: CreateArchivoDto, @Request() req) {
-    return this.archivosService.create(createArchivoDto, req.user.id_usuario);
+  @EmpresaPermissions('archivos.crear')
+  @ApiOperation({ summary: 'Crear archivo' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  create(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Body() createArchivoDto: CreateArchivoDto,
+  ) {
+    return this.archivosService.create(createArchivoDto, empresaId);
   }
 
   @Get()
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Obtener archivos',
-    description: 'Retorna una lista de archivos con filtros opcionales',
-  })
-  @ApiQuery({
-    name: 'categoria_id',
-    required: false,
-    type: Number,
-    description: 'ID de la categoría',
-  })
-  @ApiQuery({
-    name: 'empresa_id',
-    required: false,
-    type: Number,
-    description: 'ID de la empresa',
-  })
-  @ApiQuery({
-    name: 'producto_id',
-    required: false,
-    type: Number,
-    description: 'ID del producto',
-  })
-  @ApiQuery({
-    name: 'documento_id',
-    required: false,
-    type: Number,
-    description: 'ID del documento',
-  })
-  @ApiQuery({
-    name: 'activo',
-    required: false,
-    type: Boolean,
-    description: 'Estado del archivo',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de archivos',
-  })
-  findAll(
-    @Query('categoria_id') categoriaId?: number,
-    @Query('empresa_id') empresaId?: number,
-    @Query('producto_id') productoId?: number,
-    @Query('documento_id') documentoId?: number,
-    @Query('activo') activo?: boolean,
-  ) {
-    return this.archivosService.findAll({
-      categoria_id: categoriaId,
-      empresa_id: empresaId,
-      producto_id: productoId,
-      documento_id: documentoId,
-      activo,
-    });
+  @EmpresaPermissions('archivos.ver')
+  @ApiOperation({ summary: 'Obtener archivos de la empresa' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+    return this.archivosService.findAll(empresaId);
   }
 
-  @Get(':entityType/:entityId')
+  @Get('entidad/:entityType/:entityId')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('archivos.ver')
   @ApiOperation({ summary: 'Obtener archivos de una entidad' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de archivos obtenida exitosamente',
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({
+    name: 'entityType',
+    description: 'Tipo de entidad (producto, documento, etc)',
   })
-  async getEntityFiles(
-    @Param('entityType')
-    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+  @ApiParam({ name: 'entityId', description: 'ID de la entidad' })
+  findByEntity(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('entityType') entityType: string,
     @Param('entityId', ParseIntPipe) entityId: number,
   ) {
-    return this.archivosService.getEntityFiles(entityType, entityId);
+    return this.archivosService.getEntityFiles(entityType as any, entityId);
   }
 
   @Get(':id')
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Obtener archivo',
-    description: 'Retorna un archivo específico',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID del archivo',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Archivo encontrado',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Archivo no encontrado',
-  })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.archivosService.findOne(id);
+  @EmpresaPermissions('archivos.ver')
+  @ApiOperation({ summary: 'Obtener archivo' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  findOne(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.archivosService.findOne(id, empresaId);
   }
 
   @Patch(':id')
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Actualizar archivo',
-    description: 'Actualiza un archivo existente',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID del archivo',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Archivo actualizado exitosamente',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Archivo no encontrado',
-  })
+  @EmpresaPermissions('archivos.editar')
+  @ApiOperation({ summary: 'Actualizar archivo' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
   update(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateArchivoDto: UpdateArchivoDto,
   ) {
-    return this.archivosService.update(id, updateArchivoDto);
+    return this.archivosService.update(id, updateArchivoDto, empresaId);
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Eliminar archivo',
-    description: 'Elimina un archivo',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID del archivo',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Archivo eliminado exitosamente',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Archivo no encontrado',
-  })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.archivosService.remove(id);
+  @EmpresaPermissions('archivos.eliminar')
+  @ApiOperation({ summary: 'Eliminar archivo' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  remove(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.archivosService.remove(id, empresaId);
   }
 
   @Post(':id/versiones')
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Crear versión',
-    description: 'Crea una nueva versión de un archivo',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID del archivo',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Versión creada exitosamente',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Archivo no encontrado',
-  })
-  crearVersion(
+  @EmpresaPermissions('archivos.versiones.crear')
+  @UseInterceptors(FileInterceptor('archivo'))
+  @ApiOperation({ summary: 'Crear versión' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  createVersion(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
-    @Body('url_archivo') urlArchivo: string,
-    @Body('cambios') cambios: string,
-    @Request() req,
+    @Body() createVersionDto: CreateVersionDto,
+    @UploadedFile() archivo: Express.Multer.File,
   ) {
-    return this.archivosService.crearVersion(
-      id,
-      urlArchivo,
-      cambios,
-      req.user.id_usuario,
-    );
+    return this.archivosService.createVersion(id, createVersionDto, empresaId);
   }
 
   @Get(':id/versiones')
-  @ApiOperation({
-    summary: 'Obtener versiones',
-    description: 'Retorna todas las versiones de un archivo',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID del archivo',
-    type: Number,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Versiones encontradas',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Archivo no encontrado',
-  })
-  obtenerVersiones(@Param('id', ParseIntPipe) id: number) {
-    return this.archivosService.obtenerVersiones(id);
+  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('archivos.versiones.ver')
+  @ApiOperation({ summary: 'Obtener versiones' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  findVersions(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.archivosService.findVersions(id, empresaId);
   }
 }
