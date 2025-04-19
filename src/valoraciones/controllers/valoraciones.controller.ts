@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,85 +22,94 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { ValoracionesService } from '../services/valoraciones.service';
 import { CreateValoracionDto } from '../dto/create-valoracion.dto';
 import { UpdateValoracionDto } from '../dto/update-valoracion.dto';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Valoraciones')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('empresas/:empresaId/valoraciones')
+@Controller('valoraciones')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles('ADMIN', 'EMPRESA')
 export class ValoracionesController {
   constructor(private readonly valoracionesService: ValoracionesService) {}
 
-  @Post()
-  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
+  @Post(':empresaId')
+  @EmpresaPermissions('valoraciones.crear')
   @ApiOperation({ summary: 'Crear una nueva valoración' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Valoración creada exitosamente' })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({
+    status: 403,
+    description: 'No tiene permisos para crear valoraciones',
+  })
   create(
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Body() createValoracionDto: CreateValoracionDto,
   ) {
-    return this.valoracionesService.create(+empresaId, createValoracionDto);
+    return this.valoracionesService.create(empresaId, createValoracionDto);
   }
 
-  @Get()
-  @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({
-    summary: 'Obtener todas las valoraciones de una empresa',
-  })
+  @Get(':empresaId')
+  @EmpresaPermissions('valoraciones.ver')
+  @ApiOperation({ summary: 'Obtener todas las valoraciones de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de valoraciones' })
-  findAll(@Param('empresaId') empresaId: string) {
-    return this.valoracionesService.findAll(+empresaId);
+  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+    return this.valoracionesService.findAll(empresaId);
   }
 
-  @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Get(':empresaId/:id')
+  @EmpresaPermissions('valoraciones.ver')
   @ApiOperation({ summary: 'Obtener una valoración por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la valoración' })
   @ApiResponse({ status: 200, description: 'Valoración encontrada' })
   @ApiResponse({ status: 404, description: 'Valoración no encontrada' })
-  findOne(@Param('empresaId') empresaId: string, @Param('id') id: string) {
+  findOne(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.valoracionesService.findOne(+id, +empresaId);
   }
 
-  @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
+  @Patch(':empresaId/:id')
+  @EmpresaPermissions('valoraciones.editar')
   @ApiOperation({ summary: 'Actualizar una valoración' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la valoración' })
-  @ApiResponse({ status: 200, description: 'Valoración actualizada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Valoración actualizada exitosamente',
+  })
   @ApiResponse({ status: 404, description: 'Valoración no encontrada' })
   update(
-    @Param('empresaId') empresaId: string,
-    @Param('id') id: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateValoracionDto: UpdateValoracionDto,
   ) {
-    return this.valoracionesService.update(
-      +id,
-      +empresaId,
-      updateValoracionDto,
-    );
+    return this.valoracionesService.update(+id, +empresaId, updateValoracionDto);
   }
 
-  @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Delete(':empresaId/:id')
+  @EmpresaPermissions('valoraciones.eliminar')
   @ApiOperation({ summary: 'Eliminar una valoración' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la valoración' })
-  @ApiResponse({ status: 200, description: 'Valoración eliminada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Valoración eliminada exitosamente',
+  })
   @ApiResponse({ status: 404, description: 'Valoración no encontrada' })
-  remove(@Param('empresaId') empresaId: string, @Param('id') id: string) {
+  remove(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.valoracionesService.remove(+id, +empresaId);
   }
 
-  @Get('producto/:productoId')
-  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
-  @ApiOperation({
-    summary: 'Obtener todas las valoraciones de un producto',
-  })
+  @Get(':empresaId/producto/:productoId')
+  @EmpresaPermissions('valoraciones.ver')
+  @ApiOperation({ summary: 'Obtener todas las valoraciones de un producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'productoId', description: 'ID del producto' })
   @ApiResponse({
@@ -107,17 +117,15 @@ export class ValoracionesController {
     description: 'Lista de valoraciones del producto',
   })
   findByProducto(
-    @Param('empresaId') empresaId: string,
-    @Param('productoId') productoId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('productoId', ParseIntPipe) productoId: number,
   ) {
-    return this.valoracionesService.findByProducto(+productoId, +empresaId);
+    return this.valoracionesService.findByProducto(+empresaId, +productoId);
   }
 
-  @Get('cliente/:clienteId')
-  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
-  @ApiOperation({
-    summary: 'Obtener todas las valoraciones de un cliente',
-  })
+  @Get(':empresaId/cliente/:clienteId')
+  @EmpresaPermissions('valoraciones.ver')
+  @ApiOperation({ summary: 'Obtener todas las valoraciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
@@ -125,9 +133,9 @@ export class ValoracionesController {
     description: 'Lista de valoraciones del cliente',
   })
   findByCliente(
-    @Param('empresaId') empresaId: string,
-    @Param('clienteId') clienteId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('clienteId', ParseIntPipe) clienteId: number,
   ) {
-    return this.valoracionesService.findByCliente(+clienteId, +empresaId);
+    return this.valoracionesService.findByCliente(+empresaId, +clienteId);
   }
 }

@@ -28,12 +28,12 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 @ApiTags('Notas de Débito')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/notas-debito')
+@Controller('notas-debito')
 @Roles('ADMIN', 'EMPRESA')
 export class NotasDebitoController {
   constructor(private readonly notasDebitoService: NotasDebitoService) {}
 
-  @Post()
+  @Post(':empresaId')
   @EmpresaPermissions('notas_debito.crear')
   @ApiOperation({
     summary: 'Crear una nueva nota de débito',
@@ -61,7 +61,7 @@ export class NotasDebitoController {
     return this.notasDebitoService.create(empresaId, createNotaDebitoDto);
   }
 
-  @Get()
+  @Get(':empresaId')
   @EmpresaPermissions('notas_debito.ver')
   @ApiOperation({
     summary: 'Obtener todas las notas de débito',
@@ -77,7 +77,7 @@ export class NotasDebitoController {
     return this.notasDebitoService.findAll(empresaId);
   }
 
-  @Get(':id')
+  @Get(':empresaId/:id')
   @EmpresaPermissions('notas_debito.ver')
   @ApiOperation({
     summary: 'Obtener una nota de débito por ID',
@@ -98,7 +98,7 @@ export class NotasDebitoController {
     return this.notasDebitoService.findOne(empresaId, id);
   }
 
-  @Patch(':id')
+  @Patch(':empresaId/:id')
   @EmpresaPermissions('notas_debito.editar')
   @ApiOperation({
     summary: 'Actualizar una nota de débito',
@@ -124,7 +124,7 @@ export class NotasDebitoController {
     return this.notasDebitoService.update(empresaId, id, updateNotaDebitoDto);
   }
 
-  @Delete(':id')
+  @Delete(':empresaId/:id')
   @EmpresaPermissions('notas_debito.eliminar')
   @ApiOperation({
     summary: 'Eliminar una nota de débito',

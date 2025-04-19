@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,106 +23,129 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ReporteParamsDto } from '../dto/reporte-params.dto';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Reportes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('empresas/:empresaId/reportes')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('reportes')
 export class ReportesController {
   constructor(private readonly reportesService: ReportesService) {}
 
-  @Post()
+  @Post(':empresaId')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.crear')
   @ApiOperation({ summary: 'Crear un nuevo reporte' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Reporte creado exitosamente' })
-  create(@Body() createReporteDto: CreateReporteDto, @Request() req) {
+  create(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Body() createReporteDto: CreateReporteDto,
+    @Request() req,
+  ) {
     return this.reportesService.create(createReporteDto, req.user.id_usuario);
   }
 
-  @Get('ventas')
+  @Get(':empresaId/ventas')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener reporte de ventas' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiQuery({ name: 'fecha_inicio', required: false, type: String })
   @ApiQuery({ name: 'fecha_fin', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Reporte de ventas generado' })
   getReporteVentas(
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Query() params: ReporteParamsDto,
   ) {
-    return this.reportesService.getReporteVentas(+empresaId, params);
+    return this.reportesService.getReporteVentas(empresaId, params);
   }
 
-  @Get('productos')
+  @Get(':empresaId/productos')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener reporte de productos' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiQuery({ name: 'incluir_bajos', required: false, type: Boolean })
   @ApiQuery({ name: 'umbral_minimo', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Reporte de productos generado' })
   getReporteProductos(
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Query() params: ReporteParamsDto,
   ) {
-    return this.reportesService.getReporteProductos(+empresaId, params);
+    return this.reportesService.getReporteProductos(empresaId, params);
   }
 
-  @Get('clientes')
+  @Get(':empresaId/clientes')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener reporte de clientes' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiQuery({ name: 'fecha_inicio', required: false, type: String })
   @ApiQuery({ name: 'fecha_fin', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Reporte de clientes generado' })
   getReporteClientes(
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Query() params: ReporteParamsDto,
   ) {
-    return this.reportesService.getReporteClientes(+empresaId, params);
+    return this.reportesService.getReporteClientes(empresaId, params);
   }
 
-  @Get('financiero')
+  @Get(':empresaId/financiero')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener reporte financiero' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiQuery({ name: 'fecha_inicio', required: false, type: String })
   @ApiQuery({ name: 'fecha_fin', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Reporte financiero generado' })
   getReporteFinanciero(
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Query() params: ReporteParamsDto,
   ) {
-    return this.reportesService.getReporteFinanciero(+empresaId, params);
+    return this.reportesService.getReporteFinanciero(empresaId, params);
   }
 
-  @Get('empresa/:empresaId')
+  @Get(':empresaId/empresa/:empresaId')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener todos los reportes de una empresa' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de reportes' })
-  findAll(@Param('empresaId') empresaId: string) {
-    return this.reportesService.findAll(+empresaId);
+  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+    return this.reportesService.findAll(empresaId);
   }
 
-  @Get(':id/empresa/:empresaId')
+  @Get(':empresaId/:id/empresa/:empresaId')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ver')
   @ApiOperation({ summary: 'Obtener un reporte específico' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del reporte' })
   @ApiResponse({ status: 200, description: 'Detalles del reporte' })
-  findOne(@Param('id') id: string, @Param('empresaId') empresaId: string) {
-    return this.reportesService.findOne(+id, +empresaId);
+  findOne(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.reportesService.findOne(id, empresaId);
   }
 
-  @Post(':id/ejecutar/empresa/:empresaId')
+  @Post(':empresaId/:id/ejecutar/empresa/:empresaId')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('reportes.ejecutar')
   @ApiOperation({ summary: 'Ejecutar un reporte' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID del reporte' })
   @ApiResponse({ status: 200, description: 'Reporte ejecutado exitosamente' })
   ejecutarReporte(
-    @Param('id') id: string,
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
     @Request() req,
   ) {
     return this.reportesService.ejecutarReporte(
-      +id,
-      +empresaId,
+      id,
+      empresaId,
       req.user.id_usuario,
     );
   }

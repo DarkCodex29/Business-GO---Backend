@@ -6,39 +6,41 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ReembolsosService } from '../services/reembolsos.service';
 import { CreateReembolsoDto } from '../dto/create-reembolso.dto';
 import { UpdateReembolsoDto } from '../dto/update-reembolso.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 @ApiTags('Reembolsos')
-@Controller('empresas/:empresaId/reembolsos')
-@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('reembolsos')
 @Roles('ADMIN', 'EMPRESA')
 export class ReembolsosController {
   constructor(private readonly reembolsosService: ReembolsosService) {}
 
-  @Post()
+  @Post(':empresaId')
   @EmpresaPermissions('reembolsos.crear')
-  @ApiOperation({
-    summary: 'Crear un nuevo reembolso',
-    description: 'Crea un nuevo reembolso asociado a una empresa',
-  })
+  @ApiOperation({ summary: 'Crear un nuevo reembolso' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Reembolso creado exitosamente' })
   @ApiResponse({
-    status: 400,
-    description: 'Datos inválidos o monto excede el pago',
+    status: 403,
+    description: 'No tiene permisos para crear reembolsos',
   })
-  @ApiResponse({ status: 404, description: 'Pago no encontrado' })
   create(
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Body() createReembolsoDto: CreateReembolsoDto,
@@ -46,33 +48,21 @@ export class ReembolsosController {
     return this.reembolsosService.create(empresaId, createReembolsoDto);
   }
 
-  @Get()
+  @Get(':empresaId')
   @EmpresaPermissions('reembolsos.ver')
-  @ApiOperation({
-    summary: 'Obtener todos los reembolsos',
-    description: 'Retorna una lista de todos los reembolsos de una empresa',
-  })
+  @ApiOperation({ summary: 'Obtener todos los reembolsos de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de reembolsos obtenida exitosamente',
-  })
+  @ApiResponse({ status: 200, description: 'Lista de reembolsos' })
   findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
     return this.reembolsosService.findAll(empresaId);
   }
 
-  @Get(':id')
+  @Get(':empresaId/:id')
   @EmpresaPermissions('reembolsos.ver')
-  @ApiOperation({
-    summary: 'Obtener un reembolso específico',
-    description: 'Retorna los detalles de un reembolso específico',
-  })
+  @ApiOperation({ summary: 'Obtener un reembolso específico' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del reembolso' })
-  @ApiResponse({
-    status: 200,
-    description: 'Reembolso encontrado exitosamente',
-  })
+  @ApiResponse({ status: 200, description: 'Reembolso encontrado' })
   @ApiResponse({ status: 404, description: 'Reembolso no encontrado' })
   findOne(
     @Param('empresaId', ParseIntPipe) empresaId: number,
@@ -81,21 +71,14 @@ export class ReembolsosController {
     return this.reembolsosService.findOne(empresaId, id);
   }
 
-  @Patch(':id')
+  @Patch(':empresaId/:id')
   @EmpresaPermissions('reembolsos.editar')
-  @ApiOperation({
-    summary: 'Actualizar un reembolso',
-    description: 'Actualiza los datos de un reembolso existente',
-  })
+  @ApiOperation({ summary: 'Actualizar un reembolso' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del reembolso' })
   @ApiResponse({
     status: 200,
     description: 'Reembolso actualizado exitosamente',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Datos inválidos o monto excede el pago',
   })
   @ApiResponse({ status: 404, description: 'Reembolso no encontrado' })
   update(
@@ -106,12 +89,9 @@ export class ReembolsosController {
     return this.reembolsosService.update(empresaId, id, updateReembolsoDto);
   }
 
-  @Delete(':id')
+  @Delete(':empresaId/:id')
   @EmpresaPermissions('reembolsos.eliminar')
-  @ApiOperation({
-    summary: 'Eliminar un reembolso',
-    description: 'Elimina un reembolso del sistema',
-  })
+  @ApiOperation({ summary: 'Eliminar un reembolso' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del reembolso' })
   @ApiResponse({ status: 200, description: 'Reembolso eliminado exitosamente' })

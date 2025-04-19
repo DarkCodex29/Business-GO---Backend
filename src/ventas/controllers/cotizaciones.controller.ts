@@ -21,23 +21,23 @@ import { CreateCotizacionDto } from '../dto/create-cotizacion.dto';
 import { UpdateCotizacionDto } from '../dto/update-cotizacion.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Cotizaciones')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/cotizaciones')
+@Controller('cotizaciones')
+@Roles('ADMIN', 'EMPRESA')
 export class CotizacionesController {
   constructor(private readonly cotizacionesService: CotizacionesService) {}
 
-  @Post()
-  @Roles('ADMIN', 'EMPRESA')
+  @Post(':empresaId')
   @EmpresaPermissions('cotizaciones.crear')
   @ApiOperation({
     summary: 'Crear una nueva cotización',
-    description: 'Crea una nueva cotización con sus items y detalles',
+    description: 'Crea una nueva cotización con sus detalles',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -51,7 +51,7 @@ export class CotizacionesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Empresa, cliente o producto no encontrado',
+    description: 'Empresa o cliente no encontrado',
   })
   create(
     @Param('empresaId', ParseIntPipe) empresaId: number,
@@ -60,12 +60,11 @@ export class CotizacionesController {
     return this.cotizacionesService.create(empresaId, createCotizacionDto);
   }
 
-  @Get()
-  @Roles('ADMIN', 'EMPRESA')
+  @Get(':empresaId')
   @EmpresaPermissions('cotizaciones.ver')
   @ApiOperation({
     summary: 'Obtener todas las cotizaciones',
-    description: 'Retorna una lista de todas las cotizaciones de la empresa',
+    description: 'Retorna una lista de todas las cotizaciones en el sistema',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -77,20 +76,14 @@ export class CotizacionesController {
     return this.cotizacionesService.findAll(empresaId);
   }
 
-  @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Get(':empresaId/:id')
   @EmpresaPermissions('cotizaciones.ver')
   @ApiOperation({
     summary: 'Obtener una cotización por ID',
     description: 'Retorna los detalles de una cotización específica',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la cotización',
-    type: 'number',
-    example: 1,
-  })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({
     status: 200,
     description: 'Cotización encontrada exitosamente',
@@ -101,23 +94,17 @@ export class CotizacionesController {
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.cotizacionesService.findOne(id, empresaId);
+    return this.cotizacionesService.findOne(+empresaId, +id);
   }
 
-  @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Patch(':empresaId/:id')
   @EmpresaPermissions('cotizaciones.editar')
   @ApiOperation({
     summary: 'Actualizar una cotización',
     description: 'Actualiza los datos de una cotización existente',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la cotización',
-    type: 'number',
-    example: 1,
-  })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({
     status: 200,
     description: 'Cotización actualizada exitosamente',
@@ -125,7 +112,7 @@ export class CotizacionesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'No se puede modificar una cotización convertida',
+    description: 'No se puede modificar una cotización convertida o vencida',
   })
   @ApiResponse({ status: 404, description: 'Cotización no encontrada' })
   update(
@@ -133,23 +120,21 @@ export class CotizacionesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCotizacionDto: UpdateCotizacionDto,
   ) {
-    return this.cotizacionesService.update(id, empresaId, updateCotizacionDto);
+    return this.cotizacionesService.update(
+      +empresaId,
+      +id,
+      updateCotizacionDto,
+    );
   }
 
-  @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Delete(':empresaId/:id')
   @EmpresaPermissions('cotizaciones.eliminar')
   @ApiOperation({
     summary: 'Eliminar una cotización',
     description: 'Elimina una cotización del sistema',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la cotización',
-    type: 'number',
-    example: 1,
-  })
+  @ApiParam({ name: 'id', description: 'ID de la cotización' })
   @ApiResponse({
     status: 200,
     description: 'Cotización eliminada exitosamente',
@@ -163,6 +148,6 @@ export class CotizacionesController {
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.cotizacionesService.remove(id, empresaId);
+    return this.cotizacionesService.remove(+empresaId, +id);
   }
 }
