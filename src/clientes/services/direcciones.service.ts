@@ -7,10 +7,25 @@ import { UpdateClienteDireccionDto } from '../dto/update-direccion.dto';
 export class DireccionesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(
+  async createDireccion(
     empresaId: number,
+    clienteId: number,
     createDireccionDto: CreateClienteDireccionDto,
   ) {
+    // Verificar que el cliente pertenece a la empresa
+    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
+      where: {
+        empresa_id: empresaId,
+        cliente_id: clienteId,
+      },
+    });
+
+    if (!clienteEmpresa) {
+      throw new NotFoundException(
+        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
+      );
+    }
+
     return this.prisma.direccion.create({
       data: {
         ...createDireccionDto,
@@ -19,7 +34,21 @@ export class DireccionesService {
     });
   }
 
-  async findAll(empresaId: number) {
+  async getDireccionesCliente(empresaId: number, clienteId: number) {
+    // Verificar que el cliente pertenece a la empresa
+    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
+      where: {
+        empresa_id: empresaId,
+        cliente_id: clienteId,
+      },
+    });
+
+    if (!clienteEmpresa) {
+      throw new NotFoundException(
+        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
+      );
+    }
+
     return this.prisma.direccion.findMany({
       where: {
         id_empresa: empresaId,
@@ -27,46 +56,68 @@ export class DireccionesService {
     });
   }
 
-  async findOne(empresaId: number, id: number) {
+  async getDireccion(empresaId: number, direccionId: number) {
     const direccion = await this.prisma.direccion.findFirst({
       where: {
-        id_direccion: id,
+        id_direccion: direccionId,
         id_empresa: empresaId,
       },
     });
 
     if (!direccion) {
       throw new NotFoundException(
-        `Dirección con ID ${id} no encontrada para la empresa ${empresaId}`,
+        `Dirección con ID ${direccionId} no encontrada para la empresa ${empresaId}`,
       );
     }
 
     return direccion;
   }
 
-  async update(
+  async updateDireccion(
     empresaId: number,
-    id: number,
+    direccionId: number,
     updateDireccionDto: UpdateClienteDireccionDto,
   ) {
-    // Verificar que la dirección existe y pertenece a la empresa
-    await this.findOne(empresaId, id);
+    // Verificar que la dirección pertenece a la empresa
+    const direccion = await this.prisma.direccion.findFirst({
+      where: {
+        id_direccion: direccionId,
+        id_empresa: empresaId,
+      },
+    });
+
+    if (!direccion) {
+      throw new NotFoundException(
+        `Dirección con ID ${direccionId} no encontrada para la empresa ${empresaId}`,
+      );
+    }
 
     return this.prisma.direccion.update({
       where: {
-        id_direccion: id,
+        id_direccion: direccionId,
       },
       data: updateDireccionDto,
     });
   }
 
-  async remove(empresaId: number, id: number) {
-    // Verificar que la dirección existe y pertenece a la empresa
-    await this.findOne(empresaId, id);
+  async deleteDireccion(empresaId: number, direccionId: number) {
+    // Verificar que la dirección pertenece a la empresa
+    const direccion = await this.prisma.direccion.findFirst({
+      where: {
+        id_direccion: direccionId,
+        id_empresa: empresaId,
+      },
+    });
+
+    if (!direccion) {
+      throw new NotFoundException(
+        `Dirección con ID ${direccionId} no encontrada para la empresa ${empresaId}`,
+      );
+    }
 
     return this.prisma.direccion.delete({
       where: {
-        id_direccion: id,
+        id_direccion: direccionId,
       },
     });
   }

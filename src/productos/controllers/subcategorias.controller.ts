@@ -26,8 +26,8 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 
 @ApiTags('Subcategorías')
 @ApiBearerAuth()
-@Controller('empresas/:empresaId/subcategorias')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('subcategorias/:empresaId')
 @Roles('ADMIN', 'EMPRESA')
 export class SubcategoriasController {
   constructor(private readonly subcategoriasService: SubcategoriasService) {}

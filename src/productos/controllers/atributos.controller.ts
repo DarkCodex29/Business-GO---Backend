@@ -27,7 +27,7 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 @ApiTags('Atributos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/atributos')
+@Controller('atributos/:empresaId')
 export class AtributosController {
   constructor(private readonly atributosService: AtributosService) {}
 

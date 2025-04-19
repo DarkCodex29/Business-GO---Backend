@@ -27,7 +27,7 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 @ApiTags('Categorías')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/categorias')
+@Controller('categorias/:empresaId')
 export class CategoriasController {
   constructor(private readonly categoriasService: CategoriasService) {}
 

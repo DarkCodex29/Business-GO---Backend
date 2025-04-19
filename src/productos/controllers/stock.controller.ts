@@ -27,7 +27,7 @@ import { UpdateDisponibilidadDto } from '../dto/update-disponibilidad.dto';
 @ApiTags('Stock')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('empresas/:empresaId/stock')
+@Controller('stock/:empresaId')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 

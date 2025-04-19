@@ -32,73 +32,93 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 export class DireccionesController {
   constructor(private readonly direccionesService: DireccionesService) {}
 
-  @Post()
+  @Post('clientes/:clienteId')
   @EmpresaPermissions('direcciones.crear')
-  @ApiOperation({ summary: 'Crear una nueva dirección' })
+  @ApiOperation({ summary: 'Crear una dirección para un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 201,
     description: 'Dirección creada exitosamente',
   })
-  create(
-    @Param('empresaId') empresaId: string,
+  createDireccion(
+    @Param('empresaId') empresaId: number,
+    @Param('clienteId') clienteId: number,
     @Body() createDireccionDto: CreateClienteDireccionDto,
   ) {
-    return this.direccionesService.create(+empresaId, createDireccionDto);
+    return this.direccionesService.createDireccion(
+      empresaId,
+      clienteId,
+      createDireccionDto,
+    );
   }
 
-  @Get()
+  @Get('clientes/:clienteId')
   @EmpresaPermissions('direcciones.ver')
-  @ApiOperation({ summary: 'Obtener todas las direcciones de una empresa' })
+  @ApiOperation({ summary: 'Obtener direcciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de direcciones obtenida exitosamente',
+    description: 'Lista de direcciones del cliente',
   })
-  findAll(@Param('empresaId') empresaId: string) {
-    return this.direccionesService.findAll(+empresaId);
+  getDireccionesCliente(
+    @Param('empresaId') empresaId: number,
+    @Param('clienteId') clienteId: number,
+  ) {
+    return this.direccionesService.getDireccionesCliente(empresaId, clienteId);
   }
 
-  @Get(':id')
+  @Get(':direccionId')
   @EmpresaPermissions('direcciones.ver')
   @ApiOperation({ summary: 'Obtener una dirección específica' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'id', description: 'ID de la dirección' })
+  @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })
   @ApiResponse({
     status: 200,
     description: 'Dirección encontrada exitosamente',
   })
-  findOne(@Param('empresaId') empresaId: string, @Param('id') id: string) {
-    return this.direccionesService.findOne(+id, +empresaId);
+  getDireccion(
+    @Param('empresaId') empresaId: number,
+    @Param('direccionId') direccionId: number,
+  ) {
+    return this.direccionesService.getDireccion(empresaId, direccionId);
   }
 
-  @Patch(':id')
+  @Patch(':direccionId')
   @EmpresaPermissions('direcciones.editar')
   @ApiOperation({ summary: 'Actualizar una dirección' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'id', description: 'ID de la dirección' })
+  @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })
   @ApiResponse({
     status: 200,
     description: 'Dirección actualizada exitosamente',
   })
-  update(
-    @Param('empresaId') empresaId: string,
-    @Param('id') id: string,
+  updateDireccion(
+    @Param('empresaId') empresaId: number,
+    @Param('direccionId') direccionId: number,
     @Body() updateDireccionDto: UpdateClienteDireccionDto,
   ) {
-    return this.direccionesService.update(+id, +empresaId, updateDireccionDto);
+    return this.direccionesService.updateDireccion(
+      empresaId,
+      direccionId,
+      updateDireccionDto,
+    );
   }
 
-  @Delete(':id')
+  @Delete(':direccionId')
   @EmpresaPermissions('direcciones.eliminar')
   @ApiOperation({ summary: 'Eliminar una dirección' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'id', description: 'ID de la dirección' })
+  @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })
   @ApiResponse({
     status: 200,
     description: 'Dirección eliminada exitosamente',
   })
-  remove(@Param('empresaId') empresaId: string, @Param('id') id: string) {
-    return this.direccionesService.remove(+id, +empresaId);
+  deleteDireccion(
+    @Param('empresaId') empresaId: number,
+    @Param('direccionId') direccionId: number,
+  ) {
+    return this.direccionesService.deleteDireccion(empresaId, direccionId);
   }
 }

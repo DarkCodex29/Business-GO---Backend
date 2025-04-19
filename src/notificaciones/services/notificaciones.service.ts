@@ -2,9 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
-import { CreateFeedbackDto } from '../dto/create-feedback.dto';
-import { CreateFidelizacionDto } from '../dto/create-fidelizacion.dto';
-import { UpdatePuntosFidelizacionDto } from '../dto/update-puntos-fidelizacion.dto';
+import { CreateFeedbackDto } from '../../fidelizacion/dto/create-feedback.dto';
+import { CreateFidelizacionDto } from '../../fidelizacion/dto/create-fidelizacion.dto';
+import { UpdatePuntosFidelizacionDto } from '../../fidelizacion/dto/update-puntos-fidelizacion.dto';
 
 @Injectable()
 export class ClientesNotificacionesService {
@@ -457,29 +457,14 @@ export class ClientesNotificacionesService {
       );
     }
 
-    // Si se proporciona un pedidoId, verificar que pertenece al cliente
-    if (updatePuntosFidelizacionDto.pedidoId) {
-      const historialCompra = await this.prisma.historialCompra.findFirst({
-        where: {
-          id_historial: updatePuntosFidelizacionDto.pedidoId,
-          id_cliente: clienteId,
-        },
-      });
-
-      if (!historialCompra) {
-        throw new NotFoundException(
-          `Pedido con ID ${updatePuntosFidelizacionDto.pedidoId} no encontrado para el cliente ${clienteId}`,
-        );
-      }
-    }
-
     // Actualizar los puntos del cliente
     return this.prisma.fidelizacion.update({
       where: { id_fidelizacion: fidelizacion.id_fidelizacion },
       data: {
-        puntos_actuales: {
-          increment: updatePuntosFidelizacionDto.puntos,
-        },
+        puntos_actuales: updatePuntosFidelizacionDto.puntos_actuales,
+        fecha_fin: updatePuntosFidelizacionDto.fecha_fin
+          ? new Date(updatePuntosFidelizacionDto.fecha_fin)
+          : undefined,
       },
     });
   }

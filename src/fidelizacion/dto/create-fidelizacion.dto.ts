@@ -11,6 +11,36 @@ import {
 
 export class CreateFidelizacionDto {
   @ApiProperty({
+    description: 'ID del cliente',
+    example: 1,
+  })
+  @IsNumber()
+  cliente_id: number;
+
+  @ApiProperty({
+    description: 'Puntos iniciales del cliente',
+    example: 0,
+  })
+  @IsNumber()
+  puntos: number;
+
+  @ApiProperty({
+    description: 'Nivel de fidelización del cliente',
+    example: 'BRONCE',
+  })
+  @IsString()
+  nivel: string;
+
+  @ApiProperty({
+    description: 'Notas adicionales sobre la fidelización',
+    example: 'Cliente preferencial',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  notas?: string;
+
+  @ApiProperty({
     description: 'Nombre del programa de fidelización',
     example: 'Programa Premium',
   })
@@ -25,24 +55,6 @@ export class CreateFidelizacionDto {
   @IsString()
   @IsNotEmpty()
   descripcion: string;
-
-  @ApiProperty({
-    description: 'Puntos iniciales del cliente',
-    example: 100,
-    minimum: 0,
-  })
-  @IsNumber()
-  @Min(0)
-  puntosIniciales: number;
-
-  @ApiProperty({
-    description: 'Nivel del cliente en el programa',
-    example: 1,
-    minimum: 1,
-  })
-  @IsNumber()
-  @Min(1)
-  nivel: number;
 
   @ApiProperty({
     description: 'Puntos por cada compra (porcentaje)',

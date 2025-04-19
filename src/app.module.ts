@@ -14,6 +14,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { ValoracionesModule } from './valoraciones/valoraciones.module';
 import { InventarioModule } from './inventario/inventario.module';
 import { ComprasModule } from './compras/compras.module';
+import { FidelizacionModule } from './fidelizacion/fidelizacion.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ComprasModule } from './compras/compras.module';
     ValoracionesModule,
     InventarioModule,
     ComprasModule,
+    FidelizacionModule,
   ],
 })
 export class AppModule {}

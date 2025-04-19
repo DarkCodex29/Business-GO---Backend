@@ -25,7 +25,7 @@ import { UpdateProductoDto } from '../dto/update-producto.dto';
 @ApiTags('Productos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('empresas/:empresaId/productos')
+@Controller('productos/:empresaId')
 export class ProductosController {
   constructor(private readonly productosService: ProductosService) {}
 

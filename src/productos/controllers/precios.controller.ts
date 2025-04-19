@@ -27,7 +27,7 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 @ApiTags('Precios')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/precios')
+@Controller('precios/:empresaId')
 export class PreciosController {
   constructor(private readonly preciosService: PreciosService) {}
 

@@ -26,12 +26,12 @@ import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.
 @ApiTags('Clientes')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('empresas/:empresaId/clientes')
+@Controller('clientes/:empresaId')
+@Roles('ADMIN', 'EMPRESA')
 export class ClientesController {
   constructor(private readonly clientesService: ClientesService) {}
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
   @EmpresaPermissions('clientes.ver')
   @ApiOperation({ summary: 'Obtener todos los clientes de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
@@ -44,7 +44,6 @@ export class ClientesController {
   }
 
   @Get(':clienteId')
-  @Roles('ADMIN', 'EMPRESA')
   @EmpresaPermissions('clientes.ver')
   @ApiOperation({ summary: 'Obtener un cliente específico' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
@@ -61,7 +60,6 @@ export class ClientesController {
   }
 
   @Post()
-  @Roles('ADMIN', 'EMPRESA')
   @EmpresaPermissions('clientes.crear')
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
@@ -74,7 +72,6 @@ export class ClientesController {
   }
 
   @Patch(':clienteId')
-  @Roles('ADMIN', 'EMPRESA')
   @EmpresaPermissions('clientes.editar')
   @ApiOperation({ summary: 'Actualizar un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
