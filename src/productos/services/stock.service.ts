@@ -9,10 +9,13 @@ import { UpdateDisponibilidadDto } from '../dto/update-disponibilidad.dto';
 export class StockService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Stock
-  async createStock(createStockDto: CreateStockDto) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: createStockDto.id_producto },
+  async create(empresaId: number, createStockDto: CreateStockDto) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: createStockDto.id_producto,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -21,21 +24,9 @@ export class StockService {
       );
     }
 
-    // Verificar si ya existe un registro de stock para este producto
-    const existingStock = await this.prisma.stock.findUnique({
-      where: { id_producto: createStockDto.id_producto },
-    });
-
-    if (existingStock) {
-      throw new NotFoundException(
-        `Ya existe un registro de stock para el producto con ID ${createStockDto.id_producto}`,
-      );
-    }
-
     return this.prisma.stock.create({
       data: {
-        cantidad: createStockDto.cantidad,
-        id_producto: createStockDto.id_producto,
+        ...createStockDto,
       },
       include: {
         producto: true,
@@ -43,17 +34,27 @@ export class StockService {
     });
   }
 
-  async findAllStock() {
+  async findAll(empresaId: number) {
     return this.prisma.stock.findMany({
+      where: {
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
     });
   }
 
-  async findOneStock(id: number) {
-    const stock = await this.prisma.stock.findUnique({
-      where: { id_stock: id },
+  async findOne(id: number, empresaId: number) {
+    const stock = await this.prisma.stock.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
@@ -66,9 +67,15 @@ export class StockService {
     return stock;
   }
 
-  async updateStock(id: number, updateStockDto: UpdateStockDto) {
-    const stock = await this.prisma.stock.findUnique({
-      where: { id_stock: id },
+  async update(id: number, empresaId: number, updateStockDto: UpdateStockDto) {
+    // Verificar que el stock pertenece a un producto de la empresa
+    const stock = await this.prisma.stock.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!stock) {
@@ -76,19 +83,23 @@ export class StockService {
     }
 
     return this.prisma.stock.update({
-      where: { id_stock: id },
-      data: {
-        cantidad: updateStockDto.cantidad,
-      },
+      where: { id_producto: id },
+      data: updateStockDto,
       include: {
         producto: true,
       },
     });
   }
 
-  async removeStock(id: number) {
-    const stock = await this.prisma.stock.findUnique({
-      where: { id_stock: id },
+  async remove(id: number, empresaId: number) {
+    // Verificar que el stock pertenece a un producto de la empresa
+    const stock = await this.prisma.stock.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!stock) {
@@ -96,14 +107,20 @@ export class StockService {
     }
 
     return this.prisma.stock.delete({
-      where: { id_stock: id },
+      where: { id_producto: id },
     });
   }
 
-  // Disponibilidad
-  async createDisponibilidad(createDisponibilidadDto: CreateDisponibilidadDto) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: createDisponibilidadDto.id_producto },
+  async createDisponibilidad(
+    empresaId: number,
+    createDisponibilidadDto: CreateDisponibilidadDto,
+  ) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: createDisponibilidadDto.id_producto,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -112,21 +129,9 @@ export class StockService {
       );
     }
 
-    // Verificar si ya existe un registro de disponibilidad para este producto
-    const existingDisponibilidad = await this.prisma.disponibilidad.findUnique({
-      where: { id_producto: createDisponibilidadDto.id_producto },
-    });
-
-    if (existingDisponibilidad) {
-      throw new NotFoundException(
-        `Ya existe un registro de disponibilidad para el producto con ID ${createDisponibilidadDto.id_producto}`,
-      );
-    }
-
     return this.prisma.disponibilidad.create({
       data: {
-        cantidad_disponible: createDisponibilidadDto.cantidad_disponible,
-        id_producto: createDisponibilidadDto.id_producto,
+        ...createDisponibilidadDto,
       },
       include: {
         producto: true,
@@ -134,17 +139,27 @@ export class StockService {
     });
   }
 
-  async findAllDisponibilidad() {
+  async findAllDisponibilidad(empresaId: number) {
     return this.prisma.disponibilidad.findMany({
+      where: {
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
     });
   }
 
-  async findOneDisponibilidad(id: number) {
-    const disponibilidad = await this.prisma.disponibilidad.findUnique({
-      where: { id_disponibilidad: id },
+  async findOneDisponibilidad(id: number, empresaId: number) {
+    const disponibilidad = await this.prisma.disponibilidad.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         producto: true,
       },
@@ -159,10 +174,17 @@ export class StockService {
 
   async updateDisponibilidad(
     id: number,
+    empresaId: number,
     updateDisponibilidadDto: UpdateDisponibilidadDto,
   ) {
-    const disponibilidad = await this.prisma.disponibilidad.findUnique({
-      where: { id_disponibilidad: id },
+    // Verificar que la disponibilidad pertenece a un producto de la empresa
+    const disponibilidad = await this.prisma.disponibilidad.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!disponibilidad) {
@@ -170,19 +192,23 @@ export class StockService {
     }
 
     return this.prisma.disponibilidad.update({
-      where: { id_disponibilidad: id },
-      data: {
-        cantidad_disponible: updateDisponibilidadDto.cantidad_disponible,
-      },
+      where: { id_producto: id },
+      data: updateDisponibilidadDto,
       include: {
         producto: true,
       },
     });
   }
 
-  async removeDisponibilidad(id: number) {
-    const disponibilidad = await this.prisma.disponibilidad.findUnique({
-      where: { id_disponibilidad: id },
+  async removeDisponibilidad(id: number, empresaId: number) {
+    // Verificar que la disponibilidad pertenece a un producto de la empresa
+    const disponibilidad = await this.prisma.disponibilidad.findFirst({
+      where: {
+        id_producto: id,
+        producto: {
+          id_empresa: empresaId,
+        },
+      },
     });
 
     if (!disponibilidad) {
@@ -190,7 +216,7 @@ export class StockService {
     }
 
     return this.prisma.disponibilidad.delete({
-      where: { id_disponibilidad: id },
+      where: { id_producto: id },
     });
   }
 }

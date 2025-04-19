@@ -10,6 +10,10 @@ import { EmpresasModule } from './empresas/empresas.module';
 import { ArchivosModule } from './archivos/archivos.module';
 import { VentasModule } from './ventas/ventas.module';
 import { RolesModule } from './roles/roles.module';
+import { ReportesModule } from './reportes/reportes.module';
+import { ValoracionesModule } from './valoraciones/valoraciones.module';
+import { InventarioModule } from './inventario/inventario.module';
+import { ComprasModule } from './compras/compras.module';
 
 @Module({
   imports: [
@@ -27,6 +31,10 @@ import { RolesModule } from './roles/roles.module';
     ArchivosModule,
     VentasModule,
     RolesModule,
+    ReportesModule,
+    ValoracionesModule,
+    InventarioModule,
+    ComprasModule,
   ],
 })
 export class AppModule {}

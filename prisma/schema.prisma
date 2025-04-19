@@ -491,6 +491,8 @@ model Empresa {
   configuracionRegional    ConfiguracionRegional?
   configuracionImpuestos   ConfiguracionImpuestos?
   configuracionMoneda      ConfiguracionMoneda?
+  reportes         Reporte[]
+  plantillas_reporte PlantillaReporte[]
 
   @@map("empresas")
 }
@@ -609,6 +611,9 @@ model Usuario {
   roles_empresa    UsuarioRolEmpresa[]
   historial_precios HistorialPrecio[]
   versiones_archivo VersionArchivo[]
+  reportes         Reporte[]
+  ejecuciones_reporte EjecucionReporte[]
+  plantillas_reporte PlantillaReporte[]
 
   @@map("usuarios")
 }
@@ -975,4 +980,59 @@ model ItemCotizacionProveedor {
   tiempo_entrega              Int?      // días
 
   @@map("items_cotizacion_proveedor")
+}
+
+model Reporte {
+  id_reporte       Int       @id @default(autoincrement())
+  nombre           String
+  descripcion      String?
+  tipo_reporte     String    // ventas, compras, inventario, clientes, productos, financiero
+  parametros       Json?     // Parámetros específicos del reporte
+  formato          String    @default("pdf") // pdf, excel, csv
+  programacion     Json?     // Configuración de programación (diario, semanal, mensual)
+  ultima_ejecucion DateTime?
+  activo           Boolean   @default(true)
+  empresa          Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa       Int
+  usuario          Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario       Int
+  fecha_creacion   DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+  ejecuciones      EjecucionReporte[]
+
+  @@map("reportes")
+}
+
+model EjecucionReporte {
+  id_ejecucion     Int       @id @default(autoincrement())
+  reporte          Reporte   @relation(fields: [id_reporte], references: [id_reporte])
+  id_reporte       Int
+  fecha_inicio     DateTime  @default(now())
+  fecha_fin        DateTime?
+  estado           String    @default("pendiente") // pendiente, en_proceso, completado, error
+  resultado        String?   // URL o ruta del archivo generado
+  error            String?   // Mensaje de error si falló
+  parametros       Json?     // Parámetros usados en esta ejecución
+  usuario          Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario       Int
+
+  @@map("ejecuciones_reporte")
+}
+
+model PlantillaReporte {
+  id_plantilla     Int       @id @default(autoincrement())
+  nombre           String
+  descripcion      String?
+  tipo_reporte     String    // ventas, compras, inventario, clientes, productos, financiero
+  contenido        String    // Plantilla en formato HTML o JSON
+  parametros       Json?     // Parámetros que acepta la plantilla
+  activo           Boolean   @default(true)
+  empresa          Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa       Int
+  usuario          Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  id_usuario       Int
+  fecha_creacion   DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@map("plantillas_reporte")
 }

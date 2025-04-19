@@ -7,49 +7,47 @@ import { UpdateProductoDto } from '../dto/update-producto.dto';
 export class ProductosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createProductoDto: CreateProductoDto) {
+  async create(empresaId: number, createProductoDto: CreateProductoDto) {
     return this.prisma.productoServicio.create({
       data: {
-        nombre: createProductoDto.nombre,
-        precio: createProductoDto.precio,
-        id_empresa: createProductoDto.id_empresa,
-        id_categoria: createProductoDto.id_categoria,
-        id_subcategoria: createProductoDto.id_subcategoria,
-        es_servicio: createProductoDto.es_servicio || false,
+        ...createProductoDto,
+        id_empresa: empresaId,
       },
       include: {
         categoria: true,
         subcategoria: true,
-        atributos: true,
-        disponibilidad: true,
         stock: true,
+        disponibilidad: true,
       },
     });
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.productoServicio.findMany({
+      where: {
+        id_empresa: empresaId,
+      },
       include: {
         categoria: true,
         subcategoria: true,
-        atributos: true,
-        disponibilidad: true,
         stock: true,
+        disponibilidad: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: id },
+  async findOne(id: number, empresaId: number) {
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: id,
+        id_empresa: empresaId,
+      },
       include: {
         categoria: true,
         subcategoria: true,
-        atributos: true,
-        disponibilidad: true,
         stock: true,
-        historial_precios: true,
-        precios_zona: true,
+        disponibilidad: true,
+        atributos: true,
       },
     });
 
@@ -60,9 +58,17 @@ export class ProductosService {
     return producto;
   }
 
-  async update(id: number, updateProductoDto: UpdateProductoDto) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: id },
+  async update(
+    id: number,
+    empresaId: number,
+    updateProductoDto: UpdateProductoDto,
+  ) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: id,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
@@ -71,26 +77,23 @@ export class ProductosService {
 
     return this.prisma.productoServicio.update({
       where: { id_producto: id },
-      data: {
-        nombre: updateProductoDto.nombre,
-        precio: updateProductoDto.precio,
-        id_categoria: updateProductoDto.id_categoria,
-        id_subcategoria: updateProductoDto.id_subcategoria,
-        es_servicio: updateProductoDto.es_servicio,
-      },
+      data: updateProductoDto,
       include: {
         categoria: true,
         subcategoria: true,
-        atributos: true,
-        disponibilidad: true,
         stock: true,
+        disponibilidad: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const producto = await this.prisma.productoServicio.findUnique({
-      where: { id_producto: id },
+  async remove(id: number, empresaId: number) {
+    // Verificar que el producto pertenece a la empresa
+    const producto = await this.prisma.productoServicio.findFirst({
+      where: {
+        id_producto: id,
+        id_empresa: empresaId,
+      },
     });
 
     if (!producto) {
