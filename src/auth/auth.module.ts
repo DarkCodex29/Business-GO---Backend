@@ -17,6 +17,8 @@ import { PermisosService } from './services/permisos.service';
 import { PermisosGuard } from './guards/permisos.guard';
 import { InitPermisosCommand } from './commands/init-permisos.command';
 import { PermisosController } from './controllers/permisos.controller';
+import { PrismaService } from '../prisma/prisma.service';
+import { RolesModule } from '../roles/roles.module';
 
 @Global()
 @Module({
@@ -38,6 +40,7 @@ import { PermisosController } from './controllers/permisos.controller';
     UsuariosModule,
     PrismaModule,
     EmailModule,
+    RolesModule,
   ],
   controllers: [AuthController, PermisosController],
   providers: [
@@ -59,7 +62,14 @@ import { PermisosController } from './controllers/permisos.controller';
       provide: APP_GUARD,
       useClass: PermisosGuard,
     },
+    PrismaService,
   ],
-  exports: [AuthService, JwtModule, SessionService, PermisosService],
+  exports: [
+    AuthService,
+    JwtModule,
+    SessionService,
+    PermisosService,
+    RolesModule,
+  ],
 })
 export class AuthModule {}

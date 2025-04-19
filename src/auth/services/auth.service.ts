@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
 import { UsersService } from '../../users/users.service';
 import { v4 as uuidv4 } from 'uuid';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -14,10 +15,14 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly sessionService: SessionService,
     private readonly usersService: UsersService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async validateUser(email: string, password: string) {
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.prisma.usuario.findUnique({
+      where: { email },
+    });
+
     if (user && (await bcrypt.compare(password, user.contrasena))) {
       const { contrasena, ...result } = user;
       return result;
@@ -38,16 +43,24 @@ export class AuthService {
     };
   }
 
-  async login(email: string, password: string, req: Request) {
-    const user = await this.validateUser(email, password);
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
+  async login(user: any, ip: string, userAgent: string) {
+    const payload = { email: user.email, sub: user.id_usuario };
 
-    const tokens = await this.generateTokens(user, req);
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    // Crear sesión
+    await this.sessionService.createSession({
+      userId: user.id_usuario,
+      token: refreshToken,
+      userAgent,
+      ipAddress: ip,
+      jti: refreshToken,
+    });
+
     return {
-      user,
-      ...tokens,
+      access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -102,35 +115,23 @@ export class AuthService {
     return this.usersService.findOne(userId);
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(token: string) {
     try {
-      // Verificar el token con el secret específico de refresh
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: process.env.JWT_REFRESH_TOKEN_SECRET,
+      const payload = this.jwtService.verify(token);
+      const user = await this.prisma.usuario.findUnique({
+        where: { id_usuario: payload.sub },
       });
 
-      // Verificar si el token está revocado
-      const isRevoked = await this.sessionService.isTokenRevoked(payload.jti);
-      if (isRevoked) {
-        throw new UnauthorizedException('Token de refresco revocado');
-      }
-
-      const user = await this.usersService.findOne(payload.sub);
       if (!user) {
-        throw new UnauthorizedException('Usuario no encontrado');
+        throw new UnauthorizedException();
       }
 
-      // Revocar el token de refresco anterior
-      await this.sessionService.revokeSession(payload.jti, 'refresh');
-
-      // Generar nuevos tokens
-      const tokens = await this.generateTokens(user, {} as Request);
-      return tokens;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      throw new UnauthorizedException('Token de refresco inválido o expirado');
+      const newPayload = { email: user.email, sub: user.id_usuario };
+      return {
+        access_token: this.jwtService.sign(newPayload),
+      };
+    } catch {
+      throw new UnauthorizedException();
     }
   }
 }

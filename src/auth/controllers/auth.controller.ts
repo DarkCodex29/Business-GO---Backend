@@ -10,6 +10,7 @@ import {
   Req,
   HttpCode,
   UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { RegisterDto } from '../dto/register.dto';
@@ -24,11 +25,16 @@ import {
 } from '@nestjs/swagger';
 import { Public } from '../decorators/public.decorator';
 import { Request as ExpressRequest } from 'express';
+import { SessionService } from '../services/session.service';
+import { RefreshTokenDto } from '../dto/refresh-token.dto';
 
 @ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -47,14 +53,17 @@ export class AuthController {
   @Public()
   @Post('login')
   @ApiOperation({ summary: 'Iniciar sesión' })
-  @ApiResponse({
-    status: 200,
-    description: 'Login exitoso',
-  })
+  @ApiResponse({ status: 200, description: 'Login exitoso' })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
-  @ApiBody({ type: LoginDto })
-  async login(@Body() loginDto: LoginDto, @Req() req: ExpressRequest) {
-    return this.authService.login(loginDto.email, loginDto.password, req);
+  async login(@Body() loginDto: LoginDto, @Req() req: any) {
+    const user = await this.authService.validateUser(
+      loginDto.email,
+      loginDto.password,
+    );
+    if (!user) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+    return this.authService.login(user, req.ip, req.headers['user-agent']);
   }
 
   @Post('logout')
@@ -72,7 +81,7 @@ export class AuthController {
     if (!token) {
       throw new UnauthorizedException('Token no proporcionado');
     }
-    return this.authService.logout(token);
+    return this.sessionService.revokeSession(token, 'logout');
   }
 
   @Post('logout-all')
@@ -86,7 +95,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async logoutAll(@Request() req) {
     const currentToken = req.headers.authorization?.split(' ')[1];
-    return this.authService.logoutAllSessions(
+    return this.sessionService.revokeAllUserSessions(
       req.user.id_usuario,
       currentToken,
     );
@@ -95,80 +104,93 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Obtener todas las sesiones activas' })
+  @ApiOperation({
+    summary: 'Obtener sesiones activas',
+    description: 'Obtiene todas las sesiones activas del usuario actual',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de sesiones activas',
+    schema: {
+      example: [
+        {
+          id_sesion: 1,
+          dispositivo: 'Chrome en Windows',
+          ip_address: '192.168.1.1',
+          ultima_actividad: '2023-04-19T12:00:00Z',
+          fecha_creacion: '2023-04-19T11:00:00Z',
+          fecha_expiracion: '2023-04-20T11:00:00Z',
+        },
+      ],
+    },
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getSessions(@Request() req) {
-    return this.authService.getUserSessions(req.user.id_usuario);
+  async getSessions(@Req() req) {
+    return this.sessionService.getUserSessions(req.user.id_usuario);
   }
 
-  @Delete('sessions/:sessionId')
+  @Delete('sessions/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Revocar una sesión específica' })
+  @ApiOperation({
+    summary: 'Revocar sesión específica',
+    description: 'Revoca una sesión específica por su ID',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sesión revocada exitosamente',
   })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 404, description: 'Sesión no encontrada' })
-  async revokeSession(@Param('sessionId') sessionId: string, @Request() req) {
-    return this.authService.logout(sessionId);
+  async revokeSession(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    // Verificar que la sesión pertenece al usuario
+    const sessions = await this.sessionService.getUserSessions(
+      req.user.id_usuario,
+    );
+    const session = sessions.find((s) => s.id_sesion === id);
+
+    if (!session) {
+      throw new UnauthorizedException(
+        'No tienes permiso para revocar esta sesión',
+      );
+    }
+
+    return this.sessionService.revokeSession(
+      session.id_sesion.toString(),
+      'revoked_by_user',
+    );
+  }
+
+  @Delete('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Revocar todas las sesiones',
+    description: 'Revoca todas las sesiones activas excepto la actual',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Todas las sesiones han sido revocadas',
+  })
+  async revokeAllSessions(@Req() req) {
+    return this.sessionService.revokeAllUserSessions(
+      req.user.id_usuario,
+      req.headers.authorization?.split(' ')[1],
+    );
   }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener perfil del usuario' })
-  @ApiResponse({
-    status: 200,
-    description: 'Perfil del usuario',
-  })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getProfile(@Req() req: any) {
-    const userId = req.user?.id_usuario;
-    if (!userId) {
-      throw new UnauthorizedException('Usuario no autenticado');
-    }
-    return this.authService.getProfile(Number(userId));
+  @ApiResponse({ status: 200, description: 'Perfil obtenido exitosamente' })
+  getProfile(@Req() req) {
+    return req.user;
   }
 
   @Public()
   @Post('refresh')
-  @ApiBearerAuth('JWT-REFRESH')
-  @ApiOperation({ summary: 'Refrescar token de acceso' })
-  @ApiResponse({
-    status: 200,
-    description: 'Token refrescado exitosamente',
-    schema: {
-      properties: {
-        accessToken: { type: 'string' },
-        refreshToken: { type: 'string' },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Token de refresco inválido o expirado',
-  })
-  @ApiBody({
-    schema: {
-      properties: {
-        refreshToken: {
-          type: 'string',
-          description: 'Token de refresco válido',
-        },
-      },
-      required: ['refreshToken'],
-    },
-  })
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    if (!refreshToken) {
-      throw new UnauthorizedException('Token de refresco no proporcionado');
-    }
-    return this.authService.refreshToken(refreshToken);
+  @ApiOperation({ summary: 'Refrescar token' })
+  @ApiResponse({ status: 200, description: 'Token refrescado exitosamente' })
+  @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto.refreshToken);
   }
 }

@@ -28,7 +28,7 @@ export class RegisterDto {
     example: 'Password123!',
   })
   @IsString()
-  @MinLength(8)
+  @MinLength(6)
   password: string;
 
   @ApiProperty({
@@ -39,6 +39,15 @@ export class RegisterDto {
   @IsNumber()
   @IsOptional()
   rolId?: number;
+
+  @ApiProperty({
+    description: 'DNI del usuario',
+    example: '12345678',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  dni?: string;
 
   @ApiProperty({
     description: 'Teléfono del usuario',
