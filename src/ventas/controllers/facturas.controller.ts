@@ -6,8 +6,8 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FacturasService } from '../services/facturas.service';
 import { CreateFacturaDto } from '../dto/create-factura.dto';
@@ -22,21 +22,24 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Facturas')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('facturas')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('empresas/:empresaId/facturas')
 export class FacturasController {
   constructor(private readonly facturasService: FacturasService) {}
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('facturas.crear')
   @ApiOperation({
     summary: 'Crear una nueva factura',
-    description:
-      'Crea una nueva factura asociada a una orden de venta existente',
+    description: 'Crea una nueva factura a partir de una orden de venta',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
     description: 'Factura creada exitosamente',
@@ -44,35 +47,44 @@ export class FacturasController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos o la orden de venta no está completada',
+    description: 'La orden de venta ya está facturada',
   })
   @ApiResponse({
     status: 404,
-    description: 'Empresa, cliente, orden de venta o producto no encontrado',
+    description: 'Empresa u orden de venta no encontrada',
   })
-  create(@Body() createFacturaDto: CreateFacturaDto) {
-    return this.facturasService.create(createFacturaDto);
+  create(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Body() createFacturaDto: CreateFacturaDto,
+  ) {
+    return this.facturasService.create(empresaId, createFacturaDto);
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('facturas.ver')
   @ApiOperation({
     summary: 'Obtener todas las facturas',
-    description: 'Retorna una lista de todas las facturas en el sistema',
+    description: 'Retorna una lista de todas las facturas de la empresa',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
     description: 'Lista de facturas recuperada exitosamente',
     type: [CreateFacturaDto],
   })
-  findAll() {
-    return this.facturasService.findAll();
+  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+    return this.facturasService.findAll(empresaId);
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('facturas.ver')
   @ApiOperation({
-    summary: 'Obtener una factura por ID',
-    description: 'Retorna los detalles de una factura específica',
+    summary: 'Obtener una factura',
+    description: 'Retorna una factura específica',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la factura',
@@ -85,16 +97,21 @@ export class FacturasController {
     type: CreateFacturaDto,
   })
   @ApiResponse({ status: 404, description: 'Factura no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.facturasService.findOne(id);
+  findOne(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.facturasService.findOne(id, empresaId);
   }
 
   @Patch(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('facturas.editar')
   @ApiOperation({
     summary: 'Actualizar una factura',
-    description: 'Actualiza los datos de una factura existente',
+    description: 'Actualiza una factura existente',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la factura',
@@ -106,24 +123,23 @@ export class FacturasController {
     description: 'Factura actualizada exitosamente',
     type: UpdateFacturaDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'No se puede modificar una factura pagada o anulada',
-  })
   @ApiResponse({ status: 404, description: 'Factura no encontrada' })
   update(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateFacturaDto: UpdateFacturaDto,
   ) {
-    return this.facturasService.update(id, updateFacturaDto);
+    return this.facturasService.update(id, empresaId, updateFacturaDto);
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('facturas.eliminar')
   @ApiOperation({
     summary: 'Eliminar una factura',
     description: 'Elimina una factura del sistema',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la factura',
@@ -136,10 +152,14 @@ export class FacturasController {
   })
   @ApiResponse({
     status: 400,
-    description: 'No se puede eliminar una factura pagada',
+    description:
+      'No se puede eliminar una factura con notas de crédito o débito asociadas',
   })
   @ApiResponse({ status: 404, description: 'Factura no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.facturasService.remove(id);
+  remove(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.facturasService.remove(id, empresaId);
   }
 }

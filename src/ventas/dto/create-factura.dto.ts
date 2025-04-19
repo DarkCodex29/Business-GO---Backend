@@ -45,11 +45,10 @@ export class ItemFacturaDto {
 
 export class CreateFacturaDto {
   @ApiProperty({
+    description: 'ID de la orden de venta asociada',
     example: 1,
-    description: 'ID de la orden de venta relacionada',
   })
   @IsNumber()
-  @IsNotEmpty()
   id_orden_venta: number;
 
   @ApiProperty({ example: 1, description: 'ID de la empresa' })
@@ -126,4 +125,13 @@ export class CreateFacturaDto {
   @IsNumber()
   @IsOptional()
   tipo_cambio?: number;
+
+  @ApiProperty({
+    description: 'Notas o comentarios adicionales',
+    example: 'Factura emitida por compra mayorista',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  notas?: string;
 }

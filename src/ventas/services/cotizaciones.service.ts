@@ -12,23 +12,34 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class CotizacionesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createCotizacionDto: CreateCotizacionDto) {
-    const { id_empresa, id_cliente, items, ...rest } = createCotizacionDto;
+  async create(empresaId: number, createCotizacionDto: CreateCotizacionDto) {
+    const { id_cliente, items, ...rest } = createCotizacionDto;
 
     // Validar que la empresa existe
     const empresa = await this.prisma.empresa.findUnique({
-      where: { id_empresa: Number(id_empresa) },
+      where: { id_empresa: empresaId },
     });
     if (!empresa) {
-      throw new NotFoundException(`Empresa con ID ${id_empresa} no encontrada`);
+      throw new NotFoundException(`Empresa con ID ${empresaId} no encontrada`);
     }
 
-    // Validar que el cliente existe
-    const cliente = await this.prisma.cliente.findUnique({
-      where: { id_cliente: Number(id_cliente) },
+    // Validar que el cliente existe y pertenece a la empresa
+    const cliente = await this.prisma.cliente.findFirst({
+      where: {
+        id_cliente: Number(id_cliente),
+        empresas: {
+          some: {
+            empresa: {
+              id_empresa: empresaId,
+            },
+          },
+        },
+      },
     });
     if (!cliente) {
-      throw new NotFoundException(`Cliente con ID ${id_cliente} no encontrado`);
+      throw new NotFoundException(
+        `Cliente con ID ${id_cliente} no encontrado o no pertenece a la empresa`,
+      );
     }
 
     // Validar productos y calcular totales
@@ -38,12 +49,17 @@ export class CotizacionesService {
     let total = new Decimal(0);
 
     for (const item of items) {
-      const producto = await this.prisma.productoServicio.findUnique({
-        where: { id_producto: Number(item.id_producto) },
+      const producto = await this.prisma.productoServicio.findFirst({
+        where: {
+          id_producto: Number(item.id_producto),
+          empresa: {
+            id_empresa: empresaId,
+          },
+        },
       });
       if (!producto) {
         throw new NotFoundException(
-          `Producto con ID ${item.id_producto} no encontrado`,
+          `Producto con ID ${item.id_producto} no encontrado o no pertenece a la empresa`,
         );
       }
 
@@ -65,7 +81,7 @@ export class CotizacionesService {
     return this.prisma.cotizacion.create({
       data: {
         empresa: {
-          connect: { id_empresa: Number(id_empresa) },
+          connect: { id_empresa: empresaId },
         },
         cliente: {
           connect: { id_cliente: Number(id_cliente) },
@@ -108,8 +124,13 @@ export class CotizacionesService {
     });
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.cotizacion.findMany({
+      where: {
+        empresa: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         items: {
           include: {
@@ -122,9 +143,14 @@ export class CotizacionesService {
     });
   }
 
-  async findOne(id: number) {
-    const cotizacion = await this.prisma.cotizacion.findUnique({
-      where: { id_cotizacion: id },
+  async findOne(id: number, empresaId: number) {
+    const cotizacion = await this.prisma.cotizacion.findFirst({
+      where: {
+        id_cotizacion: id,
+        empresa: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         items: {
           include: {
@@ -137,20 +163,20 @@ export class CotizacionesService {
     });
 
     if (!cotizacion) {
-      throw new NotFoundException(`Cotización con ID ${id} no encontrada`);
+      throw new NotFoundException(
+        `Cotización con ID ${id} no encontrada o no pertenece a la empresa`,
+      );
     }
 
     return cotizacion;
   }
 
-  async update(id: number, updateCotizacionDto: UpdateCotizacionDto) {
-    const cotizacionExistente = await this.prisma.cotizacion.findUnique({
-      where: { id_cotizacion: id },
-    });
-
-    if (!cotizacionExistente) {
-      throw new NotFoundException(`Cotización con ID ${id} no encontrada`);
-    }
+  async update(
+    id: number,
+    empresaId: number,
+    updateCotizacionDto: UpdateCotizacionDto,
+  ) {
+    const cotizacionExistente = await this.findOne(id, empresaId);
 
     if (cotizacionExistente.estado === 'CONVERTIDA') {
       throw new BadRequestException(
@@ -168,12 +194,17 @@ export class CotizacionesService {
 
     if (items) {
       for (const item of items) {
-        const producto = await this.prisma.productoServicio.findUnique({
-          where: { id_producto: Number(item.id_producto) },
+        const producto = await this.prisma.productoServicio.findFirst({
+          where: {
+            id_producto: Number(item.id_producto),
+            empresa: {
+              id_empresa: empresaId,
+            },
+          },
         });
         if (!producto) {
           throw new NotFoundException(
-            `Producto con ID ${item.id_producto} no encontrado`,
+            `Producto con ID ${item.id_producto} no encontrado o no pertenece a la empresa`,
           );
         }
 
@@ -237,14 +268,8 @@ export class CotizacionesService {
     });
   }
 
-  async remove(id: number) {
-    const cotizacion = await this.prisma.cotizacion.findUnique({
-      where: { id_cotizacion: id },
-    });
-
-    if (!cotizacion) {
-      throw new NotFoundException(`Cotización con ID ${id} no encontrada`);
-    }
+  async remove(id: number, empresaId: number) {
+    const cotizacion = await this.findOne(id, empresaId);
 
     if (cotizacion.estado === 'CONVERTIDA') {
       throw new BadRequestException(

@@ -6,187 +6,218 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFacturaDto } from '../dto/create-factura.dto';
 import { UpdateFacturaDto } from '../dto/update-factura.dto';
-import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class FacturasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createFacturaDto: CreateFacturaDto) {
-    const { id_orden_venta, items, ...rest } = createFacturaDto;
+  async create(empresaId: number, createFacturaDto: CreateFacturaDto) {
+    // Verificar que la empresa existe
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id_empresa: empresaId },
+    });
+    if (!empresa) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
 
-    // Validar que la orden de venta existe
-    const ordenVenta = await this.prisma.ordenVenta.findUnique({
-      where: { id_orden_venta: Number(id_orden_venta) },
+    // Verificar que la orden de venta existe y pertenece a la empresa
+    const ordenVenta = await this.prisma.ordenVenta.findFirst({
+      where: {
+        id_orden_venta: createFacturaDto.id_orden_venta,
+        empresa: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         items: true,
+        cliente: true,
+      },
+    });
+    if (!ordenVenta) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+
+    // Verificar que la orden de venta no esté ya facturada
+    if (ordenVenta.estado === 'FACTURADA') {
+      throw new BadRequestException('La orden de venta ya está facturada');
+    }
+
+    // Generar número de factura
+    const ultimaFactura = await this.prisma.factura.findFirst({
+      where: {
+        orden_venta: {
+          empresa: {
+            id_empresa: empresaId,
+          },
+        },
+      },
+      orderBy: {
+        id_factura: 'desc',
       },
     });
 
-    if (!ordenVenta) {
-      throw new NotFoundException(
-        `Orden de venta con ID ${id_orden_venta} no encontrada`,
-      );
-    }
-
-    // Validar productos y calcular totales
-    let subtotal = new Decimal(0);
-    let descuento = new Decimal(0);
-    let igv = new Decimal(0);
-    let total = new Decimal(0);
-
-    for (const item of items) {
-      const producto = await this.prisma.productoServicio.findUnique({
-        where: { id_producto: Number(item.id_producto) },
-      });
-      if (!producto) {
-        throw new NotFoundException(
-          `Producto con ID ${item.id_producto} no encontrado`,
-        );
-      }
-
-      const subtotal_item = new Decimal(item.cantidad).mul(
-        item.precio_unitario,
-      );
-      const igv_item = subtotal_item.mul(
-        new Decimal(item.igv_porcentaje).div(100),
-      );
-
-      subtotal = subtotal.add(subtotal_item);
-      igv = igv.add(igv_item);
-    }
-
-    total = subtotal.add(igv);
+    const numeroFactura = ultimaFactura
+      ? this.generarSiguienteNumeroFactura(ultimaFactura.numero_factura)
+      : this.generarPrimerNumeroFactura(empresaId);
 
     // Crear la factura
-    return this.prisma.factura.create({
+    const factura = await this.prisma.factura.create({
       data: {
+        id_orden_venta: createFacturaDto.id_orden_venta,
+        numero_factura: numeroFactura,
+        fecha_emision: new Date(),
+        subtotal: ordenVenta.subtotal,
+        descuento: ordenVenta.descuento,
+        igv: ordenVenta.igv,
+        total: ordenVenta.total,
+        estado: 'EMITIDA',
+        notas: createFacturaDto.notas,
+      },
+      include: {
         orden_venta: {
-          connect: { id_orden_venta: Number(id_orden_venta) },
+          include: {
+            items: true,
+            cliente: true,
+          },
         },
-        numero_factura: rest.numero_factura,
-        fecha_emision: rest.fecha_emision,
-        subtotal,
-        descuento,
-        igv,
-        total,
-        estado: rest.estado,
-        notas: rest.observaciones,
-      },
-      include: {
-        orden_venta: true,
+        notas_credito: true,
+        notas_debito: true,
       },
     });
+
+    // Actualizar el estado de la orden de venta
+    await this.prisma.ordenVenta.update({
+      where: { id_orden_venta: createFacturaDto.id_orden_venta },
+      data: { estado: 'FACTURADA' },
+    });
+
+    return factura;
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.factura.findMany({
+      where: {
+        orden_venta: {
+          empresa: {
+            id_empresa: empresaId,
+          },
+        },
+      },
       include: {
-        orden_venta: true,
+        orden_venta: {
+          include: {
+            items: true,
+            cliente: true,
+          },
+        },
+        notas_credito: true,
+        notas_debito: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const factura = await this.prisma.factura.findUnique({
-      where: { id_factura: id },
+  async findOne(id: number, empresaId: number) {
+    const factura = await this.prisma.factura.findFirst({
+      where: {
+        id_factura: id,
+        orden_venta: {
+          empresa: {
+            id_empresa: empresaId,
+          },
+        },
+      },
       include: {
-        orden_venta: true,
+        orden_venta: {
+          include: {
+            items: true,
+            cliente: true,
+          },
+        },
+        notas_credito: true,
+        notas_debito: true,
       },
     });
 
     if (!factura) {
-      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
+      throw new NotFoundException('Factura no encontrada');
     }
 
     return factura;
   }
 
-  async update(id: number, updateFacturaDto: UpdateFacturaDto) {
-    const facturaExistente = await this.prisma.factura.findUnique({
-      where: { id_factura: id },
-    });
+  async update(
+    id: number,
+    empresaId: number,
+    updateFacturaDto: UpdateFacturaDto,
+  ) {
+    await this.findOne(id, empresaId);
 
-    if (!facturaExistente) {
-      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
-    }
-
-    if (facturaExistente.estado === 'ANULADA') {
-      throw new BadRequestException(
-        'No se puede modificar una factura anulada',
-      );
-    }
-
-    const { items, ...rest } = updateFacturaDto;
-
-    // Si hay nuevos items, recalcular totales
-    let subtotal = new Decimal(0);
-    let descuento = new Decimal(0);
-    let igv = new Decimal(0);
-    let total = new Decimal(0);
-
-    if (items) {
-      for (const item of items) {
-        const producto = await this.prisma.productoServicio.findUnique({
-          where: { id_producto: Number(item.id_producto) },
-        });
-        if (!producto) {
-          throw new NotFoundException(
-            `Producto con ID ${item.id_producto} no encontrado`,
-          );
-        }
-
-        const subtotal_item = new Decimal(item.cantidad).mul(
-          item.precio_unitario,
-        );
-        const igv_item = subtotal_item.mul(
-          new Decimal(item.igv_porcentaje).div(100),
-        );
-
-        subtotal = subtotal.add(subtotal_item);
-        igv = igv.add(igv_item);
-      }
-
-      total = subtotal.add(igv);
-    }
-
-    // Actualizar la factura
+    // Solo se puede actualizar el estado y las notas
     return this.prisma.factura.update({
       where: { id_factura: id },
       data: {
-        numero_factura: rest.numero_factura,
-        fecha_emision: rest.fecha_emision,
-        subtotal,
-        descuento,
-        igv,
-        total,
-        estado: rest.estado,
-        notas: rest.observaciones,
+        estado: updateFacturaDto.estado,
+        notas: updateFacturaDto.notas,
       },
       include: {
-        orden_venta: true,
+        orden_venta: {
+          include: {
+            items: true,
+            cliente: true,
+          },
+        },
+        notas_credito: true,
+        notas_debito: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const factura = await this.prisma.factura.findUnique({
+  async remove(id: number, empresaId: number) {
+    const factura = await this.findOne(id, empresaId);
+
+    // Verificar si la factura tiene notas de crédito o débito
+    if (factura.notas_credito.length > 0 || factura.notas_debito.length > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar una factura con notas de crédito o débito asociadas',
+      );
+    }
+
+    // Eliminar la factura
+    await this.prisma.factura.delete({
       where: { id_factura: id },
     });
 
-    if (!factura) {
-      throw new NotFoundException(`Factura con ID ${id} no encontrada`);
-    }
-
-    if (factura.estado === 'ANULADA') {
-      throw new BadRequestException('No se puede eliminar una factura anulada');
-    }
-
-    return this.prisma.factura.delete({
-      where: { id_factura: id },
-      include: {
-        orden_venta: true,
-      },
+    // Actualizar el estado de la orden de venta
+    await this.prisma.ordenVenta.update({
+      where: { id_orden_venta: factura.id_orden_venta },
+      data: { estado: 'PENDIENTE' },
     });
+
+    return { message: 'Factura eliminada correctamente' };
+  }
+
+  // Métodos auxiliares para generar números de factura
+  private generarPrimerNumeroFactura(empresaId: number): string {
+    // Formato: F001-00000001
+    return `F001-00000001`;
+  }
+
+  private generarSiguienteNumeroFactura(ultimoNumero: string): string {
+    // Extraer la parte numérica
+    const partes = ultimoNumero.split('-');
+    if (partes.length !== 2) {
+      return this.generarPrimerNumeroFactura(0);
+    }
+
+    const serie = partes[0];
+    const numero = parseInt(partes[1], 10);
+
+    // Incrementar el número
+    const nuevoNumero = numero + 1;
+
+    // Formatear con ceros a la izquierda
+    const nuevoNumeroFormateado = nuevoNumero.toString().padStart(8, '0');
+
+    return `${serie}-${nuevoNumeroFormateado}`;
   }
 }

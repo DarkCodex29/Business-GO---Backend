@@ -1,18 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsNumber,
-  IsOptional,
   IsString,
   IsArray,
   ValidateNested,
-  IsEnum,
   IsNotEmpty,
-  IsDate,
-  IsInt,
-  IsPositive,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CreateItemNotaCreditoDto } from './create-item-nota-credito.dto';
 
 export enum TipoNotaCredito {
   ANULACION = 'ANULACION',
@@ -27,86 +21,63 @@ export enum EstadoNotaCredito {
   CANCELADA = 'CANCELADA',
 }
 
+export class ItemNotaCreditoDto {
+  @ApiProperty({
+    description: 'ID del producto',
+    example: 1,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  id_producto: number;
+
+  @ApiProperty({
+    description: 'Cantidad del producto',
+    example: 2,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  cantidad: number;
+
+  @ApiProperty({
+    description: 'Precio unitario del producto',
+    example: 100.5,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  precio_unitario: number;
+
+  @ApiProperty({
+    description: 'Porcentaje de IGV',
+    example: 18,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  igv_porcentaje: number;
+}
+
 export class CreateNotaCreditoDto {
-  @ApiProperty({ description: 'ID de la factura asociada' })
-  @IsInt()
-  @IsPositive()
+  @ApiProperty({
+    description: 'ID de la factura asociada',
+    example: 1,
+  })
+  @IsNumber()
   @IsNotEmpty()
   id_factura: number;
 
-  @ApiProperty({ description: 'ID de la empresa' })
-  @IsInt()
-  @IsPositive()
-  @IsNotEmpty()
-  id_empresa: number;
-
-  @ApiProperty({ description: 'ID del cliente' })
-  @IsInt()
-  @IsPositive()
-  @IsNotEmpty()
-  id_cliente: number;
-
-  @ApiProperty({ description: 'Número de la nota de crédito' })
-  @IsString()
-  @IsNotEmpty()
-  numero_nota: string;
-
-  @ApiProperty({ description: 'Fecha de emisión' })
-  @Type(() => Date)
-  @IsDate()
-  @IsNotEmpty()
-  fecha_emision: Date;
-
-  @ApiProperty({ description: 'Fecha de vencimiento' })
-  @Type(() => Date)
-  @IsDate()
-  @IsNotEmpty()
-  fecha_vencimiento: Date;
-
   @ApiProperty({
-    description: 'Tipo de nota de crédito',
-    enum: TipoNotaCredito,
+    description: 'Motivo de la nota de crédito',
+    example: 'Devolución por producto defectuoso',
   })
-  @IsEnum(TipoNotaCredito)
-  @IsNotEmpty()
-  tipo: TipoNotaCredito;
-
-  @ApiProperty({
-    description: 'Estado de la nota de crédito',
-    enum: EstadoNotaCredito,
-  })
-  @IsEnum(EstadoNotaCredito)
-  @IsNotEmpty()
-  estado: EstadoNotaCredito;
-
-  @ApiProperty({
-    description: 'Items de la nota de crédito',
-    type: [CreateItemNotaCreditoDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateItemNotaCreditoDto)
-  items: CreateItemNotaCreditoDto[];
-
-  @ApiProperty({ description: 'Motivo de la nota de crédito' })
   @IsString()
   @IsNotEmpty()
   motivo: string;
 
-  @ApiProperty({ description: 'Observaciones adicionales', required: false })
-  @IsString()
-  @IsOptional()
-  observaciones?: string;
-
-  @ApiProperty({ description: 'Moneda de la nota de crédito' })
-  @IsString()
-  @IsNotEmpty()
-  moneda: string;
-
-  @ApiProperty({ description: 'Tipo de cambio', required: false })
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  @IsOptional()
-  tipo_cambio?: number;
+  @ApiProperty({
+    description: 'Items de la nota de crédito',
+    type: [ItemNotaCreditoDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ItemNotaCreditoDto)
+  items: ItemNotaCreditoDto[];
 }

@@ -12,225 +12,249 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class OrdenesVentaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createOrdenVentaDto: CreateOrdenVentaDto) {
-    const { id_empresa, id_cliente, id_cotizacion, items, ...rest } =
-      createOrdenVentaDto;
-
-    // Validar que la empresa existe
+  async create(empresaId: number, createOrdenVentaDto: CreateOrdenVentaDto) {
+    // Verificar que la empresa existe
     const empresa = await this.prisma.empresa.findUnique({
-      where: { id_empresa: Number(id_empresa) },
+      where: { id_empresa: empresaId },
     });
     if (!empresa) {
-      throw new NotFoundException(`Empresa con ID ${id_empresa} no encontrada`);
+      throw new NotFoundException('Empresa no encontrada');
     }
 
-    // Validar que el cliente existe
-    const cliente = await this.prisma.cliente.findUnique({
-      where: { id_cliente: Number(id_cliente) },
+    // Verificar que el cliente existe y pertenece a la empresa
+    const cliente = await this.prisma.cliente.findFirst({
+      where: {
+        id_cliente: createOrdenVentaDto.id_cliente,
+        empresas: {
+          some: {
+            empresa_id: empresaId,
+          },
+        },
+      },
     });
     if (!cliente) {
-      throw new NotFoundException(`Cliente con ID ${id_cliente} no encontrado`);
+      throw new NotFoundException('Cliente no encontrado');
     }
 
-    // Si hay cotización, validar que existe y está pendiente
-    if (id_cotizacion) {
-      const cotizacion = await this.prisma.cotizacion.findUnique({
-        where: { id_cotizacion: Number(id_cotizacion) },
+    // Verificar que la cotización existe y pertenece a la empresa
+    if (createOrdenVentaDto.id_cotizacion) {
+      const cotizacion = await this.prisma.cotizacion.findFirst({
+        where: {
+          id_cotizacion: createOrdenVentaDto.id_cotizacion,
+          empresa: {
+            id_empresa: empresaId,
+          },
+        },
       });
       if (!cotizacion) {
-        throw new NotFoundException(
-          `Cotización con ID ${id_cotizacion} no encontrada`,
-        );
+        throw new NotFoundException('Cotización no encontrada');
       }
-      if (cotizacion.estado !== 'pendiente') {
+      if (cotizacion.estado !== 'PENDIENTE') {
         throw new BadRequestException(
           'La cotización debe estar en estado pendiente',
         );
       }
     }
 
-    // Validar productos y calcular totales
-    let subtotal = new Decimal(0);
-    let descuento = new Decimal(0);
-    let igv = new Decimal(0);
-
-    for (const item of items) {
-      const producto = await this.prisma.productoServicio.findUnique({
-        where: { id_producto: Number(item.id_producto) },
+    // Verificar que los productos existen y pertenecen a la empresa
+    for (const item of createOrdenVentaDto.items) {
+      const producto = await this.prisma.productoServicio.findFirst({
+        where: {
+          id_producto: item.id_producto,
+          id_empresa: empresaId,
+        },
       });
       if (!producto) {
         throw new NotFoundException(
-          `Producto con ID ${item.id_producto} no encontrado`,
+          `Producto ${item.id_producto} no encontrado`,
         );
       }
-
-      const subtotal_item = new Decimal(item.cantidad).mul(
-        item.precio_unitario,
-      );
-      const descuento_item = new Decimal(item.descuento ?? 0);
-
-      subtotal = subtotal.add(subtotal_item);
-      descuento = descuento.add(descuento_item);
     }
 
-    igv = subtotal.sub(descuento).mul(0.18); // 18% IGV
+    // Calcular totales
+    let subtotal = new Decimal(0);
+    let descuento = new Decimal(0);
+
+    for (const item of createOrdenVentaDto.items) {
+      const itemSubtotal = new Decimal(item.cantidad).mul(item.precio_unitario);
+      subtotal = subtotal.add(itemSubtotal);
+
+      if (item.descuento) {
+        descuento = descuento.add(new Decimal(item.descuento));
+      }
+    }
+
+    const igv = subtotal.sub(descuento).mul(0.19); // 19% IGV
     const total = subtotal.sub(descuento).add(igv);
 
-    // Crear la orden de venta con sus items
+    // Crear la orden de venta
     return this.prisma.ordenVenta.create({
       data: {
-        id_empresa: Number(id_empresa),
-        id_cliente: Number(id_cliente),
-        id_cotizacion: id_cotizacion ? Number(id_cotizacion) : null,
-        ...rest,
+        id_empresa: empresaId,
+        id_cliente: createOrdenVentaDto.id_cliente,
+        id_cotizacion: createOrdenVentaDto.id_cotizacion,
+        fecha_emision: new Date(),
+        estado: 'PENDIENTE',
         subtotal,
         descuento,
         igv,
         total,
         items: {
-          create: items.map((item) => ({
-            id_producto: Number(item.id_producto),
+          create: createOrdenVentaDto.items.map((item) => ({
+            id_producto: item.id_producto,
             cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario,
-            descuento: item.descuento ?? 0,
+            precio_unitario: new Decimal(item.precio_unitario),
+            descuento: item.descuento
+              ? new Decimal(item.descuento)
+              : new Decimal(0),
             subtotal: new Decimal(item.cantidad)
               .mul(item.precio_unitario)
-              .sub(item.descuento ?? 0),
+              .sub(
+                item.descuento ? new Decimal(item.descuento) : new Decimal(0),
+              ),
           })),
         },
       },
       include: {
         items: true,
-        empresa: true,
         cliente: true,
         cotizacion: true,
       },
     });
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.ordenVenta.findMany({
+      where: {
+        empresa: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         items: true,
-        empresa: true,
         cliente: true,
         cotizacion: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const ordenVenta = await this.prisma.ordenVenta.findUnique({
-      where: { id_orden_venta: id },
+  async findOne(id: number, empresaId: number) {
+    const orden = await this.prisma.ordenVenta.findFirst({
+      where: {
+        id_orden_venta: id,
+        empresa: {
+          id_empresa: empresaId,
+        },
+      },
       include: {
         items: true,
-        empresa: true,
         cliente: true,
         cotizacion: true,
       },
     });
 
-    if (!ordenVenta) {
-      throw new NotFoundException(`Orden de venta con ID ${id} no encontrada`);
+    if (!orden) {
+      throw new NotFoundException('Orden de venta no encontrada');
     }
 
-    return ordenVenta;
+    return orden;
   }
 
-  async update(id: number, updateOrdenVentaDto: UpdateOrdenVentaDto) {
-    const ordenVentaExistente = await this.prisma.ordenVenta.findUnique({
-      where: { id_orden_venta: id },
-      include: { items: true },
-    });
+  async update(
+    id: number,
+    empresaId: number,
+    updateOrdenVentaDto: UpdateOrdenVentaDto,
+  ) {
+    const orden = await this.findOne(id, empresaId);
 
-    if (!ordenVentaExistente) {
-      throw new NotFoundException(`Orden de venta con ID ${id} no encontrada`);
-    }
-
-    if (ordenVentaExistente.estado === 'FACTURADA') {
+    if (orden.estado === 'FACTURADA') {
       throw new BadRequestException(
         'No se puede modificar una orden de venta facturada',
       );
     }
 
-    const { items, ...rest } = updateOrdenVentaDto;
-
-    // Si hay nuevos items, recalcular totales
-    let subtotal = ordenVentaExistente.subtotal;
-    let descuento = ordenVentaExistente.descuento;
-    let igv = ordenVentaExistente.igv;
-
-    if (items) {
-      subtotal = new Decimal(0);
-      descuento = new Decimal(0);
-
-      for (const item of items) {
-        const producto = await this.prisma.productoServicio.findUnique({
-          where: { id_producto: Number(item.id_producto) },
+    // Verificar que los productos existen y pertenecen a la empresa
+    if (updateOrdenVentaDto.items) {
+      for (const item of updateOrdenVentaDto.items) {
+        const producto = await this.prisma.productoServicio.findFirst({
+          where: {
+            id_producto: item.id_producto,
+            id_empresa: empresaId,
+          },
         });
         if (!producto) {
           throw new NotFoundException(
-            `Producto con ID ${item.id_producto} no encontrado`,
+            `Producto ${item.id_producto} no encontrado`,
           );
         }
-
-        const subtotal_item = new Decimal(item.cantidad).mul(
-          item.precio_unitario,
-        );
-        const descuento_item = new Decimal(item.descuento ?? 0);
-
-        subtotal = subtotal.add(subtotal_item);
-        descuento = descuento.add(descuento_item);
       }
-
-      igv = subtotal.sub(descuento).mul(0.18);
     }
 
+    // Calcular totales si hay cambios en los items
+    let subtotal = orden.subtotal;
+    let descuento = orden.descuento;
+
+    if (updateOrdenVentaDto.items) {
+      subtotal = new Decimal(0);
+      descuento = new Decimal(0);
+
+      for (const item of updateOrdenVentaDto.items) {
+        const itemSubtotal = new Decimal(item.cantidad).mul(
+          item.precio_unitario,
+        );
+        subtotal = subtotal.add(itemSubtotal);
+
+        if (item.descuento) {
+          descuento = descuento.add(new Decimal(item.descuento));
+        }
+      }
+    }
+
+    const igv = subtotal.sub(descuento).mul(0.19);
     const total = subtotal.sub(descuento).add(igv);
 
-    // Actualizar la orden de venta
+    // Actualizar la orden
     return this.prisma.ordenVenta.update({
       where: { id_orden_venta: id },
       data: {
-        ...rest,
+        ...updateOrdenVentaDto,
         subtotal,
         descuento,
         igv,
         total,
-        items: items
+        items: updateOrdenVentaDto.items
           ? {
               deleteMany: {},
-              create: items.map((item) => ({
-                id_producto: Number(item.id_producto),
+              create: updateOrdenVentaDto.items.map((item) => ({
+                id_producto: item.id_producto,
                 cantidad: item.cantidad,
-                precio_unitario: item.precio_unitario,
-                descuento: item.descuento ?? 0,
+                precio_unitario: new Decimal(item.precio_unitario),
+                descuento: item.descuento
+                  ? new Decimal(item.descuento)
+                  : new Decimal(0),
                 subtotal: new Decimal(item.cantidad)
                   .mul(item.precio_unitario)
-                  .sub(item.descuento ?? 0),
+                  .sub(
+                    item.descuento
+                      ? new Decimal(item.descuento)
+                      : new Decimal(0),
+                  ),
               })),
             }
           : undefined,
       },
       include: {
         items: true,
-        empresa: true,
         cliente: true,
         cotizacion: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const ordenVenta = await this.prisma.ordenVenta.findUnique({
-      where: { id_orden_venta: id },
-    });
+  async remove(id: number, empresaId: number) {
+    const orden = await this.findOne(id, empresaId);
 
-    if (!ordenVenta) {
-      throw new NotFoundException(`Orden de venta con ID ${id} no encontrada`);
-    }
-
-    if (ordenVenta.estado === 'FACTURADA') {
+    if (orden.estado === 'FACTURADA') {
       throw new BadRequestException(
         'No se puede eliminar una orden de venta facturada',
       );
@@ -238,12 +262,6 @@ export class OrdenesVentaService {
 
     return this.prisma.ordenVenta.delete({
       where: { id_orden_venta: id },
-      include: {
-        items: true,
-        empresa: true,
-        cliente: true,
-        cotizacion: true,
-      },
     });
   }
 }

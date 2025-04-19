@@ -6,8 +6,8 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { NotasCreditoService } from '../services/notas-credito.service';
 import { CreateNotaCreditoDto } from '../dto/create-nota-credito.dto';
@@ -22,21 +22,24 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Notas de Crédito')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('notas-credito')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Controller('empresas/:empresaId/notas-credito')
 export class NotasCreditoController {
   constructor(private readonly notasCreditoService: NotasCreditoService) {}
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('notas_credito.crear')
   @ApiOperation({
     summary: 'Crear una nueva nota de crédito',
-    description:
-      'Crea una nueva nota de crédito asociada a una factura existente',
+    description: 'Crea una nueva nota de crédito para una factura',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
     description: 'Nota de crédito creada exitosamente',
@@ -44,39 +47,45 @@ export class NotasCreditoController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Datos inválidos, factura anulada o cantidades exceden lo facturado',
+    description: 'La factura ya tiene una nota de crédito',
   })
   @ApiResponse({
     status: 404,
-    description: 'Empresa, cliente, factura o producto no encontrado',
+    description: 'Factura no encontrada',
   })
-  create(@Body() createNotaCreditoDto: CreateNotaCreditoDto) {
-    return this.notasCreditoService.create(createNotaCreditoDto);
+  create(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Body() createNotaCreditoDto: CreateNotaCreditoDto,
+  ) {
+    return this.notasCreditoService.create(empresaId, createNotaCreditoDto);
   }
 
   @Get()
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('notas_credito.ver')
   @ApiOperation({
     summary: 'Obtener todas las notas de crédito',
     description:
-      'Retorna una lista de todas las notas de crédito en el sistema',
+      'Retorna una lista de todas las notas de crédito de la empresa',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
     description: 'Lista de notas de crédito recuperada exitosamente',
     type: [CreateNotaCreditoDto],
   })
-  findAll() {
-    return this.notasCreditoService.findAll();
+  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+    return this.notasCreditoService.findAll(empresaId);
   }
 
   @Get(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('notas_credito.ver')
   @ApiOperation({
-    summary: 'Obtener una nota de crédito por ID',
-    description: 'Retorna los detalles de una nota de crédito específica',
+    summary: 'Obtener una nota de crédito',
+    description: 'Retorna una nota de crédito específica',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la nota de crédito',
@@ -89,16 +98,21 @@ export class NotasCreditoController {
     type: CreateNotaCreditoDto,
   })
   @ApiResponse({ status: 404, description: 'Nota de crédito no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.notasCreditoService.findOne(id);
+  findOne(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.notasCreditoService.findOne(id, empresaId);
   }
 
   @Patch(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('notas_credito.editar')
   @ApiOperation({
     summary: 'Actualizar una nota de crédito',
-    description: 'Actualiza los datos de una nota de crédito existente',
+    description: 'Actualiza una nota de crédito existente',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la nota de crédito',
@@ -110,24 +124,23 @@ export class NotasCreditoController {
     description: 'Nota de crédito actualizada exitosamente',
     type: UpdateNotaCreditoDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'No se puede modificar una nota de crédito aplicada o anulada',
-  })
   @ApiResponse({ status: 404, description: 'Nota de crédito no encontrada' })
   update(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateNotaCreditoDto: UpdateNotaCreditoDto,
   ) {
-    return this.notasCreditoService.update(id, updateNotaCreditoDto);
+    return this.notasCreditoService.update(id, empresaId, updateNotaCreditoDto);
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions('notas_credito.eliminar')
   @ApiOperation({
     summary: 'Eliminar una nota de crédito',
     description: 'Elimina una nota de crédito del sistema',
   })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
     name: 'id',
     description: 'ID de la nota de crédito',
@@ -140,10 +153,13 @@ export class NotasCreditoController {
   })
   @ApiResponse({
     status: 400,
-    description: 'No se puede eliminar una nota de crédito aplicada',
+    description: 'No se puede eliminar una nota de crédito anulada',
   })
   @ApiResponse({ status: 404, description: 'Nota de crédito no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.notasCreditoService.remove(id);
+  remove(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.notasCreditoService.remove(id, empresaId);
   }
 }
