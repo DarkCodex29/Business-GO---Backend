@@ -249,7 +249,7 @@ export class ClientesNotificacionesService {
 
     return this.prisma.feedback.create({
       data: {
-        comentario: createFeedbackDto.comentario,
+        comentario: createFeedbackDto.descripcion,
         id_cliente: clienteId,
       },
     });

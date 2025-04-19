@@ -5,7 +5,7 @@ import { UsuariosModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { ProductosModule } from './productos/products.module';
-import { ClientesModule } from './clients/clients.module';
+import { ClientesModule } from './clientes/clientes.module';
 import { EmpresasModule } from './empresas/empresas.module';
 import { ArchivosModule } from './archivos/archivos.module';
 import { VentasModule } from './ventas/ventas.module';
