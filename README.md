@@ -14,140 +14,189 @@
   <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg" width="120" alt="AWS Logo" />
 </div>
 
-Backend robusto desarrollado con NestJS para la gestión integral de empresas. Este proyecto implementa funcionalidades clave como autenticación JWT, gestión de usuarios, roles, permisos, empresas, carga de archivos a S3 y envío de correos.
+Backend robusto desarrollado con NestJS para la gestión integral de empresas. Este proyecto implementa funcionalidades clave como autenticación JWT, gestión de usuarios, roles, permisos, empresas, gestión de ventas, productos, inventario, documentos comerciales y más.
 
 ## 📋 Características Principales
 
-- **Autenticación y Autorización:**
-  - Registro e inicio de sesión con JWT (Access y Refresh Tokens).
-  - Guards para proteger rutas.
-  - Middleware para validación de tokens.
-  - Sistema de Roles y Permisos granular (con inicialización vía comando).
-  - Decorador `@Public()` para rutas públicas.
-  - Gestión de sesiones de usuario.
-  - Revocación de tokens (Logout).
-- **Gestión de Usuarios:** CRUD completo, cambio de contraseña, asignación a empresas.
-- **Gestión de Empresas:** CRUD completo, gestión de direcciones, asignación de usuarios.
-- **Gestión de Roles y Permisos:** Definición de roles, permisos y asignación a usuarios y roles.
-- **Carga de Archivos:** Carga de imágenes a AWS S3, procesamiento con Sharp (redimensionar, formato WebP), asociación con entidades (Usuarios, Empresas, Productos, Documentos).
-- **Envío de Correos:** Integración con Resend para correos transaccionales (ej. reseteo de contraseña).
-- **Base de Datos:** PostgreSQL con ORM Prisma, schema detallado y migraciones.
-- **Documentación API:** Generación automática con Swagger UI accesible en `/api`.
-- **Validación:** DTOs con `class-validator` y `class-transformer`.
-- **Configuración:** Manejo centralizado con `@nestjs/config` y archivo `.env`.
-- **Logging:** Logger integrado de NestJS.
-- **Seguridad:** Hashing de contraseñas (bcrypt), CORS configurable, protección contra ataques comunes.
+### 🔐 Seguridad y Autenticación
+
+- **Sistema de Autenticación Robusto:**
+  - Registro e inicio de sesión con JWT (Access y Refresh Tokens)
+  - Guards para protección de rutas
+  - Middleware para validación de tokens
+  - Sistema de Roles y Permisos granular
+  - Decorador `@Public()` para rutas públicas
+  - Gestión de sesiones de usuario
+  - Revocación de tokens (Logout)
+  - Protección CORS configurable
+  - Hashing de contraseñas con bcrypt
+
+### 👥 Gestión de Usuarios y Empresas
+
+- **Usuarios:**
+  - CRUD completo de usuarios
+  - Cambio y recuperación de contraseña
+  - Asignación a empresas
+  - Gestión de perfiles
+  - Historial de actividades
+- **Empresas:**
+  - CRUD completo de empresas
+  - Gestión de direcciones
+  - Asignación de usuarios
+  - Configuración de roles por empresa
+
+### 📦 Gestión de Productos e Inventario
+
+- **Productos:**
+  - Catálogo completo de productos
+  - Categorización y atributos
+  - Gestión de precios y descuentos
+  - Control de stock
+  - Imágenes y multimedia
+- **Inventario:**
+  - Control de stock en tiempo real
+  - Alertas de stock bajo
+  - Historial de movimientos
+  - Múltiples almacenes
+
+### 💰 Gestión de Ventas y Finanzas
+
+- **Ventas:**
+  - Cotizaciones
+  - Órdenes de venta
+  - Facturación electrónica
+  - Notas de crédito y débito
+  - Reembolsos
+- **Pagos:**
+  - Múltiples métodos de pago
+  - Registro de transacciones
+  - Historial de pagos
+  - Gestión de reembolsos
+
+### 📄 Gestión Documental
+
+- **Documentos Comerciales:**
+  - Facturas
+  - Boletas
+  - Notas de crédito/débito
+  - Guías de remisión
+  - Cotizaciones
+- **Archivos Multimedia:**
+  - Carga y gestión de archivos
+  - Versionamiento de documentos
+  - Categorización
+  - Metadatos y etiquetas
+
+### 📊 Reportes y Análisis
+
+- **Reportes Financieros:**
+  - Ventas por período
+  - Estado de pagos
+  - Rentabilidad
+- **Reportes de Inventario:**
+  - Stock actual
+  - Movimientos
+  - Valorización
+
+### 🛠️ Características Técnicas
+
+- **Gestión de Archivos:**
+  - Integración con AWS S3
+  - Procesamiento de imágenes con Sharp
+  - Conversión a WebP
+  - Versionamiento de archivos
+- **Comunicaciones:**
+  - Integración con Resend para emails
+  - Plantillas de correo personalizables
+  - Notificaciones automáticas
+- **Base de Datos:**
+  - PostgreSQL con Prisma ORM
+  - Migraciones automáticas
+  - Relaciones complejas
+  - Transacciones
+- **API y Documentación:**
+  - Swagger UI completo
+  - DTOs validados
+  - Respuestas tipadas
+  - Ejemplos de uso
 
 ## 🚀 Puesta en Marcha
 
 ### Requisitos Previos
 
-- Node.js (v18 o superior recomendado)
+- Node.js (v18 o superior)
 - npm (o yarn)
-- PostgreSQL (v14 o superior recomendado)
-- Una base de datos PostgreSQL creada.
-- Credenciales de AWS (Access Key ID, Secret Access Key) con permisos para un bucket S3.
-- Un bucket S3 creado en AWS.
-- Una API Key de [Resend](https://resend.com/) para el envío de correos.
+- PostgreSQL (v14 o superior)
+- Base de datos PostgreSQL creada
+- Credenciales AWS (S3)
+- API Key de Resend
 
 ### Pasos de Instalación
 
-1.  **Clonar el repositorio:**
+1. **Clonar el repositorio:**
 
-    ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd business-go
-    ```
+   ```bash
+   git clone <URL_DEL_REPOSITORIO>
+   cd business-go
+   ```
 
-2.  **Instalar dependencias:**
+2. **Instalar dependencias:**
 
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 
-3.  **Configurar Variables de Entorno:**
+3. **Configurar Variables de Entorno:**
 
-    - Copia el archivo `.env.example` a `.env`:
-      ```bash
-      cp .env.example .env
-      ```
-    - Edita el archivo `.env` y rellena **TODAS** las variables con tus valores reales (URL de base de datos, secretos JWT, credenciales AWS S3, API Key de Resend, etc.). Revisa los comentarios en `.env.example` para más detalles.
-    - **⚠️ IMPORTANTE:** Asegúrate de que el archivo `.env` nunca sea subido a tu repositorio Git.
+   ```bash
+   cp .env.example .env
+   # Editar .env con tus valores
+   ```
 
-4.  **Aplicar Migraciones de Base de Datos:**
-    Asegúrate de que tu servidor PostgreSQL esté corriendo y que la `DATABASE_URL` en tu `.env` sea correcta.
+4. **Aplicar Migraciones:**
 
-    ```bash
-    npx prisma migrate dev
-    ```
+   ```bash
+   npx prisma migrate dev
+   ```
 
-    Esto aplicará las migraciones necesarias para crear la estructura de tablas definida en `prisma/schema.prisma`.
+5. **Inicializar Roles y Permisos:**
 
-5.  **Inicializar Roles y Permisos (Opcional pero Recomendado):**
-    Este comando ejecuta el script para crear roles y permisos básicos.
+   ```bash
+   npx nest start --entryFile init-permisos
+   ```
 
-    ```bash
-    npx nest start --entryFile init-permisos
-    ```
+6. **Ejecutar la Aplicación:**
 
-    _Nota: Puede que necesites ajustar la configuración de `nest-commander` o la forma en que se ejecuta el script si encuentras problemas._
+   ```bash
+   # Desarrollo
+   npm run start:dev
 
-6.  **Ejecutar la Aplicación:**
-
-    - **Modo Desarrollo (con hot-reloading):**
-      ```bash
-      npm run start:dev
-      ```
-    - **Modo Producción:**
-      ```bash
-      npm run build
-      npm run start:prod
-      ```
-
-7.  **Acceder a la Documentación API:**
-    Una vez que la aplicación esté corriendo (por defecto en `http://localhost:3000`), puedes acceder a la documentación interactiva de Swagger en `http://localhost:3000/api` (o la ruta que hayas configurado con `API_PREFIX`).
-
-## ⚙️ Configuración Adicional
-
-Revisa el archivo `.env.example` para ver todas las variables de configuración disponibles, incluyendo opciones para CORS, Rate Limiting, Logging, etc.
+   # Producción
+   npm run build
+   npm run start:prod
+   ```
 
 ## 🏗️ Estructura del Proyecto
 
-El proyecto sigue una arquitectura modular estándar de NestJS:
-
 ```
 src/
-├── main.ts         # Punto de entrada de la aplicación
-├── app.module.ts     # Módulo raíz
-├── prisma/         # Módulo y servicio de Prisma
-├── config/         # Configuraciones (si aplica)
-├── common/         # Elementos comunes (interceptors, decorators, etc.)
-├── auth/           # Módulo de Autenticación y Autorización
-├── users/          # Módulo de Gestión de Usuarios
-├── empresas/       # Módulo de Gestión de Empresas
-├── roles/          # Módulo de Gestión de Roles (si separado)
-├── permisos/       # Módulo de Gestión de Permisos (si separado)
-├── files/          # Módulo de Gestión de Archivos (S3)
-├── email/          # Módulo de Envío de Correos
-└── ...             # Otros módulos de funcionalidades
-prisma/
-├── schema.prisma   # Definición del schema de la base de datos
-├── migrations/     # Directorio de migraciones generadas
-└── seed.ts         # Script de seed (si aplica)
+├── main.ts                 # Punto de entrada
+├── app.module.ts           # Módulo raíz
+├── auth/                   # Autenticación y autorización
+├── users/                  # Gestión de usuarios
+├── empresas/              # Gestión de empresas
+├── productos/             # Gestión de productos
+│   ├── controllers/       # Controladores de productos
+│   ├── services/         # Servicios de productos
+│   └── dto/              # DTOs de productos
+├── ventas/               # Gestión de ventas
+│   ├── controllers/      # Controladores de ventas
+│   ├── services/        # Servicios de ventas
+│   └── dto/             # DTOs de ventas
+├── archivos/             # Gestión de archivos
+├── common/               # Utilidades comunes
+└── config/              # Configuraciones
 ```
-
-## 🛠️ Pila Tecnológica
-
-- **Framework Backend:** [NestJS](https://nestjs.com/) (^11.0)
-- **Lenguaje:** [TypeScript](https://www.typescriptlang.org/) (^5.7)
-- **Base de Datos:** [PostgreSQL](https://www.postgresql.org/)
-- **ORM:** [Prisma](https://www.prisma.io/) (^6.6)
-- **Autenticación:** JWT (con `@nestjs/jwt`, `passport-jwt`)
-- **Carga de Archivos:** [AWS SDK v3 for S3](https://aws.amazon.com/sdk-for-javascript/) (`@aws-sdk/client-s3`), [Multer](https://github.com/expressjs/multer), [Sharp](https://sharp.pixelplumbing.com/)
-- **Envío de Correos:** [Resend](https://resend.com/)
-- **Documentación API:** [Swagger](https://swagger.io/) (OpenAPI) via `@nestjs/swagger`
-- **Validación:** `class-validator`, `class-transformer`
-- **CLI Comandos:** `nest-commander`
 
 ## 📝 Licencia
 
