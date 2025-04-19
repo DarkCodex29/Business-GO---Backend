@@ -22,7 +22,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 
-@ApiTags('Roles')
+@ApiTags('Roles Globales')
 @Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
@@ -31,10 +31,14 @@ export class RolesController {
 
   @Post()
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Crear un nuevo rol' })
+  @ApiOperation({
+    summary: 'Crear un nuevo rol global',
+    description:
+      'Crea un nuevo rol global del sistema. Estos roles son diferentes a los roles específicos de empresa.',
+  })
   @ApiResponse({
     status: 201,
-    description: 'Rol creado exitosamente',
+    description: 'Rol global creado exitosamente',
   })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 409, description: 'El rol ya existe' })
@@ -44,10 +48,14 @@ export class RolesController {
 
   @Get()
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Obtener todos los roles' })
+  @ApiOperation({
+    summary: 'Obtener todos los roles globales',
+    description:
+      'Retorna la lista de roles globales del sistema. No incluye roles específicos de empresas.',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Lista de roles obtenida exitosamente',
+    description: 'Lista de roles globales obtenida exitosamente',
   })
   findAll() {
     return this.rolesService.findAll();

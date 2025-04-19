@@ -21,24 +21,37 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiExtraModels,
+  ApiParam,
 } from '@nestjs/swagger';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PermisosGuard } from '../../auth/guards/permisos.guard';
 import { AsignarRolDto } from '../dto/asignar-rol.dto';
 
-@ApiTags('Roles Empresa')
+@ApiBearerAuth('JWT')
+@ApiTags('Roles de Empresa')
 @ApiExtraModels(CreateEmpresaRolDto, UpdateEmpresaRolDto)
-@Controller('empresas/:id_empresa/roles')
 @UseGuards(JwtAuthGuard, RolesGuard, PermisosGuard)
-@ApiBearerAuth()
+@Controller('empresas/:id_empresa/roles')
 export class RolesEmpresaController {
   constructor(private readonly rolesEmpresaService: RolesEmpresaService) {}
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Crear un nuevo rol para la empresa' })
-  @ApiResponse({ status: 201, description: 'Rol creado exitosamente' })
+  @ApiOperation({
+    summary: 'Crear un nuevo rol para la empresa',
+    description:
+      'Crea un rol específico para una empresa. Estos roles son independientes de los roles globales del sistema.',
+  })
+  @ApiParam({
+    name: 'id_empresa',
+    description: 'ID de la empresa para la cual se creará el rol',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Rol de empresa creado exitosamente',
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 403, description: 'No autorizado' })
   async crearRol(
@@ -65,10 +78,19 @@ export class RolesEmpresaController {
 
   @Get()
   @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Obtener todos los roles de la empresa' })
+  @ApiOperation({
+    summary: 'Obtener todos los roles de la empresa',
+    description:
+      'Retorna la lista de roles específicos de una empresa. No incluye roles globales del sistema.',
+  })
+  @ApiParam({
+    name: 'id_empresa',
+    description: 'ID de la empresa de la cual se obtendrán los roles',
+    type: 'number',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Lista de roles obtenida exitosamente',
+    description: 'Lista de roles de empresa obtenida exitosamente',
   })
   async obtenerRoles(@Param('id_empresa') id_empresa: number) {
     return this.rolesEmpresaService.findAll(id_empresa);

@@ -1,13 +1,13 @@
 import { Module, Global } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
+import { AuthService } from './services/auth.service';
+import { AuthController } from './controllers/auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { UsersModule } from '../users/users.module';
+import { UsuariosModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
-import { SessionService } from './session.service';
+import { SessionService } from './services/session.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -35,7 +35,7 @@ import { PermisosController } from './controllers/permisos.controller';
       }),
       inject: [ConfigService],
     }),
-    UsersModule,
+    UsuariosModule,
     PrismaModule,
     EmailModule,
   ],

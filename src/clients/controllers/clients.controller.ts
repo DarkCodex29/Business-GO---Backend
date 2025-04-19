@@ -13,13 +13,13 @@ import {
   ApiTags,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { ClientsService } from './clients.service';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { CreateFidelizacionDto } from './dto/create-fidelizacion.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { ClientsService } from '../services/clients.service';
+import { CreateNotificationDto } from '../dto/create-notification.dto';
+import { CreateFeedbackDto } from '../dto/create-feedback.dto';
+import { CreateFidelizacionDto } from '../dto/create-fidelizacion.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Clientes')
 @ApiBearerAuth()

@@ -7,21 +7,24 @@ import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
 export class SubcategoriasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createSubcategoriaDto: CreateSubcategoriaDto) {
+  async create(
+    categoriaId: number,
+    createSubcategoriaDto: CreateSubcategoriaDto,
+  ) {
     const categoria = await this.prisma.categoria.findUnique({
-      where: { id_categoria: createSubcategoriaDto.id_categoria },
+      where: { id_categoria: categoriaId },
     });
 
     if (!categoria) {
       throw new NotFoundException(
-        `Categoría con ID ${createSubcategoriaDto.id_categoria} no encontrada`,
+        `Categoría con ID ${categoriaId} no encontrada`,
       );
     }
 
     return this.prisma.subcategoria.create({
       data: {
         nombre: createSubcategoriaDto.nombre,
-        id_categoria: createSubcategoriaDto.id_categoria,
+        id_categoria: categoriaId,
       },
       include: {
         categoria: true,

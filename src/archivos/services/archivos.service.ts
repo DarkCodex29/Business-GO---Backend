@@ -1,11 +1,88 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateArchivoDto } from '../dto/create-archivo.dto';
 import { UpdateArchivoDto } from '../dto/update-archivo.dto';
 
 @Injectable()
 export class ArchivosService {
+  private readonly logger = new Logger(ArchivosService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async uploadImage(
+    file: Express.Multer.File,
+    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+    entityId: number,
+  ) {
+    try {
+      // Aquí iría la lógica de subida del archivo a un servicio de almacenamiento
+      const url = `https://storage.example.com/${file.filename}`;
+
+      const whereClause = {
+        ...(entityType === 'usuario' && { usuario_id: entityId }),
+        ...(entityType === 'empresa' && { empresa_id: entityId }),
+        ...(entityType === 'producto' && { producto_id: entityId }),
+        ...(entityType === 'documento' && { documento_id: entityId }),
+      };
+
+      return await this.prisma.archivoMultimedia.create({
+        data: {
+          nombre_archivo: file.originalname,
+          tipo_archivo: file.mimetype.split('/')[0],
+          mime_type: file.mimetype,
+          url_archivo: url,
+          tamanio_bytes: file.size,
+          ...whereClause,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Error al subir archivo: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async deleteFile(id: number) {
+    try {
+      const archivo = await this.prisma.archivoMultimedia.findUnique({
+        where: { id_archivo: id },
+      });
+
+      if (!archivo) {
+        throw new NotFoundException(`Archivo con ID ${id} no encontrado`);
+      }
+
+      // Aquí iría la lógica para eliminar el archivo del servicio de almacenamiento
+
+      return await this.prisma.archivoMultimedia.delete({
+        where: { id_archivo: id },
+      });
+    } catch (error) {
+      this.logger.error(`Error al eliminar archivo: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getEntityFiles(
+    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+    entityId: number,
+  ) {
+    try {
+      const whereClause = {
+        ...(entityType === 'usuario' && { usuario_id: entityId }),
+        ...(entityType === 'empresa' && { empresa_id: entityId }),
+        ...(entityType === 'producto' && { producto_id: entityId }),
+        ...(entityType === 'documento' && { documento_id: entityId }),
+      };
+
+      return await this.prisma.archivoMultimedia.findMany({
+        where: whereClause,
+        orderBy: { fecha_subida: 'desc' },
+      });
+    } catch (error) {
+      this.logger.error(`Error al obtener archivos: ${error.message}`);
+      throw error;
+    }
+  }
 
   async create(createArchivoDto: CreateArchivoDto, usuarioId: number) {
     return this.prisma.archivoMultimedia.create({

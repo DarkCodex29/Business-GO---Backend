@@ -10,7 +10,10 @@ import {
   ParseIntPipe,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ArchivosService } from '../services/archivos.service';
 import { CreateArchivoDto } from '../dto/create-archivo.dto';
 import { UpdateArchivoDto } from '../dto/update-archivo.dto';
@@ -21,17 +24,45 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Archivos')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('archivos')
 export class ArchivosController {
   constructor(private readonly archivosService: ArchivosService) {}
+
+  @Post('subir/:entityType/:entityId')
+  @Roles('ADMIN', 'EMPRESA')
+  @ApiOperation({ summary: 'Subir un archivo multimedia' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Archivo subido exitosamente' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Param('entityType')
+    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+    @Param('entityId', ParseIntPipe) entityId: number,
+  ) {
+    return this.archivosService.uploadImage(file, entityType, entityId);
+  }
 
   @Post()
   @Roles('ADMIN', 'EMPRESA')
@@ -105,6 +136,21 @@ export class ArchivosController {
       documento_id: documentoId,
       activo,
     });
+  }
+
+  @Get(':entityType/:entityId')
+  @Roles('ADMIN', 'EMPRESA')
+  @ApiOperation({ summary: 'Obtener archivos de una entidad' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de archivos obtenida exitosamente',
+  })
+  async getEntityFiles(
+    @Param('entityType')
+    entityType: 'usuario' | 'empresa' | 'producto' | 'documento',
+    @Param('entityId', ParseIntPipe) entityId: number,
+  ) {
+    return this.archivosService.getEntityFiles(entityType, entityId);
   }
 
   @Get(':id')

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ClientsController } from './clients.controller';
-import { ClientsService } from './clients.service';
+import { ClientsController } from './controllers/clients.controller';
+import { ClientsService } from './services/clients.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DireccionesModule } from './direcciones.module';
 
@@ -10,4 +10,4 @@ import { DireccionesModule } from './direcciones.module';
   providers: [ClientsService, PrismaService],
   exports: [ClientsService],
 })
-export class ClientsModule {}
+export class ClientesModule {}

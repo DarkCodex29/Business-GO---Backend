@@ -1,10 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
   IsArray,
   IsNumber,
   IsNotEmpty,
+  IsDateString,
+  Matches,
 } from 'class-validator';
 
 export class PermisoDto {
@@ -32,74 +34,74 @@ export class PermisoDto {
 
 export class CreateEmpresaRolDto {
   @ApiProperty({
-    description: 'Nombre del rol',
-    example: 'Administrador',
+    description: 'Nombre del rol en la empresa',
+    example: 'Gerente de Ventas',
   })
   @IsString()
   @IsNotEmpty()
   nombre: string;
 
-  @ApiProperty({
-    description: 'Descripción del rol',
-    example: 'Rol con acceso total al sistema',
-    required: false,
+  @ApiPropertyOptional({
+    description: 'Descripción detallada del rol',
+    example: 'Responsable de supervisar el equipo de ventas y establecer metas',
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   descripcion?: string;
 
   @ApiProperty({
-    description: 'ID de la empresa',
+    description: 'ID de la empresa a la que pertenece el rol',
     example: 1,
   })
   @IsNumber()
   @IsNotEmpty()
   id_empresa: number;
 
-  @ApiProperty({
-    description: 'Horario de inicio',
+  @ApiPropertyOptional({
+    description: 'Hora de inicio del horario laboral (formato HH:mm)',
     example: '09:00',
-    required: false,
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  @Matches(/^([0-1]?\d|2[0-3]):\d\d$/, {
+    message: 'El formato de hora debe ser HH:mm',
+  })
   horario_inicio?: string;
 
-  @ApiProperty({
-    description: 'Horario de fin',
+  @ApiPropertyOptional({
+    description: 'Hora de fin del horario laboral (formato HH:mm)',
     example: '18:00',
-    required: false,
   })
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  @Matches(/^([0-1]?\d|2[0-3]):\d\d$/, {
+    message: 'El formato de hora debe ser HH:mm',
+  })
   horario_fin?: string;
 
-  @ApiProperty({
-    description: 'Fecha de inicio',
+  @ApiPropertyOptional({
+    description: 'Fecha de inicio de vigencia del rol',
     example: '2024-01-01',
-    required: false,
   })
+  @IsDateString()
   @IsOptional()
-  @IsString()
-  fecha_inicio?: string;
+  fecha_inicio?: Date;
 
-  @ApiProperty({
-    description: 'Fecha de fin',
+  @ApiPropertyOptional({
+    description: 'Fecha de fin de vigencia del rol',
     example: '2024-12-31',
-    required: false,
   })
+  @IsDateString()
   @IsOptional()
-  @IsString()
-  fecha_fin?: string;
+  fecha_fin?: Date;
 
-  @ApiProperty({
-    description: 'Lista de IDs de permisos',
+  @ApiPropertyOptional({
+    description: 'IDs de los permisos asignados al rol',
     example: [1, 2, 3],
-    required: false,
     type: [Number],
   })
-  @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
+  @IsOptional()
   permisos?: number[];
 }

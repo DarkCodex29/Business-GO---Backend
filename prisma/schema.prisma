@@ -126,6 +126,9 @@ model ProductoServicio {
   items_orden_venta ItemOrdenVenta[]
   items_nota_credito ItemNotaCredito[]
   items_nota_debito ItemNotaDebito[]
+  proveedores      ProductoProveedor[]
+  items_orden_compra ItemOrdenCompra[]
+  items_cotizacion_proveedor ItemCotizacionProveedor[]
 
   @@map("productos_servicios")
 }
@@ -483,6 +486,8 @@ model Empresa {
   roles_empresa RolEmpresa[]
   cotizaciones  Cotizacion[]
   ordenesVenta  OrdenVenta[]
+  proveedores   Proveedor[]
+  ordenes_compra OrdenCompra[]
   configuracionRegional    ConfiguracionRegional?
   configuracionImpuestos   ConfiguracionImpuestos?
   configuracionMoneda      ConfiguracionMoneda?
@@ -834,4 +839,140 @@ model ItemNotaDebito {
   total               Decimal   @db.Decimal(10,2)
 
   @@map("items_nota_debito")
+}
+
+model Proveedor {
+  id_proveedor      Int      @id @default(autoincrement())
+  nombre            String
+  ruc               String
+  direccion         String
+  telefono          String
+  email             String
+  contacto_principal String?
+  notas             String?
+  activo            Boolean  @default(true)
+  fecha_creacion    DateTime @default(now())
+  fecha_actualizacion DateTime @updatedAt
+  
+  // Relación con Empresa
+  empresa           Empresa  @relation(fields: [empresa_id], references: [id_empresa])
+  empresa_id        Int
+
+  // Relaciones
+  ordenes_compra    OrdenCompra[]
+  productos         ProductoProveedor[]
+  cotizaciones      CotizacionProveedor[]
+
+  @@map("proveedores")
+}
+
+model ProductoProveedor {
+  id_producto_proveedor Int       @id @default(autoincrement())
+  proveedor            Proveedor  @relation(fields: [id_proveedor], references: [id_proveedor])
+  id_proveedor         Int
+  codigo_proveedor     String?    @db.VarChar(50)
+  precio_compra        Decimal    @db.Decimal(10,2)
+  tiempo_entrega       Int?       // días
+  stock_minimo         Int?
+  stock_maximo         Int?
+  activo              Boolean    @default(true)
+  fecha_registro      DateTime   @default(now())
+  producto            ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto         Int
+
+  @@unique([id_proveedor, id_producto])
+  @@map("productos_proveedor")
+}
+
+model OrdenCompra {
+  id_orden_compra   Int       @id @default(autoincrement())
+  numero_orden      String    @unique @db.VarChar(20)
+  fecha_emision     DateTime  @default(now())
+  fecha_entrega     DateTime?
+  estado            String    @default("pendiente") @db.VarChar(20)
+  subtotal          Decimal   @db.Decimal(10,2)
+  igv               Decimal   @db.Decimal(10,2)
+  total             Decimal   @db.Decimal(10,2)
+  notas             String?   @db.Text
+  proveedor         Proveedor @relation(fields: [id_proveedor], references: [id_proveedor])
+  id_proveedor      Int
+  empresa           Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa        Int
+  items             ItemOrdenCompra[]
+  facturas          FacturaCompra[]
+
+  @@map("ordenes_compra")
+}
+
+model ItemOrdenCompra {
+  id_item_orden_compra Int       @id @default(autoincrement())
+  orden_compra         OrdenCompra @relation(fields: [id_orden_compra], references: [id_orden_compra])
+  id_orden_compra      Int
+  producto             ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto          Int
+  cantidad             Int
+  precio_unitario      Decimal   @db.Decimal(10,2)
+  subtotal             Decimal   @db.Decimal(10,2)
+  fecha_entrega        DateTime?
+  estado               String    @default("pendiente") @db.VarChar(20)
+
+  @@map("items_orden_compra")
+}
+
+model FacturaCompra {
+  id_factura_compra  Int       @id @default(autoincrement())
+  numero_factura     String    @unique @db.VarChar(20)
+  fecha_emision      DateTime  @default(now())
+  subtotal           Decimal   @db.Decimal(10,2)
+  igv                Decimal   @db.Decimal(10,2)
+  total              Decimal   @db.Decimal(10,2)
+  estado             String    @default("pendiente") @db.VarChar(20)
+  orden_compra       OrdenCompra @relation(fields: [id_orden_compra], references: [id_orden_compra])
+  id_orden_compra    Int
+  pagos              PagoCompra[]
+
+  @@map("facturas_compra")
+}
+
+model PagoCompra {
+  id_pago_compra     Int       @id @default(autoincrement())
+  factura_compra     FacturaCompra @relation(fields: [id_factura_compra], references: [id_factura_compra])
+  id_factura_compra  Int
+  fecha_pago         DateTime  @default(now())
+  monto              Decimal   @db.Decimal(10,2)
+  metodo_pago        String    @db.VarChar(50)
+  numero_comprobante String?   @db.VarChar(50)
+  estado             String    @default("pendiente") @db.VarChar(20)
+
+  @@map("pagos_compra")
+}
+
+model CotizacionProveedor {
+  id_cotizacion_proveedor Int       @id @default(autoincrement())
+  proveedor              Proveedor  @relation(fields: [id_proveedor], references: [id_proveedor])
+  id_proveedor           Int
+  fecha_emision          DateTime  @default(now())
+  fecha_validez          DateTime
+  subtotal               Decimal   @db.Decimal(10,2)
+  igv                    Decimal   @db.Decimal(10,2)
+  total                  Decimal   @db.Decimal(10,2)
+  estado                 String    @default("pendiente") @db.VarChar(20)
+  notas                  String?   @db.Text
+  items                  ItemCotizacionProveedor[]
+
+  @@map("cotizaciones_proveedor")
+}
+
+model ItemCotizacionProveedor {
+  id_item_cotizacion_proveedor Int       @id @default(autoincrement())
+  cotizacion_proveedor        CotizacionProveedor @relation(fields: [id_cotizacion_proveedor], references: [id_cotizacion_proveedor])
+  id_cotizacion_proveedor     Int
+  producto                    ProductoServicio @relation(fields: [id_producto], references: [id_producto])
+  id_producto                 Int
+  cantidad                    Int
+  precio_unitario             Decimal   @db.Decimal(10,2)
+  subtotal                    Decimal   @db.Decimal(10,2)
+  tiempo_entrega              Int?      // días
+
+  @@map("items_cotizacion_proveedor")
 }

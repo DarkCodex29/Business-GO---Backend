@@ -25,9 +25,30 @@ async function bootstrap() {
   // Configuración de Swagger
   const config = new DocumentBuilder()
     .setTitle('BusinessGo API')
-    .setDescription('API para el sistema de gestión empresarial BusinessGo')
+    .setDescription('API para el sistema BusinessGo')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT',
+    )
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT-REFRESH',
+        description: 'Enter refresh token',
+        in: 'header',
+      },
+      'JWT-REFRESH',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

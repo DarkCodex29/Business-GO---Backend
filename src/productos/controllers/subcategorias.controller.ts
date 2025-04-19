@@ -6,24 +6,45 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiParam,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { SubcategoriasService } from '../services/subcategorias.service';
 import { CreateSubcategoriaDto } from '../dto/create-subcategoria.dto';
 import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
-@ApiTags('Subcategorias')
+@ApiTags('Subcategorías')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('subcategorias')
 export class SubcategoriasController {
   constructor(private readonly subcategoriasService: SubcategoriasService) {}
 
-  @Post()
+  @Post(':categoriaId')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear una nueva subcategoría' })
-  @ApiResponse({ status: 201, description: 'Subcategoría creada exitosamente' })
-  @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  create(@Body() createSubcategoriaDto: CreateSubcategoriaDto) {
-    return this.subcategoriasService.create(createSubcategoriaDto);
+  @ApiParam({
+    name: 'categoriaId',
+    description: 'ID de la categoría',
+    type: 'number',
+  })
+  create(
+    @Param('categoriaId') categoriaId: string,
+    @Body() createSubcategoriaDto: CreateSubcategoriaDto,
+  ) {
+    return this.subcategoriasService.create(
+      +categoriaId,
+      createSubcategoriaDto,
+    );
   }
 
   @Get()
@@ -36,42 +57,57 @@ export class SubcategoriasController {
     return this.subcategoriasService.findAll();
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Obtener una subcategoría por ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Subcategoría encontrada exitosamente',
+  @Get(':categoriaId/:id')
+  @Roles('ADMIN', 'EMPRESA')
+  @ApiOperation({ summary: 'Obtener una subcategoría específica' })
+  @ApiParam({
+    name: 'categoriaId',
+    description: 'ID de la categoría',
+    type: 'number',
   })
-  @ApiResponse({ status: 404, description: 'Subcategoría no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.subcategoriasService.findOne(id);
+  @ApiParam({
+    name: 'id',
+    description: 'ID de la subcategoría',
+    type: 'number',
+  })
+  findOne(@Param('id') id: string) {
+    return this.subcategoriasService.findOne(+id);
   }
 
-  @Patch(':id')
+  @Patch(':categoriaId/:id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar una subcategoría' })
-  @ApiResponse({
-    status: 200,
-    description: 'Subcategoría actualizada exitosamente',
+  @ApiParam({
+    name: 'categoriaId',
+    description: 'ID de la categoría',
+    type: 'number',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Subcategoría o categoría no encontrada',
+  @ApiParam({
+    name: 'id',
+    description: 'ID de la subcategoría',
+    type: 'number',
   })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateSubcategoriaDto: UpdateSubcategoriaDto,
   ) {
-    return this.subcategoriasService.update(id, updateSubcategoriaDto);
+    return this.subcategoriasService.update(+id, updateSubcategoriaDto);
   }
 
-  @Delete(':id')
+  @Delete(':categoriaId/:id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar una subcategoría' })
-  @ApiResponse({
-    status: 200,
-    description: 'Subcategoría eliminada exitosamente',
+  @ApiParam({
+    name: 'categoriaId',
+    description: 'ID de la categoría',
+    type: 'number',
   })
-  @ApiResponse({ status: 404, description: 'Subcategoría no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.subcategoriasService.remove(id);
+  @ApiParam({
+    name: 'id',
+    description: 'ID de la subcategoría',
+    type: 'number',
+  })
+  remove(@Param('id') id: string) {
+    return this.subcategoriasService.remove(+id);
   }
 }

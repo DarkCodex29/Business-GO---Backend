@@ -40,4 +40,4 @@ import { SubcategoriasService } from './services/subcategorias.service';
     SubcategoriasService,
   ],
 })
-export class ProductsModule {}
+export class ProductosModule {}

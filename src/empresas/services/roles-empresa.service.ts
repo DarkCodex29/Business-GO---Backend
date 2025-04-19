@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmpresaRolDto } from '../dto/create-rol-empresa.dto';
 import { UpdateEmpresaRolDto } from '../dto/update-rol-empresa.dto';
@@ -12,7 +17,39 @@ export class RolesEmpresaService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crearRolEmpresa(createRolDto: CreateEmpresaRolDto) {
+    // Verificar unicidad de nombre en la empresa
+    const rolExistente = await this.prisma.rolEmpresa.findFirst({
+      where: {
+        nombre: createRolDto.nombre,
+        id_empresa: createRolDto.id_empresa,
+      },
+    });
+
+    if (rolExistente) {
+      throw new ConflictException(
+        `Ya existe un rol con el nombre "${createRolDto.nombre}" en esta empresa`,
+      );
+    }
+
     const { permisos, ...rolData } = createRolDto;
+
+    // Validar horarios si se proporcionan
+    if (rolData.horario_inicio && rolData.horario_fin) {
+      if (rolData.horario_inicio >= rolData.horario_fin) {
+        throw new ConflictException(
+          'La hora de inicio debe ser menor que la hora de fin',
+        );
+      }
+    }
+
+    // Validar fechas si se proporcionan
+    if (rolData.fecha_inicio && rolData.fecha_fin) {
+      if (rolData.fecha_inicio >= rolData.fecha_fin) {
+        throw new ConflictException(
+          'La fecha de inicio debe ser menor que la fecha de fin',
+        );
+      }
+    }
 
     return this.prisma.rolEmpresa.create({
       data: {
@@ -21,8 +58,8 @@ export class RolesEmpresaService {
           create:
             permisos?.map((id) => ({
               permiso_id: id,
-              recurso: 'empresa', // Valor por defecto
-              accion: 'gestionar', // Valor por defecto
+              recurso: 'empresa',
+              accion: 'gestionar',
             })) || [],
         },
       },
@@ -32,15 +69,27 @@ export class RolesEmpresaService {
             permiso: true,
           },
         },
+        usuarios: true,
+        usuarios_empresa: true,
       },
     });
   }
 
   async findAll(id_empresa: number) {
     return this.prisma.rolEmpresa.findMany({
-      where: { id_empresa },
+      where: {
+        id_empresa,
+        // Filtrar roles activos basados en fechas
+        OR: [{ fecha_fin: null }, { fecha_fin: { gt: new Date() } }],
+      },
       include: {
-        permisos: true,
+        permisos: {
+          include: {
+            permiso: true,
+          },
+        },
+        usuarios: true,
+        usuarios_empresa: true,
       },
     });
   }
@@ -52,7 +101,13 @@ export class RolesEmpresaService {
         id_empresa,
       },
       include: {
-        permisos: true,
+        permisos: {
+          include: {
+            permiso: true,
+          },
+        },
+        usuarios: true,
+        usuarios_empresa: true,
       },
     });
 
@@ -81,17 +136,53 @@ export class RolesEmpresaService {
       throw new NotFoundException(`Rol con ID ${id} no encontrado`);
     }
 
+    // Verificar unicidad de nombre si se está actualizando
+    if (rolData.nombre) {
+      const rolExistente = await this.prisma.rolEmpresa.findFirst({
+        where: {
+          nombre: rolData.nombre,
+          id_empresa,
+          id_rol: { not: id },
+        },
+      });
+
+      if (rolExistente) {
+        throw new ConflictException(
+          `Ya existe un rol con el nombre "${rolData.nombre}" en esta empresa`,
+        );
+      }
+    }
+
+    // Validar horarios si se actualizan
+    if (rolData.horario_inicio && rolData.horario_fin) {
+      if (rolData.horario_inicio >= rolData.horario_fin) {
+        throw new ConflictException(
+          'La hora de inicio debe ser menor que la hora de fin',
+        );
+      }
+    }
+
+    // Validar fechas si se actualizan
+    if (rolData.fecha_inicio && rolData.fecha_fin) {
+      if (rolData.fecha_inicio >= rolData.fecha_fin) {
+        throw new ConflictException(
+          'La fecha de inicio debe ser menor que la fecha de fin',
+        );
+      }
+    }
+
     return this.prisma.rolEmpresa.update({
       where: { id_rol: id },
       data: {
         ...rolData,
+        fecha_actualizacion: new Date(),
         permisos: permisos
           ? {
               deleteMany: {},
               create: permisos.map((id) => ({
                 permiso_id: id,
-                recurso: 'empresa', // Valor por defecto
-                accion: 'gestionar', // Valor por defecto
+                recurso: 'empresa',
+                accion: 'gestionar',
               })),
             }
           : undefined,
@@ -102,6 +193,8 @@ export class RolesEmpresaService {
             permiso: true,
           },
         },
+        usuarios: true,
+        usuarios_empresa: true,
       },
     });
   }
@@ -112,10 +205,21 @@ export class RolesEmpresaService {
         id_rol: id,
         id_empresa,
       },
+      include: {
+        usuarios: true,
+        usuarios_empresa: true,
+      },
     });
 
     if (!rol) {
       throw new NotFoundException(`Rol con ID ${id} no encontrado`);
+    }
+
+    // Verificar si hay usuarios asignados
+    if (rol.usuarios.length > 0 || rol.usuarios_empresa.length > 0) {
+      throw new ConflictException(
+        'No se puede eliminar el rol porque tiene usuarios asignados',
+      );
     }
 
     return this.prisma.rolEmpresa.delete({
@@ -246,31 +350,54 @@ export class RolesEmpresaService {
   }
 
   async asignarRol(asignarRolDto: AsignarRolDto) {
-    const { id_usuario, id_empresa, id_rol } = asignarRolDto;
+    const { id_usuario, id_rol, id_empresa } = asignarRolDto;
 
-    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
+    // Verificar que el rol pertenece a la empresa
+    const rol = await this.prisma.rolEmpresa.findFirst({
       where: {
-        usuario_id: id_usuario,
-        empresa_id: id_empresa,
+        id_rol,
+        id_empresa,
       },
     });
 
-    if (usuarioEmpresa) {
-      return this.prisma.usuarioEmpresa.update({
-        where: {
-          id_usuario_empresa: usuarioEmpresa.id_usuario_empresa,
-        },
-        data: {
-          rol_empresa_id: id_rol,
-        },
-      });
+    if (!rol) {
+      throw new NotFoundException(
+        `Rol con ID ${id_rol} no encontrado en la empresa`,
+      );
     }
 
-    return this.prisma.usuarioEmpresa.create({
+    // Verificar que el usuario está asociado a la empresa
+    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findUnique({
+      where: {
+        usuario_id_empresa_id: {
+          usuario_id: id_usuario,
+          empresa_id: id_empresa,
+        },
+      },
+    });
+
+    if (!usuarioEmpresa) {
+      throw new NotFoundException(
+        `Usuario con ID ${id_usuario} no está asociado a la empresa`,
+      );
+    }
+
+    // Asignar el rol al usuario
+    return this.prisma.usuarioRolEmpresa.create({
       data: {
-        usuario_id: id_usuario,
-        empresa_id: id_empresa,
-        rol_empresa_id: id_rol,
+        id_usuario,
+        id_rol,
+        fecha_inicio: new Date(),
+      },
+      include: {
+        rolEmpresa: true,
+        usuario: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            email: true,
+          },
+        },
       },
     });
   }

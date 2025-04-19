@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { CreateFidelizacionDto } from './dto/create-fidelizacion.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateNotificationDto } from '../dto/create-notification.dto';
+import { CreateFeedbackDto } from '../dto/create-feedback.dto';
+import { CreateFidelizacionDto } from '../dto/create-fidelizacion.dto';
 
 @Injectable()
 export class ClientsService {

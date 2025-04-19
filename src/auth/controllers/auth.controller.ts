@@ -11,10 +11,10 @@ import {
   HttpCode,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthService } from '../services/auth.service';
+import { RegisterDto } from '../dto/register.dto';
+import { LoginDto } from '../dto/login.dto';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   ApiTags,
   ApiOperation,
@@ -22,7 +22,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { Public } from './decorators/public.decorator';
+import { Public } from '../decorators/public.decorator';
 import { Request as ExpressRequest } from 'express';
 
 @ApiTags('Autenticación')
@@ -138,7 +138,37 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  @ApiBearerAuth('JWT-REFRESH')
+  @ApiOperation({ summary: 'Refrescar token de acceso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token refrescado exitosamente',
+    schema: {
+      properties: {
+        accessToken: { type: 'string' },
+        refreshToken: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de refresco inválido o expirado',
+  })
+  @ApiBody({
+    schema: {
+      properties: {
+        refreshToken: {
+          type: 'string',
+          description: 'Token de refresco válido',
+        },
+      },
+      required: ['refreshToken'],
+    },
+  })
   async refreshToken(@Body('refreshToken') refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Token de refresco no proporcionado');
+    }
     return this.authService.refreshToken(refreshToken);
   }
 }

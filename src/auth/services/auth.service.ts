@@ -1,10 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { EmailService } from '../email/email.service';
+import { EmailService } from '../../email/email.service';
 import { SessionService } from './session.service';
 import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
-import { UsersService } from '../users/users.service';
+import { UsersService } from '../../users/users.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -104,17 +104,33 @@ export class AuthService {
 
   async refreshToken(refreshToken: string) {
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken);
-      const user = await this.usersService.findOne(payload.sub);
+      // Verificar el token con el secret específico de refresh
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_TOKEN_SECRET,
+      });
 
+      // Verificar si el token está revocado
+      const isRevoked = await this.sessionService.isTokenRevoked(payload.jti);
+      if (isRevoked) {
+        throw new UnauthorizedException('Token de refresco revocado');
+      }
+
+      const user = await this.usersService.findOne(payload.sub);
       if (!user) {
         throw new UnauthorizedException('Usuario no encontrado');
       }
 
+      // Revocar el token de refresco anterior
+      await this.sessionService.revokeSession(payload.jti, 'refresh');
+
+      // Generar nuevos tokens
       const tokens = await this.generateTokens(user, {} as Request);
       return tokens;
-    } catch {
-      throw new UnauthorizedException('Token de refresco inválido');
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Token de refresco inválido o expirado');
     }
   }
 }

@@ -135,14 +135,14 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
 
 1. **Clonar el repositorio:**
 
-   ```bash
+```bash
    git clone <URL_DEL_REPOSITORIO>
    cd business-go
-   ```
+```
 
 2. **Instalar dependencias:**
 
-   ```bash
+```bash
    npm install
    ```
 
@@ -151,11 +151,11 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
    ```bash
    cp .env.example .env
    # Editar .env con tus valores
-   ```
+```
 
 4. **Aplicar Migraciones:**
 
-   ```bash
+```bash
    npx prisma migrate dev
    ```
 
@@ -167,7 +167,7 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
 
 6. **Ejecutar la Aplicación:**
 
-   ```bash
+```bash
    # Desarrollo
    npm run start:dev
 
