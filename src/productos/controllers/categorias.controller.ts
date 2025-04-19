@@ -7,18 +7,30 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { CategoriasService } from '../services/categorias.service';
 import { CreateCategoriaDto } from '../dto/create-categoria.dto';
 import { UpdateCategoriaDto } from '../dto/update-categoria.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Categorias')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('categorias')
 export class CategoriasController {
   constructor(private readonly categoriasService: CategoriasService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear una nueva categoría' })
   @ApiResponse({ status: 201, description: 'Categoría creada exitosamente' })
   create(@Body() createCategoriaDto: CreateCategoriaDto) {
@@ -47,6 +59,7 @@ export class CategoriasController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar una categoría' })
   @ApiResponse({
     status: 200,
@@ -61,6 +74,7 @@ export class CategoriasController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar una categoría' })
   @ApiResponse({ status: 200, description: 'Categoría eliminada exitosamente' })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })

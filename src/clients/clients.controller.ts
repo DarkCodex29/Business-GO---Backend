@@ -1,17 +1,36 @@
-import { Controller, Post, Get, Patch, Body, Param } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { CreateFidelizacionDto } from './dto/create-fidelizacion.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('Clientes')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('clientes')
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   // Notificaciones
   @Post('notifications')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear una nueva notificación para un cliente' })
   @ApiResponse({ status: 201, description: 'Notificación creada exitosamente' })
   @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
@@ -22,6 +41,7 @@ export class ClientsController {
   }
 
   @Get('notifications/:clienteId')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Obtener todas las notificaciones de un cliente' })
   @ApiResponse({
     status: 200,
@@ -32,6 +52,7 @@ export class ClientsController {
   }
 
   @Patch('notifications/:notificacionId/read')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Marcar una notificación como leída' })
   @ApiResponse({
     status: 200,
@@ -45,6 +66,7 @@ export class ClientsController {
 
   // Feedback
   @Post('feedback')
+  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
   @ApiOperation({ summary: 'Crear un nuevo feedback de un cliente' })
   @ApiResponse({ status: 201, description: 'Feedback creado exitosamente' })
   @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
@@ -53,6 +75,7 @@ export class ClientsController {
   }
 
   @Get('feedback/:clienteId')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Obtener todos los feedback de un cliente' })
   @ApiResponse({
     status: 200,
@@ -64,6 +87,7 @@ export class ClientsController {
 
   // Fidelización
   @Post('fidelizacion')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear un nuevo programa de fidelización para un cliente',
   })
@@ -79,6 +103,7 @@ export class ClientsController {
   }
 
   @Get('fidelizacion/:clienteId')
+  @Roles('ADMIN', 'EMPRESA', 'CLIENTE')
   @ApiOperation({
     summary: 'Obtener el programa de fidelización de un cliente',
   })
@@ -91,6 +116,7 @@ export class ClientsController {
   }
 
   @Patch('fidelizacion/:clienteId/puntos')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar los puntos de fidelización de un cliente',
   })

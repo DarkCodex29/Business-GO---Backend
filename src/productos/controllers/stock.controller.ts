@@ -6,21 +6,33 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { StockService } from '../services/stock.service';
 import { CreateStockDto } from '../dto/create-stock.dto';
 import { UpdateStockDto } from '../dto/update-stock.dto';
 import { CreateDisponibilidadDto } from '../dto/create-disponibilidad.dto';
 import { UpdateDisponibilidadDto } from '../dto/update-disponibilidad.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Stock')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   // Stock endpoints
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear un nuevo registro de stock' })
   @ApiResponse({ status: 201, description: 'Stock creado exitosamente' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
@@ -51,6 +63,7 @@ export class StockController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar un registro de stock' })
   @ApiResponse({ status: 200, description: 'Stock actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Stock no encontrado' })
@@ -59,6 +72,7 @@ export class StockController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar un registro de stock' })
   @ApiResponse({ status: 200, description: 'Stock eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Stock no encontrado' })
@@ -68,6 +82,7 @@ export class StockController {
 
   // Disponibilidad endpoints
   @Post('disponibilidad')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear un nuevo registro de disponibilidad' })
   @ApiResponse({
     status: 201,
@@ -106,6 +121,7 @@ export class StockController {
   }
 
   @Patch('disponibilidad/:id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar un registro de disponibilidad' })
   @ApiResponse({
     status: 200,
@@ -120,6 +136,7 @@ export class StockController {
   }
 
   @Delete('disponibilidad/:id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar un registro de disponibilidad' })
   @ApiResponse({
     status: 200,

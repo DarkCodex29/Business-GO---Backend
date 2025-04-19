@@ -7,18 +7,31 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { PagosService } from '../services/pagos.service';
 import { CreatePagoDto } from '../dto/create-pago.dto';
 import { UpdatePagoDto } from '../dto/update-pago.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Pagos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('pagos')
 export class PagosController {
   constructor(private readonly pagosService: PagosService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear un nuevo pago',
     description: 'Crea un nuevo pago para una compra',
@@ -56,6 +69,7 @@ export class PagosController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar un pago',
     description: 'Actualiza los datos de un pago existente',
@@ -71,6 +85,7 @@ export class PagosController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar un pago',
     description: 'Elimina un pago del sistema',

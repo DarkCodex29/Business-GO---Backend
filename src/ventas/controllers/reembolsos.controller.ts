@@ -6,18 +6,31 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { ReembolsosService } from '../services/reembolsos.service';
 import { CreateReembolsoDto } from '../dto/create-reembolso.dto';
 import { UpdateReembolsoDto } from '../dto/update-reembolso.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Reembolsos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('reembolsos')
 export class ReembolsosController {
   constructor(private readonly reembolsosService: ReembolsosService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear un nuevo reembolso',
     description: 'Crea un nuevo reembolso asociado a un pago existente',
@@ -33,6 +46,7 @@ export class ReembolsosController {
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener todos los reembolsos',
     description: 'Retorna una lista de todos los reembolsos en el sistema',
@@ -46,6 +60,7 @@ export class ReembolsosController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener un reembolso específico',
     description: 'Retorna los detalles de un reembolso específico',
@@ -66,6 +81,7 @@ export class ReembolsosController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar un reembolso',
     description: 'Actualiza los datos de un reembolso existente',
@@ -93,6 +109,7 @@ export class ReembolsosController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar un reembolso',
     description: 'Elimina un reembolso del sistema',

@@ -7,18 +7,31 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { CotizacionesService } from '../services/cotizaciones.service';
 import { CreateCotizacionDto } from '../dto/create-cotizacion.dto';
 import { UpdateCotizacionDto } from '../dto/update-cotizacion.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Cotizaciones')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('cotizaciones')
 export class CotizacionesController {
   constructor(private readonly cotizacionesService: CotizacionesService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear una nueva cotización',
     description: 'Crea una nueva cotización con sus items y detalles',
@@ -76,6 +89,7 @@ export class CotizacionesController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar una cotización',
     description: 'Actualiza los datos de una cotización existente',
@@ -104,6 +118,7 @@ export class CotizacionesController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar una cotización',
     description: 'Elimina una cotización del sistema',

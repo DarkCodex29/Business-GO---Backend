@@ -6,22 +6,34 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { OrdenesVentaService } from '../services/ordenes-venta.service';
 import { CreateOrdenVentaDto } from '../dto/create-orden-venta.dto';
 import { UpdateOrdenVentaDto } from '../dto/update-orden-venta.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Órdenes de Venta')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('ordenes-venta')
 export class OrdenesVentaController {
   constructor(private readonly ordenesVentaService: OrdenesVentaService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear una nueva orden de venta',
-    description: 'Crea una nueva orden de venta con sus items y detalles',
+    description: 'Crea una nueva orden de venta en el sistema',
   })
   @ApiResponse({
     status: 201,
@@ -30,11 +42,11 @@ export class OrdenesVentaController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos o productos no disponibles',
+    description: 'Datos inválidos o la cotización no está en estado pendiente',
   })
   @ApiResponse({
     status: 404,
-    description: 'Empresa, cliente o producto no encontrado',
+    description: 'Empresa, cliente, cotización o producto no encontrado',
   })
   create(@Body() createOrdenVentaDto: CreateOrdenVentaDto) {
     return this.ordenesVentaService.create(createOrdenVentaDto);
@@ -57,8 +69,8 @@ export class OrdenesVentaController {
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Obtener una orden de venta por ID',
-    description: 'Retorna los detalles de una orden de venta específica',
+    summary: 'Obtener una orden de venta',
+    description: 'Retorna una orden de venta específica',
   })
   @ApiParam({
     name: 'id',
@@ -72,14 +84,15 @@ export class OrdenesVentaController {
     type: CreateOrdenVentaDto,
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.ordenesVentaService.findOne(id);
+  findOne(@Param('id') id: string) {
+    return this.ordenesVentaService.findOne(+id);
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar una orden de venta',
-    description: 'Actualiza los datos de una orden de venta existente',
+    description: 'Actualiza una orden de venta existente',
   })
   @ApiParam({
     name: 'id',
@@ -98,13 +111,14 @@ export class OrdenesVentaController {
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateOrdenVentaDto: UpdateOrdenVentaDto,
   ) {
-    return this.ordenesVentaService.update(id, updateOrdenVentaDto);
+    return this.ordenesVentaService.update(+id, updateOrdenVentaDto);
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar una orden de venta',
     description: 'Elimina una orden de venta del sistema',
@@ -124,7 +138,7 @@ export class OrdenesVentaController {
     description: 'No se puede eliminar una orden de venta facturada',
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.ordenesVentaService.remove(id);
+  remove(@Param('id') id: string) {
+    return this.ordenesVentaService.remove(+id);
   }
 }

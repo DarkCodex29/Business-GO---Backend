@@ -6,18 +6,30 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { PreciosService } from '../services/precios.service';
 import { CreatePrecioDto } from '../dto/create-precio.dto';
 import { UpdatePrecioDto } from '../dto/update-precio.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Precios')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('precios')
 export class PreciosController {
   constructor(private readonly preciosService: PreciosService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear un nuevo precio' })
   @ApiResponse({ status: 201, description: 'Precio creado exitosamente' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
@@ -26,6 +38,7 @@ export class PreciosController {
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Obtener todos los precios' })
   @ApiResponse({
     status: 200,
@@ -36,6 +49,7 @@ export class PreciosController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Obtener un precio por ID' })
   @ApiResponse({ status: 200, description: 'Precio encontrado exitosamente' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })
@@ -44,6 +58,7 @@ export class PreciosController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar un precio' })
   @ApiResponse({ status: 200, description: 'Precio actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })
@@ -52,6 +67,7 @@ export class PreciosController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar un precio' })
   @ApiResponse({ status: 200, description: 'Precio eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Precio no encontrado' })

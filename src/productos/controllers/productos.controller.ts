@@ -6,19 +6,30 @@ import {
   Patch,
   Param,
   Delete,
-  ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ProductosService } from '../services/productos.service';
 import { CreateProductoDto } from '../dto/create-producto.dto';
 import { UpdateProductoDto } from '../dto/update-producto.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Productos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('productos')
 export class ProductosController {
   constructor(private readonly productosService: ProductosService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Crear un nuevo producto o servicio' })
   @ApiResponse({ status: 201, description: 'Producto creado exitosamente' })
   create(@Body() createProductoDto: CreateProductoDto) {
@@ -39,11 +50,12 @@ export class ProductosController {
   @ApiOperation({ summary: 'Obtener un producto o servicio por ID' })
   @ApiResponse({ status: 200, description: 'Producto encontrado exitosamente' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.productosService.findOne(id);
+  findOne(@Param('id') id: string) {
+    return this.productosService.findOne(+id);
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Actualizar un producto o servicio' })
   @ApiResponse({
     status: 200,
@@ -51,17 +63,18 @@ export class ProductosController {
   })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateProductoDto: UpdateProductoDto,
   ) {
-    return this.productosService.update(id, updateProductoDto);
+    return this.productosService.update(+id, updateProductoDto);
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({ summary: 'Eliminar un producto o servicio' })
   @ApiResponse({ status: 200, description: 'Producto eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.productosService.remove(id);
+  remove(@Param('id') id: string) {
+    return this.productosService.remove(+id);
   }
 }

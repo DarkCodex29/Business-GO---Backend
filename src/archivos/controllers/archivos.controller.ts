@@ -20,16 +20,21 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Archivos')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('archivos')
-@UseGuards(JwtAuthGuard)
 export class ArchivosController {
   constructor(private readonly archivosService: ArchivosService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear archivo',
     description: 'Crea un nuevo archivo multimedia',
@@ -47,6 +52,7 @@ export class ArchivosController {
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener archivos',
     description: 'Retorna una lista de archivos con filtros opcionales',
@@ -102,6 +108,7 @@ export class ArchivosController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener archivo',
     description: 'Retorna un archivo específico',
@@ -124,6 +131,7 @@ export class ArchivosController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar archivo',
     description: 'Actualiza un archivo existente',
@@ -149,6 +157,7 @@ export class ArchivosController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar archivo',
     description: 'Elimina un archivo',
@@ -171,6 +180,7 @@ export class ArchivosController {
   }
 
   @Post(':id/versiones')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear versión',
     description: 'Crea una nueva versión de un archivo',

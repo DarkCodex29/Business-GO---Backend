@@ -7,18 +7,31 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { FacturasService } from '../services/facturas.service';
 import { CreateFacturaDto } from '../dto/create-factura.dto';
 import { UpdateFacturaDto } from '../dto/update-factura.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Facturas')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('facturas')
 export class FacturasController {
   constructor(private readonly facturasService: FacturasService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear una nueva factura',
     description:
@@ -77,6 +90,7 @@ export class FacturasController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar una factura',
     description: 'Actualiza los datos de una factura existente',
@@ -105,6 +119,7 @@ export class FacturasController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar una factura',
     description: 'Elimina una factura del sistema',

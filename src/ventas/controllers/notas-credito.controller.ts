@@ -7,18 +7,31 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { NotasCreditoService } from '../services/notas-credito.service';
 import { CreateNotaCreditoDto } from '../dto/create-nota-credito.dto';
 import { UpdateNotaCreditoDto } from '../dto/update-nota-credito.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Notas de Crédito')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('notas-credito')
 export class NotasCreditoController {
   constructor(private readonly notasCreditoService: NotasCreditoService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear una nueva nota de crédito',
     description:
@@ -43,6 +56,7 @@ export class NotasCreditoController {
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener todas las notas de crédito',
     description:
@@ -58,6 +72,7 @@ export class NotasCreditoController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener una nota de crédito por ID',
     description: 'Retorna los detalles de una nota de crédito específica',
@@ -79,6 +94,7 @@ export class NotasCreditoController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar una nota de crédito',
     description: 'Actualiza los datos de una nota de crédito existente',
@@ -107,6 +123,7 @@ export class NotasCreditoController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar una nota de crédito',
     description: 'Elimina una nota de crédito del sistema',

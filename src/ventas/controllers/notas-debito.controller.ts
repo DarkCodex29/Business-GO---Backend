@@ -7,18 +7,31 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { NotasDebitoService } from '../services/notas-debito.service';
 import { CreateNotaDebitoDto } from '../dto/create-nota-debito.dto';
 import { UpdateNotaDebitoDto } from '../dto/update-nota-debito.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Notas de Débito')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('notas-debito')
 export class NotasDebitoController {
   constructor(private readonly notasDebitoService: NotasDebitoService) {}
 
   @Post()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Crear una nueva nota de débito',
     description:
@@ -42,6 +55,7 @@ export class NotasDebitoController {
   }
 
   @Get()
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener todas las notas de débito',
     description: 'Retorna una lista de todas las notas de débito en el sistema',
@@ -56,6 +70,7 @@ export class NotasDebitoController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Obtener una nota de débito por ID',
     description: 'Retorna los detalles de una nota de débito específica',
@@ -77,6 +92,7 @@ export class NotasDebitoController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Actualizar una nota de débito',
     description: 'Actualiza los datos de una nota de débito existente',
@@ -105,6 +121,7 @@ export class NotasDebitoController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'EMPRESA')
   @ApiOperation({
     summary: 'Eliminar una nota de débito',
     description: 'Elimina una nota de débito del sistema',
