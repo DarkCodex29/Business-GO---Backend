@@ -8,98 +8,109 @@ export class SubcategoriasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    empresaId: number,
     categoriaId: number,
     createSubcategoriaDto: CreateSubcategoriaDto,
   ) {
-    const categoria = await this.prisma.categoria.findUnique({
-      where: { id_categoria: categoriaId },
+    // Verificar que la categoría pertenece a la empresa
+    const categoria = await this.prisma.categoria.findFirst({
+      where: {
+        id_categoria: categoriaId,
+        productos: {
+          some: {
+            id_empresa: empresaId,
+          },
+        },
+      },
     });
 
     if (!categoria) {
       throw new NotFoundException(
-        `Categoría con ID ${categoriaId} no encontrada`,
+        `Categoría con ID ${categoriaId} no encontrada en la empresa ${empresaId}`,
       );
     }
 
     return this.prisma.subcategoria.create({
       data: {
-        nombre: createSubcategoriaDto.nombre,
+        ...createSubcategoriaDto,
         id_categoria: categoriaId,
       },
-      include: {
-        categoria: true,
-      },
     });
   }
 
-  async findAll() {
+  async findAll(empresaId: number) {
     return this.prisma.subcategoria.findMany({
+      where: {
+        categoria: {
+          productos: {
+            some: {
+              id_empresa: empresaId,
+            },
+          },
+        },
+      },
       include: {
         categoria: true,
       },
     });
   }
 
-  async findOne(id: number) {
-    const subcategoria = await this.prisma.subcategoria.findUnique({
-      where: { id_subcategoria: id },
+  async findOne(empresaId: number, categoriaId: number, id: number) {
+    const subcategoria = await this.prisma.subcategoria.findFirst({
+      where: {
+        id_subcategoria: id,
+        id_categoria: categoriaId,
+        categoria: {
+          productos: {
+            some: {
+              id_empresa: empresaId,
+            },
+          },
+        },
+      },
       include: {
         categoria: true,
-        productos: true,
       },
     });
 
     if (!subcategoria) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
+      throw new NotFoundException(
+        `Subcategoría con ID ${id} no encontrada en la categoría ${categoriaId} de la empresa ${empresaId}`,
+      );
     }
 
     return subcategoria;
   }
 
-  async update(id: number, updateSubcategoriaDto: UpdateSubcategoriaDto) {
-    const subcategoria = await this.prisma.subcategoria.findUnique({
-      where: { id_subcategoria: id },
-    });
-
-    if (!subcategoria) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
-    }
-
-    if (updateSubcategoriaDto.id_categoria) {
-      const categoria = await this.prisma.categoria.findUnique({
-        where: { id_categoria: updateSubcategoriaDto.id_categoria },
-      });
-
-      if (!categoria) {
-        throw new NotFoundException(
-          `Categoría con ID ${updateSubcategoriaDto.id_categoria} no encontrada`,
-        );
-      }
-    }
+  async update(
+    empresaId: number,
+    categoriaId: number,
+    id: number,
+    updateSubcategoriaDto: UpdateSubcategoriaDto,
+  ) {
+    await this.findOne(empresaId, categoriaId, id);
 
     return this.prisma.subcategoria.update({
-      where: { id_subcategoria: id },
-      data: {
-        nombre: updateSubcategoriaDto.nombre,
-        id_categoria: updateSubcategoriaDto.id_categoria,
+      where: {
+        id_subcategoria: id,
       },
+      data: updateSubcategoriaDto,
       include: {
         categoria: true,
       },
     });
   }
 
-  async remove(id: number) {
-    const subcategoria = await this.prisma.subcategoria.findUnique({
-      where: { id_subcategoria: id },
-    });
-
-    if (!subcategoria) {
-      throw new NotFoundException(`Subcategoría con ID ${id} no encontrada`);
-    }
+  async remove(empresaId: number, categoriaId: number, id: number) {
+    await this.findOne(empresaId, categoriaId, id);
 
     return this.prisma.subcategoria.delete({
-      where: { id_subcategoria: id },
+      where: {
+        id_subcategoria: id,
+      },
+      include: {
+        categoria: true,
+      },
     });
   }
 }
