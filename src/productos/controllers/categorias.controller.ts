@@ -15,25 +15,27 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CategoriasService } from '../services/categorias.service';
 import { CreateCategoriaDto } from '../dto/create-categoria.dto';
 import { UpdateCategoriaDto } from '../dto/update-categoria.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Categorías')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('categorias/:empresaId')
 export class CategoriasController {
   constructor(private readonly categoriasService: CategoriasService) {}
 
   @Post()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('categorias.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Crear una nueva categoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Categoría creada exitosamente' })
@@ -47,8 +49,7 @@ export class CategoriasController {
   }
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('categorias.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener todas las categorías' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de categorías' })
@@ -57,8 +58,7 @@ export class CategoriasController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('categorias.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener una categoría por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la categoría' })
@@ -69,8 +69,7 @@ export class CategoriasController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('categorias.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Actualizar una categoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la categoría' })
@@ -85,8 +84,7 @@ export class CategoriasController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('categorias.eliminar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.DELETE] })
   @ApiOperation({ summary: 'Eliminar una categoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la categoría' })

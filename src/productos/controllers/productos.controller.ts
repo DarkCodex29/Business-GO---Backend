@@ -15,22 +15,27 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ProductosService } from '../services/productos.service';
 import { CreateProductoDto } from '../dto/create-producto.dto';
 import { UpdateProductoDto } from '../dto/update-producto.dto';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Productos')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('productos/:empresaId')
 export class ProductosController {
   constructor(private readonly productosService: ProductosService) {}
 
   @Post()
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Crear un nuevo producto o servicio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Producto creado exitosamente' })
@@ -44,7 +49,7 @@ export class ProductosController {
   }
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({
     summary: 'Obtener todos los productos y servicios de una empresa',
   })
@@ -55,7 +60,7 @@ export class ProductosController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener un producto o servicio por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -66,7 +71,7 @@ export class ProductosController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Actualizar un producto o servicio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -81,7 +86,7 @@ export class ProductosController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.DELETE] })
   @ApiOperation({ summary: 'Eliminar un producto o servicio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })

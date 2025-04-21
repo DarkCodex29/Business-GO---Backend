@@ -7,20 +7,40 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfiguracionRegionalService } from '../services/configuracion-regional.service';
 import { CreateConfiguracionRegionalDto } from '../dto/create-configuracion-regional.dto';
 import { UpdateConfiguracionRegionalDto } from '../dto/update-configuracion-regional.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Configuración Regional')
 @Controller('empresas/:empresaId/configuracion-regional')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.ADMIN)
+@ApiBearerAuth()
 export class ConfiguracionRegionalController {
   constructor(
     private readonly configuracionRegionalService: ConfiguracionRegionalService,
   ) {}
 
   @Post()
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.REGIONAL.WRITE],
+  })
   @ApiOperation({
     summary: 'Crear configuración regional',
     description: 'Crea una nueva configuración regional para una empresa',
@@ -53,6 +73,9 @@ export class ConfiguracionRegionalController {
   }
 
   @Get()
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.REGIONAL.READ],
+  })
   @ApiOperation({
     summary: 'Obtener todas las configuraciones regionales',
     description: 'Retorna una lista de todas las configuraciones regionales',
@@ -66,6 +89,9 @@ export class ConfiguracionRegionalController {
   }
 
   @Get(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.REGIONAL.READ],
+  })
   @ApiOperation({
     summary: 'Obtener configuración regional',
     description: 'Retorna la configuración regional de una empresa específica',
@@ -88,6 +114,9 @@ export class ConfiguracionRegionalController {
   }
 
   @Patch(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.REGIONAL.WRITE],
+  })
   @ApiOperation({
     summary: 'Actualizar configuración regional',
     description: 'Actualiza la configuración regional de una empresa',
@@ -116,6 +145,9 @@ export class ConfiguracionRegionalController {
   }
 
   @Delete(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.REGIONAL.DELETE],
+  })
   @ApiOperation({
     summary: 'Eliminar configuración regional',
     description: 'Elimina la configuración regional de una empresa',

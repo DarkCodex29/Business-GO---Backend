@@ -1,7 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+  IsNumber,
+} from 'class-validator';
 
 export class ChangePasswordDto {
+  @ApiProperty({
+    description: 'ID del usuario',
+    example: 1,
+  })
+  @IsNumber()
+  usuario_id: number;
+
   @ApiProperty({
     description: 'Contraseña actual del usuario',
     example: 'ContraseñaActual123!',

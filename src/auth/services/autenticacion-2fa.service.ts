@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { authenticator } from 'otplib';
-import { RolesPredefinidosConfig } from '../config/roles-predefinidos.config';
+import { RolesPredefinidosConfig } from '../../common/config/roles-predefinidos.config';
 
 @Injectable()
 export class Autenticacion2FAService {

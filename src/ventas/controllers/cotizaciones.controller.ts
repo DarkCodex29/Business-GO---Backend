@@ -20,7 +20,7 @@ import { CotizacionesService } from '../services/cotizaciones.service';
 import { CreateCotizacionDto } from '../dto/create-cotizacion.dto';
 import { UpdateCotizacionDto } from '../dto/update-cotizacion.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';

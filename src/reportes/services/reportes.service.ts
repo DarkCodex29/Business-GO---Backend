@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReporteDto, TipoReporte } from '../dto/create-reporte.dto';
 import {
@@ -17,13 +21,26 @@ export class ReportesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createReporteDto: CreateReporteDto, usuarioId: number) {
-    const { id_empresa, ...reporteData } = createReporteDto;
+    // Obtener el usuario y su empresa
+    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
+      where: {
+        usuario_id: usuarioId,
+        fecha_fin: null, // Usuario activo es aquel que no tiene fecha_fin
+      },
+      include: {
+        empresa: true,
+      },
+    });
+
+    if (!usuarioEmpresa) {
+      throw new ForbiddenException('Usuario no tiene una empresa asociada');
+    }
 
     return this.prisma.reporte.create({
       data: {
-        ...reporteData,
+        ...createReporteDto,
         id_usuario: usuarioId,
-        id_empresa,
+        id_empresa: usuarioEmpresa.empresa_id,
       },
       include: {
         empresa: true,
@@ -90,25 +107,25 @@ export class ReportesService {
       // Generar el reporte según su tipo
       let resultado;
       switch (reporte.tipo_reporte) {
-        case 'ventas':
+        case TipoReporte.VENTAS:
           resultado = await this.getReporteVentas(
             empresaId,
             reporte.parametros as ReporteParamsDto,
           );
           break;
-        case 'productos':
+        case TipoReporte.PRODUCTOS:
           resultado = await this.getReporteProductos(
             empresaId,
             reporte.parametros as ReporteParamsDto,
           );
           break;
-        case 'clientes':
+        case TipoReporte.CLIENTES:
           resultado = await this.getReporteClientes(
             empresaId,
             reporte.parametros as ReporteParamsDto,
           );
           break;
-        case 'financiero':
+        case TipoReporte.FINANCIERO:
           resultado = await this.getReporteFinanciero(
             empresaId,
             reporte.parametros as ReporteParamsDto,

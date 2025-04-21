@@ -14,16 +14,16 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { Autenticacion2FAService } from '../services/autenticacion-2fa.service';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RolesGuard } from '../guards/roles.guard';
-import { Roles } from '../decorators/roles.decorator';
-import { RolesPredefinidosConfig } from '../config/roles-predefinidos.config';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
 
 @ApiTags('Autenticación 2FA')
 @ApiBearerAuth()
 @Controller('auth/2fa')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RolesPredefinidosConfig.ROLES_GLOBALES.SUPER_ADMIN.nombre)
+@Roles(ROLES.SUPER_ADMIN)
 export class Autenticacion2FAController {
   constructor(
     private readonly autenticacion2FAService: Autenticacion2FAService,

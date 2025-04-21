@@ -7,7 +7,6 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEmpresaRolDto } from '../dto/create-rol-empresa.dto';
 import { UpdateEmpresaRolDto } from '../dto/update-rol-empresa.dto';
-import { AsignarPermisoRolEmpresaDto } from '../dto/asignar-permiso-rol-empresa.dto';
 import { AsignarRolDto } from '../dto/asignar-rol.dto';
 
 @Injectable()
@@ -215,46 +214,82 @@ export class RolesEmpresaService {
       throw new NotFoundException(`Rol con ID ${id} no encontrado`);
     }
 
-    // Verificar si hay usuarios asignados
+    // Verificar si el rol tiene usuarios asignados
     if (rol.usuarios.length > 0 || rol.usuarios_empresa.length > 0) {
       throw new ConflictException(
         'No se puede eliminar el rol porque tiene usuarios asignados',
       );
     }
 
+    // Eliminar permisos asociados
+    await this.prisma.permisoRolEmpresa.deleteMany({
+      where: {
+        id_rol: id,
+      },
+    });
+
     return this.prisma.rolEmpresa.delete({
       where: { id_rol: id },
     });
   }
 
-  async asignarPermiso(
+  async asignarPermisos(
     id_empresa: number,
-    asignarPermisoDto: AsignarPermisoRolEmpresaDto,
+    id_rol: number,
+    permisoIds: number[],
   ) {
-    const { rol_id, permiso_id } = asignarPermisoDto;
-
+    // Verificar que el rol existe
     const rol = await this.prisma.rolEmpresa.findFirst({
       where: {
-        id_rol: rol_id,
+        id_rol,
         id_empresa,
       },
     });
 
     if (!rol) {
-      throw new NotFoundException(`Rol con ID ${rol_id} no encontrado`);
+      throw new NotFoundException(`Rol con ID ${id_rol} no encontrado`);
     }
 
-    return this.prisma.rolEmpresa.update({
-      where: { id_rol: rol_id },
-      data: {
-        permisos: {
-          create: {
-            permiso_id,
-            recurso: 'empresa', // Valor por defecto
-            accion: 'gestionar', // Valor por defecto
-          },
-        },
+    // Verificar que los permisos existen
+    for (const permisoId of permisoIds) {
+      const permiso = await this.prisma.permiso.findUnique({
+        where: { id_permiso: permisoId },
+      });
+
+      if (!permiso) {
+        throw new NotFoundException(
+          `Permiso con ID ${permisoId} no encontrado`,
+        );
+      }
+    }
+
+    // Eliminar permisos existentes
+    await this.prisma.permisoRolEmpresa.deleteMany({
+      where: {
+        id_rol,
       },
+    });
+
+    // Crear nuevos permisos
+    await Promise.all(
+      permisoIds.map((permisoId) =>
+        this.prisma.permisoRolEmpresa.create({
+          data: {
+            id_rol,
+            permiso_id: permisoId,
+            recurso: 'empresa',
+            accion: 'gestionar',
+          },
+        }),
+      ),
+    );
+
+    this.logger.log(
+      `Permisos asignados al rol ${id_rol} de la empresa ${id_empresa}`,
+    );
+
+    return this.prisma.rolEmpresa.findUnique({
+      where: { id_rol },
       include: {
         permisos: {
           include: {
@@ -270,6 +305,7 @@ export class RolesEmpresaService {
     id_rol: number,
     id_permiso: number,
   ) {
+    // Verificar que el rol existe
     const rol = await this.prisma.rolEmpresa.findFirst({
       where: {
         id_rol,
@@ -281,6 +317,16 @@ export class RolesEmpresaService {
       throw new NotFoundException(`Rol con ID ${id_rol} no encontrado`);
     }
 
+    // Verificar que el permiso existe
+    const permiso = await this.prisma.permiso.findUnique({
+      where: { id_permiso },
+    });
+
+    if (!permiso) {
+      throw new NotFoundException(`Permiso con ID ${id_permiso} no encontrado`);
+    }
+
+    // Verificar que el permiso está asignado al rol
     const permisoRol = await this.prisma.permisoRolEmpresa.findFirst({
       where: {
         id_rol,
@@ -290,13 +336,20 @@ export class RolesEmpresaService {
 
     if (!permisoRol) {
       throw new NotFoundException(
-        `Permiso con ID ${id_permiso} no encontrado para el rol ${id_rol}`,
+        `El permiso ${id_permiso} no está asignado al rol ${id_rol}`,
       );
     }
 
-    return this.prisma.permisoRolEmpresa.delete({
+    // Eliminar el permiso
+    await this.prisma.permisoRolEmpresa.delete({
       where: { id_permiso_rol: permisoRol.id_permiso_rol },
     });
+
+    this.logger.log(
+      `Permiso ${id_permiso} eliminado del rol ${id_rol} de la empresa ${id_empresa}`,
+    );
+
+    return { mensaje: 'Permiso eliminado exitosamente' };
   }
 
   async verificarPermiso(
@@ -305,81 +358,175 @@ export class RolesEmpresaService {
     recurso: string,
     accion: string,
   ) {
-    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
+    // Verificar si el usuario tiene el permiso directamente
+    const permisoUsuario = await this.prisma.permisoUsuario.findFirst({
       where: {
         usuario_id: id_usuario,
-        empresa_id: id_empresa,
+        permiso: {
+          recurso,
+          accion,
+        },
+      },
+    });
+
+    if (permisoUsuario) {
+      return { tienePermiso: true, origen: 'directo' };
+    }
+
+    // Verificar si el usuario tiene el permiso a través de un rol de empresa
+    const usuarioRolEmpresa = await this.prisma.usuarioRolEmpresa.findFirst({
+      where: {
+        id_usuario,
+        rolEmpresa: {
+          id_empresa,
+        },
       },
       include: {
-        rol_empresa: {
+        rolEmpresa: {
           include: {
-            permisos: true,
+            permisos: {
+              include: {
+                permiso: true,
+              },
+            },
           },
         },
       },
     });
 
-    if (!usuarioEmpresa || !usuarioEmpresa.rol_empresa) {
-      return false;
-    }
-
-    return usuarioEmpresa.rol_empresa.permisos.some(
-      (permiso) => permiso.recurso === recurso && permiso.accion === accion,
-    );
-  }
-
-  async inicializarRolesPredefinidos(id_empresa: number) {
-    const rolesPredefinidos = [
-      {
-        nombre: 'Administrador',
-        descripcion: 'Rol con todos los permisos',
-        id_empresa,
-      },
-      {
-        nombre: 'Usuario',
-        descripcion: 'Rol básico con permisos limitados',
-        id_empresa,
-      },
-    ];
-
-    return Promise.all(
-      rolesPredefinidos.map((rol) =>
-        this.prisma.rolEmpresa.create({ data: rol }),
-      ),
-    );
-  }
-
-  async asignarRol(asignarRolDto: AsignarRolDto) {
-    const { id_usuario, id_rol, id_empresa } = asignarRolDto;
-
-    // Verificar que el rol pertenece a la empresa
-    const rol = await this.prisma.rolEmpresa.findFirst({
-      where: {
-        id_rol,
-        id_empresa,
-      },
-    });
-
-    if (!rol) {
-      throw new NotFoundException(
-        `Rol con ID ${id_rol} no encontrado en la empresa`,
+    if (usuarioRolEmpresa) {
+      const tienePermiso = usuarioRolEmpresa.rolEmpresa.permisos.some(
+        (p) => p.permiso.recurso === recurso && p.permiso.accion === accion,
       );
+
+      if (tienePermiso) {
+        return {
+          tienePermiso: true,
+          origen: 'rol_empresa',
+          rol: usuarioRolEmpresa.rolEmpresa.nombre,
+        };
+      }
     }
 
-    // Verificar que el usuario está asociado a la empresa
-    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findUnique({
-      where: {
-        usuario_id_empresa_id: {
-          usuario_id: id_usuario,
-          empresa_id: id_empresa,
+    // Verificar si el usuario tiene el permiso a través de un rol del sistema
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario },
+      include: {
+        rol: {
+          include: {
+            permisoRol: {
+              include: {
+                permiso: true,
+              },
+            },
+          },
         },
       },
     });
 
-    if (!usuarioEmpresa) {
-      throw new NotFoundException(
-        `Usuario con ID ${id_usuario} no está asociado a la empresa`,
+    if (usuario && usuario.rol) {
+      const tienePermiso = usuario.rol.permisoRol.some(
+        (p) => p.permiso.recurso === recurso && p.permiso.accion === accion,
       );
+
+      if (tienePermiso) {
+        return {
+          tienePermiso: true,
+          origen: 'rol_sistema',
+          rol: usuario.rol.nombre,
+        };
+      }
+    }
+
+    return { tienePermiso: false };
+  }
+
+  async inicializarRolesPredefinidos(id_empresa: number) {
+    // Verificar si ya existen roles predefinidos
+    const rolesExistentes = await this.prisma.rolEmpresa.findMany({
+      where: {
+        id_empresa,
+      },
+    });
+
+    if (rolesExistentes.length > 0) {
+      throw new ConflictException(
+        'Ya existen roles para esta empresa. No se pueden inicializar roles predefinidos.',
+      );
+    }
+
+    // Roles predefinidos
+    const rolesPredefinidos = [
+      {
+        nombre: 'Administrador',
+        descripcion: 'Administrador de la empresa con acceso total',
+        id_empresa,
+      },
+      {
+        nombre: 'Gerente',
+        descripcion: 'Gerente con acceso a la mayoría de funcionalidades',
+        id_empresa,
+      },
+      {
+        nombre: 'Empleado',
+        descripcion: 'Empleado con acceso básico',
+        id_empresa,
+      },
+    ];
+
+    // Crear roles predefinidos
+    const rolesCreados = await Promise.all(
+      rolesPredefinidos.map((rol) =>
+        this.prisma.rolEmpresa.create({
+          data: rol,
+        }),
+      ),
+    );
+
+    this.logger.log(
+      `Roles predefinidos inicializados para la empresa ${id_empresa}`,
+    );
+
+    return rolesCreados;
+  }
+
+  async asignarRol(empresaId: number, asignarRolDto: AsignarRolDto) {
+    const { id_usuario, id_rol } = asignarRolDto;
+
+    // Verificar que el usuario existe y pertenece a la empresa
+    const usuario = await this.prisma.usuarioEmpresa.findFirst({
+      where: {
+        usuario_id: id_usuario,
+        empresa_id: empresaId,
+      },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado en la empresa');
+    }
+
+    // Verificar que el rol existe y pertenece a la empresa
+    const rol = await this.prisma.rolEmpresa.findFirst({
+      where: {
+        id_rol,
+        id_empresa: empresaId,
+      },
+    });
+
+    if (!rol) {
+      throw new NotFoundException('Rol no encontrado en la empresa');
+    }
+
+    // Verificar que el usuario no tenga ya asignado este rol
+    const rolAsignado = await this.prisma.usuarioRolEmpresa.findFirst({
+      where: {
+        id_usuario,
+        id_rol,
+      },
+    });
+
+    if (rolAsignado) {
+      throw new ConflictException('El usuario ya tiene asignado este rol');
     }
 
     // Asignar el rol al usuario
@@ -390,14 +537,57 @@ export class RolesEmpresaService {
         fecha_inicio: new Date(),
       },
       include: {
+        usuario: true,
         rolEmpresa: true,
-        usuario: {
-          select: {
-            id_usuario: true,
-            nombre: true,
-            email: true,
-          },
-        },
+      },
+    });
+  }
+
+  async removerRol(empresaId: number, id_usuario: number, id_rol: number) {
+    // Verificar que el usuario existe y pertenece a la empresa
+    const usuario = await this.prisma.usuarioEmpresa.findFirst({
+      where: {
+        usuario_id: id_usuario,
+        empresa_id: empresaId,
+      },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado en la empresa');
+    }
+
+    // Verificar que el rol existe y pertenece a la empresa
+    const rol = await this.prisma.rolEmpresa.findFirst({
+      where: {
+        id_rol,
+        id_empresa: empresaId,
+      },
+    });
+
+    if (!rol) {
+      throw new NotFoundException('Rol no encontrado en la empresa');
+    }
+
+    // Verificar que el usuario tenga asignado este rol
+    const rolAsignado = await this.prisma.usuarioRolEmpresa.findFirst({
+      where: {
+        id_usuario,
+        id_rol,
+      },
+    });
+
+    if (!rolAsignado) {
+      throw new NotFoundException('El usuario no tiene asignado este rol');
+    }
+
+    // Remover el rol del usuario
+    return this.prisma.usuarioRolEmpresa.delete({
+      where: {
+        id_usuario_rol: rolAsignado.id_usuario_rol,
+      },
+      include: {
+        usuario: true,
+        rolEmpresa: true,
       },
     });
   }

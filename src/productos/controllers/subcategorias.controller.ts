@@ -15,25 +15,27 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { SubcategoriasService } from '../services/subcategorias.service';
 import { CreateSubcategoriaDto } from '../dto/create-subcategoria.dto';
 import { UpdateSubcategoriaDto } from '../dto/update-subcategoria.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Subcategorías')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('subcategorias/:empresaId')
-@Roles('ADMIN', 'EMPRESA')
 export class SubcategoriasController {
   constructor(private readonly subcategoriasService: SubcategoriasService) {}
 
   @Post(':categoriaId')
-  @EmpresaPermissions('subcategorias.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Crear una nueva subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({
@@ -54,7 +56,7 @@ export class SubcategoriasController {
   }
 
   @Get()
-  @EmpresaPermissions('subcategorias.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener todas las subcategorías de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -65,42 +67,29 @@ export class SubcategoriasController {
     return this.subcategoriasService.findAll(+empresaId);
   }
 
-  @Get(':categoriaId/:id')
-  @EmpresaPermissions('subcategorias.ver')
-  @ApiOperation({ summary: 'Obtener una subcategoría específica' })
+  @Get(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
+  @ApiOperation({ summary: 'Obtener una subcategoría por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'categoriaId',
-    description: 'ID de la categoría',
-    type: 'number',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la subcategoría',
-    type: 'number',
-  })
+  @ApiParam({ name: 'id', description: 'ID de la subcategoría' })
+  @ApiResponse({ status: 200, description: 'Subcategoría encontrada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría no encontrada' })
   findOne(
     @Param('empresaId') empresaId: string,
     @Param('categoriaId') categoriaId: string,
     @Param('id') id: string,
   ) {
-    return this.subcategoriasService.findOne(+empresaId, +categoriaId, +id);
+    return this.subcategoriasService.findOne(+id, +categoriaId, +empresaId);
   }
 
-  @Patch(':categoriaId/:id')
-  @EmpresaPermissions('subcategorias.editar')
+  @Patch(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Actualizar una subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'categoriaId',
-    description: 'ID de la categoría',
-    type: 'number',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la subcategoría',
-    type: 'number',
-  })
+  @ApiParam({ name: 'categoriaId', description: 'ID de la categoría' })
+  @ApiParam({ name: 'id', description: 'ID de la subcategoría' })
+  @ApiResponse({ status: 200, description: 'Subcategoría actualizada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría no encontrada' })
   update(
     @Param('empresaId') empresaId: string,
     @Param('categoriaId') categoriaId: string,
@@ -108,32 +97,26 @@ export class SubcategoriasController {
     @Body() updateSubcategoriaDto: UpdateSubcategoriaDto,
   ) {
     return this.subcategoriasService.update(
-      +empresaId,
-      +categoriaId,
       +id,
+      +categoriaId,
+      +empresaId,
       updateSubcategoriaDto,
     );
   }
 
-  @Delete(':categoriaId/:id')
-  @EmpresaPermissions('subcategorias.eliminar')
+  @Delete(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.DELETE] })
   @ApiOperation({ summary: 'Eliminar una subcategoría' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({
-    name: 'categoriaId',
-    description: 'ID de la categoría',
-    type: 'number',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'ID de la subcategoría',
-    type: 'number',
-  })
+  @ApiParam({ name: 'categoriaId', description: 'ID de la categoría' })
+  @ApiParam({ name: 'id', description: 'ID de la subcategoría' })
+  @ApiResponse({ status: 200, description: 'Subcategoría eliminada' })
+  @ApiResponse({ status: 404, description: 'Subcategoría no encontrada' })
   remove(
     @Param('empresaId') empresaId: string,
     @Param('categoriaId') categoriaId: string,
     @Param('id') id: string,
   ) {
-    return this.subcategoriasService.remove(+empresaId, +categoriaId, +id);
+    return this.subcategoriasService.remove(+id, +categoriaId, +empresaId);
   }
 }

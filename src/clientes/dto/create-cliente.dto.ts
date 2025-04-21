@@ -6,12 +6,19 @@ import {
   IsNumber,
   IsEnum,
   IsUUID,
+  IsObject,
 } from 'class-validator';
 
 export enum TipoCliente {
   INDIVIDUAL = 'individual',
   EMPRESA = 'empresa',
   VIP = 'vip',
+}
+
+export interface PreferenciasCliente {
+  idioma?: string;
+  moneda?: string;
+  [key: string]: any;
 }
 
 export class CreateClientDto {
@@ -48,12 +55,13 @@ export class CreateClientDto {
   tipo_cliente: TipoCliente;
 
   @ApiProperty({
-    description: 'Preferencias del cliente en formato JSON',
+    description: 'Preferencias del cliente',
     example: { idioma: 'es', moneda: 'PEN' },
     required: false,
   })
   @IsOptional()
-  preferencias?: any;
+  @IsObject()
+  preferencias?: PreferenciasCliente;
 
   @ApiProperty({
     description: 'Límite de crédito del cliente',

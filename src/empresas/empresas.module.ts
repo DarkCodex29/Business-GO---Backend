@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { EmpresasController } from './controllers/empresas.controller';
 import { EmpresasService } from './services/empresas.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { RolesEmpresaModule } from './modules/roles-empresa.module';
+import { RolesEmpresaModule } from '../roles-empresa/roles-empresa.module';
 
 @Module({
   imports: [PrismaModule, RolesEmpresaModule],

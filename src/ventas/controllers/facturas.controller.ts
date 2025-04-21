@@ -20,7 +20,7 @@ import { FacturasService } from '../services/facturas.service';
 import { CreateFacturaDto } from '../dto/create-factura.dto';
 import { UpdateFacturaDto } from '../dto/update-factura.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';

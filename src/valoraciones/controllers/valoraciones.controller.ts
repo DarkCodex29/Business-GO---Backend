@@ -16,9 +16,9 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ValoracionesService } from '../services/valoraciones.service';
 import { CreateValoracionDto } from '../dto/create-valoracion.dto';
 import { UpdateValoracionDto } from '../dto/update-valoracion.dto';
@@ -87,7 +87,11 @@ export class ValoracionesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateValoracionDto: UpdateValoracionDto,
   ) {
-    return this.valoracionesService.update(+id, +empresaId, updateValoracionDto);
+    return this.valoracionesService.update(
+      +id,
+      +empresaId,
+      updateValoracionDto,
+    );
   }
 
   @Delete(':empresaId/:id')

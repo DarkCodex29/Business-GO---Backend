@@ -1,11 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsEnum,
-  IsNumber,
-} from 'class-validator';
+import { IsString, IsOptional, IsObject, IsEnum } from 'class-validator';
 
 export enum TipoReporte {
   VENTAS = 'ventas',
@@ -70,11 +64,4 @@ export class CreateReporteDto {
   @IsObject()
   @IsOptional()
   programacion?: Record<string, any>;
-
-  @ApiProperty({
-    description: 'ID de la empresa',
-    example: 1,
-  })
-  @IsNumber()
-  id_empresa: number;
 }

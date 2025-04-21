@@ -4,18 +4,18 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { UsuariosModule } from '../users/users.module';
+import { UsuariosModule } from '../users/usuarios.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EmailModule } from '../email/email.module';
 import { SessionService } from './services/session.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { TokenValidationMiddleware } from './middlewares/token-validation.middleware';
-import { RolesGuard } from './guards/roles.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { TokenValidationMiddleware } from '../common/middleware/token-validation.middleware';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { PermisosService } from './services/permisos.service';
-import { PermisosGuard } from './guards/permisos.guard';
-import { InitPermisosCommand } from './commands/init-permisos.command';
+import { PermisosGuard } from '../common/guards/permisos.guard';
+import { InitPermisosCommand } from '../common/commands/init-permisos.command';
 import { PermisosController } from './controllers/permisos.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesModule } from '../roles/roles.module';
@@ -27,13 +27,8 @@ import { RolesModule } from '../roles/roles.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>(
-            'JWT_ACCESS_TOKEN_EXPIRATION_TIME',
-            '1d',
-          ),
-        },
+        secret: configService.get('JWT_SECRET'),
+        signOptions: { expiresIn: '24h' },
       }),
       inject: [ConfigService],
     }),

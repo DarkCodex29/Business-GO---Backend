@@ -9,7 +9,7 @@ import {
   PERMISOS_KEY,
   PermisoRequerido,
 } from '../decorators/permisos.decorator';
-import { PermisosService } from '../services/permisos.service';
+import { PermisosService } from '../../auth/services/permisos.service';
 
 @Injectable()
 export class PermisosGuard implements CanActivate {

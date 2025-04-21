@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,9 +18,8 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { RolesEmpresaService } from '../services/roles-empresa.service';
 import { CreateEmpresaRolDto } from '../dto/create-rol-empresa.dto';
 import { UpdateEmpresaRolDto } from '../dto/update-rol-empresa.dto';
@@ -27,17 +27,18 @@ import { AsignarRolDto } from '../dto/asignar-rol.dto';
 import { AsignarPermisoRolEmpresaDto } from '../dto/asignar-permiso-rol-empresa.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { EmpresaId } from '../../common/decorators/empresa-id.decorator';
 
-@ApiTags('Roles de Empresa')
+@ApiTags('Roles Empresa')
 @ApiBearerAuth()
-@Controller('roles-empresa/:empresaId')
+@Controller('roles-empresa')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Roles('ADMIN', 'EMPRESA')
 export class RolesEmpresaController {
   constructor(private readonly rolesEmpresaService: RolesEmpresaService) {}
 
   @Post()
-  @EmpresaPermissions('roles.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.WRITE] })
   @ApiOperation({ summary: 'Crear un nuevo rol para la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -53,7 +54,7 @@ export class RolesEmpresaController {
   }
 
   @Get()
-  @EmpresaPermissions('roles.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.READ] })
   @ApiOperation({ summary: 'Obtener todos los roles de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -64,24 +65,25 @@ export class RolesEmpresaController {
     return this.rolesEmpresaService.findAll(+empresaId);
   }
 
-  @Post('asignar')
-  @EmpresaPermissions('roles.asignar')
+  @Post('asignar-rol')
   @ApiOperation({ summary: 'Asignar un rol a un usuario' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({ status: 201, description: 'Rol asignado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Usuario o rol no encontrado' })
   @ApiResponse({
-    status: 201,
-    description: 'Rol asignado exitosamente',
+    status: 409,
+    description: 'El usuario ya tiene asignado este rol',
   })
-  asignarRol(
-    @Param('empresaId') empresaId: string,
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.ASSIGN] })
+  async asignarRol(
+    @EmpresaId() empresaId: number,
     @Body() asignarRolDto: AsignarRolDto,
   ) {
-    asignarRolDto.id_empresa = +empresaId;
-    return this.rolesEmpresaService.asignarRol(asignarRolDto);
+    return this.rolesEmpresaService.asignarRol(empresaId, asignarRolDto);
   }
 
   @Delete(':id')
-  @EmpresaPermissions('roles.eliminar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.DELETE] })
   @ApiOperation({ summary: 'Eliminar un rol de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del rol' })
@@ -94,7 +96,7 @@ export class RolesEmpresaController {
   }
 
   @Get(':id')
-  @EmpresaPermissions('roles.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.READ] })
   @ApiOperation({ summary: 'Obtener un rol específico de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del rol' })
@@ -107,7 +109,7 @@ export class RolesEmpresaController {
   }
 
   @Patch(':id')
-  @EmpresaPermissions('roles.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.WRITE] })
   @ApiOperation({ summary: 'Actualizar un rol de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del rol' })
@@ -128,7 +130,7 @@ export class RolesEmpresaController {
   }
 
   @Post('inicializar')
-  @EmpresaPermissions('roles.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.WRITE] })
   @ApiOperation({ summary: 'Inicializar roles predefinidos para la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -140,28 +142,29 @@ export class RolesEmpresaController {
   }
 
   @Post(':id/permisos')
-  @EmpresaPermissions('roles.asignar_permisos')
-  @ApiOperation({ summary: 'Asignar un permiso a un rol de la empresa' })
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.ASSIGN] })
+  @ApiOperation({ summary: 'Asignar permisos a un rol de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del rol' })
   @ApiResponse({
     status: 201,
-    description: 'Permiso asignado exitosamente',
+    description: 'Permisos asignados exitosamente',
   })
-  asignarPermiso(
+  asignarPermisos(
     @Param('empresaId') empresaId: string,
     @Param('id') id: string,
     @Body() asignarPermisoDto: AsignarPermisoRolEmpresaDto,
   ) {
     asignarPermisoDto.rol_id = +id;
-    return this.rolesEmpresaService.asignarPermiso(
+    return this.rolesEmpresaService.asignarPermisos(
       +empresaId,
-      asignarPermisoDto,
+      +id,
+      asignarPermisoDto.permisos,
     );
   }
 
   @Delete(':id/permisos/:permisoId')
-  @EmpresaPermissions('roles.asignar_permisos')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.ASSIGN] })
   @ApiOperation({ summary: 'Eliminar un permiso de un rol de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del rol' })
@@ -183,7 +186,7 @@ export class RolesEmpresaController {
   }
 
   @Get('verificar-permiso')
-  @EmpresaPermissions('roles.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.READ] })
   @ApiOperation({
     summary: 'Verificar si un usuario tiene un permiso en una empresa',
   })
@@ -207,5 +210,20 @@ export class RolesEmpresaController {
       recurso,
       accion,
     );
+  }
+
+  @Delete('remover-rol/:id_usuario/:id_rol')
+  @ApiOperation({ summary: 'Remover un rol de un usuario' })
+  @ApiParam({ name: 'id_usuario', description: 'ID del usuario' })
+  @ApiParam({ name: 'id_rol', description: 'ID del rol' })
+  @ApiResponse({ status: 200, description: 'Rol removido exitosamente' })
+  @ApiResponse({ status: 404, description: 'Usuario o rol no encontrado' })
+  @EmpresaPermissions({ permissions: [PERMISSIONS.ROLES.ASSIGN] })
+  async removerRol(
+    @EmpresaId() empresaId: number,
+    @Param('id_usuario', ParseIntPipe) id_usuario: number,
+    @Param('id_rol', ParseIntPipe) id_rol: number,
+  ) {
+    return this.rolesEmpresaService.removerRol(empresaId, id_usuario, id_rol);
   }
 }

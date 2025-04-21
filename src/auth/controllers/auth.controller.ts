@@ -15,7 +15,7 @@ import {
 import { AuthService } from '../services/auth.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
   ApiTags,
   ApiOperation,
@@ -23,7 +23,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { Public } from '../decorators/public.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { Request as ExpressRequest } from 'express';
 import { SessionService } from '../services/session.service';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';

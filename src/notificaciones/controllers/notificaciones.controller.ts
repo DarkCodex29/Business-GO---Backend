@@ -14,23 +14,23 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ClientesNotificacionesService } from '../services/notificaciones.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
-import { CreateFeedbackDto } from '../../fidelizacion/dto/create-feedback.dto';
-import { CreateFidelizacionDto } from '../../fidelizacion/dto/create-fidelizacion.dto';
-import { UpdatePuntosFidelizacionDto } from '../../fidelizacion/dto/update-puntos-fidelizacion.dto';
+import { CreateNotificacionFeedbackDto } from '../dto/create-notificacion-feedback.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Notificaciones')
 @ApiBearerAuth()
 @Controller('notificaciones/:empresaId')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Roles('ADMIN', 'EMPRESA')
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 export class ClientesNotificacionesController {
   constructor(
     private readonly clientesNotificacionesService: ClientesNotificacionesService,
@@ -38,7 +38,7 @@ export class ClientesNotificacionesController {
 
   // Notificaciones individuales
   @Post('clientes/:clienteId')
-  @EmpresaPermissions('notificaciones.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.SEND] })
   @ApiOperation({ summary: 'Crear notificación para un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -59,7 +59,7 @@ export class ClientesNotificacionesController {
   }
 
   @Get('clientes/:clienteId')
-  @EmpresaPermissions('notificaciones.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
   @ApiOperation({ summary: 'Obtener notificaciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -78,7 +78,7 @@ export class ClientesNotificacionesController {
   }
 
   @Get()
-  @EmpresaPermissions('notificaciones.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
   @ApiOperation({ summary: 'Obtener todas las notificaciones de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -92,7 +92,7 @@ export class ClientesNotificacionesController {
   }
 
   @Get('pendientes')
-  @EmpresaPermissions('notificaciones.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
   @ApiOperation({ summary: 'Obtener notificaciones pendientes de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -105,14 +105,14 @@ export class ClientesNotificacionesController {
     );
   }
 
-  @Patch(':notificacionId/leer')
-  @EmpresaPermissions('notificaciones.editar')
+  @Patch(':notificacionId/leida')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.WRITE] })
   @ApiOperation({ summary: 'Marcar notificación como leída' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'notificacionId', description: 'ID de la notificación' })
   @ApiResponse({
     status: 200,
-    description: 'Notificación marcada como leída',
+    description: 'Notificación marcada como leída exitosamente',
   })
   marcarNotificacionLeida(
     @Param('empresaId') empresaId: number,
@@ -126,8 +126,8 @@ export class ClientesNotificacionesController {
 
   // Notificaciones masivas
   @Post('bulk')
-  @EmpresaPermissions('notificaciones.crear')
-  @ApiOperation({ summary: 'Crear notificaciones masivas' })
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.BULK] })
+  @ApiOperation({ summary: 'Crear notificaciones en bulk' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
@@ -143,129 +143,66 @@ export class ClientesNotificacionesController {
     );
   }
 
-  // Feedback
-  @Post('clientes/:clienteId/feedback')
-  @EmpresaPermissions('feedback.crear')
-  @ApiOperation({ summary: 'Crear feedback de un cliente' })
+  // Feedback de Notificaciones
+  @Post('clientes/:clienteId/notificacion-feedback')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.WRITE],
+  })
+  @ApiOperation({ summary: 'Registrar feedback sobre una notificación' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 201,
-    description: 'Feedback creado exitosamente',
+    description: 'Feedback de notificación registrado exitosamente',
   })
-  createFeedback(
+  createNotificacionFeedback(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
-    @Body() createFeedbackDto: CreateFeedbackDto,
+    @Body() createNotificacionFeedbackDto: CreateNotificacionFeedbackDto,
   ) {
-    return this.clientesNotificacionesService.createFeedback(
+    return this.clientesNotificacionesService.createNotificacionFeedback(
       empresaId,
       clienteId,
-      createFeedbackDto,
+      createNotificacionFeedbackDto,
     );
   }
 
-  @Get('clientes/:clienteId/feedback')
-  @EmpresaPermissions('feedback.ver')
-  @ApiOperation({ summary: 'Obtener feedback de un cliente' })
+  @Get('clientes/:clienteId/notificacion-feedback')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.READ],
+  })
+  @ApiOperation({ summary: 'Obtener feedback de notificaciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de feedback del cliente',
+    description: 'Lista de feedback de notificaciones del cliente',
   })
-  getFeedbackCliente(
+  getNotificacionFeedbackCliente(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
   ) {
-    return this.clientesNotificacionesService.getFeedbackCliente(
+    return this.clientesNotificacionesService.getNotificacionFeedbackCliente(
       empresaId,
       clienteId,
     );
   }
 
-  @Get('feedback')
-  @EmpresaPermissions('feedback.ver')
-  @ApiOperation({ summary: 'Obtener todos los feedback de la empresa' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de todos los feedback de la empresa',
+  @Get('notificacion-feedback')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.READ],
   })
-  getFeedbackEmpresa(@Param('empresaId') empresaId: number) {
-    return this.clientesNotificacionesService.getFeedbackEmpresa(empresaId);
-  }
-
-  // Fidelización
-  @Post('fidelizacion')
-  @EmpresaPermissions('fidelizacion.crear')
-  @ApiOperation({ summary: 'Crear programa de fidelización' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiResponse({
-    status: 201,
-    description: 'Programa de fidelización creado exitosamente',
-  })
-  createFidelizacion(
-    @Param('empresaId') empresaId: number,
-    @Body() createFidelizacionDto: CreateFidelizacionDto,
-  ) {
-    return this.clientesNotificacionesService.createFidelizacion(
-      empresaId,
-      createFidelizacionDto,
-    );
-  }
-
-  @Get('clientes/:clienteId/fidelizacion')
-  @EmpresaPermissions('fidelizacion.ver')
-  @ApiOperation({ summary: 'Obtener programa de fidelización de un cliente' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
-  @ApiResponse({
-    status: 200,
-    description: 'Programa de fidelización del cliente',
-  })
-  getFidelizacionCliente(
-    @Param('empresaId') empresaId: number,
-    @Param('clienteId') clienteId: number,
-  ) {
-    return this.clientesNotificacionesService.getFidelizacionCliente(
-      empresaId,
-      clienteId,
-    );
-  }
-
-  @Get('fidelizacion')
-  @EmpresaPermissions('fidelizacion.ver')
   @ApiOperation({
-    summary: 'Obtener todos los programas de fidelización de la empresa',
+    summary: 'Obtener todos los feedback de notificaciones de la empresa',
   })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de programas de fidelización de la empresa',
+    description: 'Lista de todos los feedback de notificaciones de la empresa',
   })
-  getFidelizacionEmpresa(@Param('empresaId') empresaId: number) {
-    return this.clientesNotificacionesService.getFidelizacionEmpresa(empresaId);
-  }
-
-  @Patch('clientes/:clienteId/fidelizacion/puntos')
-  @EmpresaPermissions('fidelizacion.editar')
-  @ApiOperation({ summary: 'Actualizar puntos de fidelización de un cliente' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
-  @ApiResponse({
-    status: 200,
-    description: 'Puntos de fidelización actualizados exitosamente',
-  })
-  updatePuntosFidelizacion(
-    @Param('empresaId') empresaId: number,
-    @Param('clienteId') clienteId: number,
-    @Body() updatePuntosFidelizacionDto: UpdatePuntosFidelizacionDto,
-  ) {
-    return this.clientesNotificacionesService.updatePuntosFidelizacion(
+  getNotificacionFeedbackEmpresa(@Param('empresaId') empresaId: number) {
+    return this.clientesNotificacionesService.getNotificacionFeedbackEmpresa(
       empresaId,
-      clienteId,
-      updatePuntosFidelizacionDto,
     );
   }
 }

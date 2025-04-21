@@ -19,19 +19,24 @@ import { OrdenesCompraService } from '../services/ordenes-compra.service';
 import { CreateOrdenCompraDto } from '../dto/create-orden-compra.dto';
 import { CreateFacturaCompraDto } from '../dto/create-factura-compra.dto';
 import { CreatePagoCompraDto } from '../dto/create-pago-compra.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 
 @ApiTags('Órdenes de Compra')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
 @Controller('ordenes-compra')
 export class OrdenesCompraController {
   constructor(private readonly ordenesCompraService: OrdenesCompraService) {}
 
   @Post(':empresaId')
-  @Roles('ADMIN', 'EMPRESA')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.WRITE] })
   @ApiOperation({ summary: 'Crear una nueva orden de compra' })
   @ApiParam({
     name: 'empresaId',
@@ -46,13 +51,14 @@ export class OrdenesCompraController {
   @ApiResponse({ status: 403, description: 'No autorizado' })
   create(
     @Body() createOrdenCompraDto: CreateOrdenCompraDto,
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId') empresaId: number,
   ) {
-    return this.ordenesCompraService.create(createOrdenCompraDto, +empresaId);
+    return this.ordenesCompraService.create(createOrdenCompraDto, empresaId);
   }
 
   @Get(':empresaId')
-  @Roles('ADMIN', 'EMPRESA')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.READ] })
   @ApiOperation({
     summary: 'Obtener todas las órdenes de compra de una empresa',
   })
@@ -61,14 +67,18 @@ export class OrdenesCompraController {
     description: 'ID de la empresa',
     type: 'number',
   })
-  @ApiResponse({ status: 200, description: 'Lista de órdenes de compra' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de órdenes de compra',
+  })
   @ApiResponse({ status: 403, description: 'No autorizado' })
   findAll(@Param('empresaId') empresaId: string) {
     return this.ordenesCompraService.findAll(+empresaId);
   }
 
   @Get(':empresaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.READ] })
   @ApiOperation({ summary: 'Obtener una orden de compra por ID' })
   @ApiParam({
     name: 'empresaId',
@@ -80,15 +90,19 @@ export class OrdenesCompraController {
     description: 'ID de la orden de compra',
     type: 'number',
   })
-  @ApiResponse({ status: 200, description: 'Orden de compra encontrada' })
-  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Orden de compra encontrada',
+  })
   @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
   findOne(@Param('id') id: string, @Param('empresaId') empresaId: string) {
     return this.ordenesCompraService.findOne(+id, +empresaId);
   }
 
   @Patch(':empresaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.WRITE] })
   @ApiOperation({ summary: 'Actualizar una orden de compra' })
   @ApiParam({
     name: 'empresaId',
@@ -100,24 +114,29 @@ export class OrdenesCompraController {
     description: 'ID de la orden de compra',
     type: 'number',
   })
-  @ApiResponse({ status: 200, description: 'Orden de compra actualizada' })
-  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Orden de compra actualizada exitosamente',
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
   update(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() updateOrdenCompraDto: Partial<CreateOrdenCompraDto>,
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId') empresaId: number,
   ) {
     return this.ordenesCompraService.update(
-      +id,
+      id,
       updateOrdenCompraDto,
-      +empresaId,
+      empresaId,
     );
   }
 
   @Delete(':empresaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Cancelar una orden de compra' })
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.WRITE] })
+  @ApiOperation({ summary: 'Eliminar una orden de compra' })
   @ApiParam({
     name: 'empresaId',
     description: 'ID de la empresa',
@@ -128,16 +147,20 @@ export class OrdenesCompraController {
     description: 'ID de la orden de compra',
     type: 'number',
   })
-  @ApiResponse({ status: 200, description: 'Orden de compra cancelada' })
-  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Orden de compra eliminada exitosamente',
+  })
   @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
   remove(@Param('id') id: string, @Param('empresaId') empresaId: string) {
     return this.ordenesCompraService.remove(+id, +empresaId);
   }
 
-  @Post(':empresaId/:id/facturas')
-  @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Agregar una factura a una orden de compra' })
+  @Post(':empresaId/:id/factura')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.WRITE] })
+  @ApiOperation({ summary: 'Añadir una factura a una orden de compra' })
   @ApiParam({
     name: 'empresaId',
     description: 'ID de la empresa',
@@ -148,20 +171,25 @@ export class OrdenesCompraController {
     description: 'ID de la orden de compra',
     type: 'number',
   })
-  @ApiResponse({ status: 201, description: 'Factura agregada exitosamente' })
-  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
+  @ApiResponse({
+    status: 201,
+    description: 'Factura añadida exitosamente',
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({ status: 404, description: 'Orden de compra no encontrada' })
   addFactura(
-    @Param('id') id: string,
+    @Param('id') id: number,
     @Body() facturaData: CreateFacturaCompraDto,
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId') empresaId: number,
   ) {
-    return this.ordenesCompraService.addFactura(+id, facturaData, +empresaId);
+    return this.ordenesCompraService.addFactura(id, facturaData, empresaId);
   }
 
-  @Post(':empresaId/facturas/:idFactura/pagos')
-  @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Agregar un pago a una factura de compra' })
+  @Post(':empresaId/factura/:idFactura/pago')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.COMPRAS.WRITE] })
+  @ApiOperation({ summary: 'Añadir un pago a una factura de compra' })
   @ApiParam({
     name: 'empresaId',
     description: 'ID de la empresa',
@@ -172,14 +200,18 @@ export class OrdenesCompraController {
     description: 'ID de la factura',
     type: 'number',
   })
-  @ApiResponse({ status: 201, description: 'Pago agregado exitosamente' })
-  @ApiResponse({ status: 404, description: 'Factura no encontrada' })
+  @ApiResponse({
+    status: 201,
+    description: 'Pago añadido exitosamente',
+  })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 403, description: 'No autorizado' })
+  @ApiResponse({ status: 404, description: 'Factura no encontrada' })
   addPago(
-    @Param('idFactura') idFactura: string,
+    @Param('idFactura') idFactura: number,
     @Body() pagoData: CreatePagoCompraDto,
-    @Param('empresaId') empresaId: string,
+    @Param('empresaId') empresaId: number,
   ) {
-    return this.ordenesCompraService.addPago(+idFactura, pagoData, +empresaId);
+    return this.ordenesCompraService.addPago(idFactura, pagoData, empresaId);
   }
 }

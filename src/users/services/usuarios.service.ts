@@ -4,19 +4,19 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { UsuarioRolEmpresaDto } from './dto/usuario-rol-empresa.dto';
-import { Autenticacion2FADto } from './dto/autenticacion-2fa.dto';
-import { SesionUsuarioDto } from './dto/sesion-usuario.dto';
-import { PermisoUsuarioDto } from './dto/permiso-usuario.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
+import { UsuarioRolEmpresaDto } from '../dto/usuario-rol-empresa.dto';
+import { Autenticacion2FADto } from '../dto/autenticacion-2fa.dto';
+import { SesionUsuarioDto } from '../dto/sesion-usuario.dto';
+import { PermisoUsuarioDto } from '../dto/permiso-usuario.dto';
 import * as bcrypt from 'bcrypt';
-import { PermisosService } from '../auth/services/permisos.service';
+import { PermisosService } from '../../auth/services/permisos.service';
 
 @Injectable()
-export class UsersService {
+export class UsuariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permisosService: PermisosService,
@@ -540,6 +540,12 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
+    if (!autenticacion2FADto.codigo) {
+      throw new BadRequestException('El código 2FA es requerido');
+    }
+
+    const codigo = autenticacion2FADto.codigo;
+
     // Verificar si ya existe una configuración 2FA
     const existing2FA = await this.prisma.autenticacion2FA.findUnique({
       where: { id_usuario: autenticacion2FADto.id_usuario },
@@ -550,9 +556,9 @@ export class UsersService {
       return await this.prisma.autenticacion2FA.update({
         where: { id_usuario: autenticacion2FADto.id_usuario },
         data: {
-          codigo_verificacion: autenticacion2FADto.codigo_verificacion,
-          fecha_expiracion: autenticacion2FADto.fecha_expiracion,
-          estado: autenticacion2FADto.estado,
+          codigo_verificacion: codigo,
+          fecha_expiracion: new Date(Date.now() + 10 * 60 * 1000), // 10 minutos
+          estado: 'ACTIVO',
         },
       });
     }
@@ -561,9 +567,9 @@ export class UsersService {
     return await this.prisma.autenticacion2FA.create({
       data: {
         id_usuario: autenticacion2FADto.id_usuario,
-        codigo_verificacion: autenticacion2FADto.codigo_verificacion,
-        fecha_expiracion: autenticacion2FADto.fecha_expiracion,
-        estado: autenticacion2FADto.estado,
+        codigo_verificacion: codigo,
+        fecha_expiracion: new Date(Date.now() + 10 * 60 * 1000), // 10 minutos
+        estado: 'ACTIVO',
       },
     });
   }
@@ -588,6 +594,42 @@ export class UsersService {
     return await this.prisma.autenticacion2FA.delete({
       where: { id_usuario },
     });
+  }
+
+  async verificarCodigo2FA(autenticacion2FADto: Autenticacion2FADto) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id_usuario: autenticacion2FADto.id_usuario },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (!autenticacion2FADto.codigo) {
+      throw new BadRequestException('El código 2FA es requerido');
+    }
+
+    const config2FA = await this.prisma.autenticacion2FA.findUnique({
+      where: { id_usuario: autenticacion2FADto.id_usuario },
+    });
+
+    if (!config2FA) {
+      throw new NotFoundException('2FA no está configurado para este usuario');
+    }
+
+    if (config2FA.estado !== 'ACTIVO') {
+      throw new BadRequestException('2FA no está activo para este usuario');
+    }
+
+    if (new Date() > config2FA.fecha_expiracion) {
+      throw new BadRequestException('El código 2FA ha expirado');
+    }
+
+    if (config2FA.codigo_verificacion !== autenticacion2FADto.codigo) {
+      throw new BadRequestException('Código 2FA inválido');
+    }
+
+    return { mensaje: 'Código 2FA verificado correctamente' };
   }
 
   async crearSesion(sesionUsuarioDto: SesionUsuarioDto) {

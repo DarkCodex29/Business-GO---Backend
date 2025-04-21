@@ -24,22 +24,24 @@ import { ArchivosService } from '../services/archivos.service';
 import { CreateArchivoDto } from '../dto/create-archivo.dto';
 import { UpdateArchivoDto } from '../dto/update-archivo.dto';
 import { CreateVersionDto } from '../dto/create-version.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { ROLES } from '../../common/constants/roles.constant';
 
 @ApiTags('Archivos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
 @Controller('archivos')
-@Roles('ADMIN', 'EMPRESA')
 export class ArchivosController {
   constructor(private readonly archivosService: ArchivosService) {}
 
   @Post(':empresaId/subir/:entityType/:entityId')
-  @EmpresaPermissions('archivos.crear')
+  @Roles(ROLES.CLIENTE, ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.WRITE] })
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -72,7 +74,8 @@ export class ArchivosController {
   }
 
   @Post(':empresaId')
-  @EmpresaPermissions('archivos.crear')
+  @Roles(ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.WRITE] })
   @ApiOperation({
     summary: 'Crear archivo',
     description: 'Crea un nuevo registro de archivo',
@@ -99,7 +102,8 @@ export class ArchivosController {
   }
 
   @Get(':empresaId')
-  @EmpresaPermissions('archivos.ver')
+  @Roles(ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.READ] })
   @ApiOperation({
     summary: 'Obtener archivos de la empresa',
     description: 'Retorna una lista de todos los archivos de la empresa',
@@ -115,7 +119,8 @@ export class ArchivosController {
   }
 
   @Get(':empresaId/entidad/:entityType/:entityId')
-  @EmpresaPermissions('archivos.ver')
+  @Roles(ROLES.CLIENTE, ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.READ] })
   @ApiOperation({
     summary: 'Obtener archivos de una entidad',
     description:
@@ -142,7 +147,8 @@ export class ArchivosController {
   }
 
   @Get(':empresaId/:id')
-  @EmpresaPermissions('archivos.ver')
+  @Roles(ROLES.CLIENTE, ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.READ] })
   @ApiOperation({
     summary: 'Obtener archivo por ID',
     description: 'Retorna los detalles de un archivo específico',
@@ -163,7 +169,8 @@ export class ArchivosController {
   }
 
   @Patch(':empresaId/:id')
-  @EmpresaPermissions('archivos.editar')
+  @Roles(ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.WRITE] })
   @ApiOperation({
     summary: 'Actualizar archivo',
     description: 'Actualiza los datos de un archivo existente',
@@ -185,7 +192,8 @@ export class ArchivosController {
   }
 
   @Delete(':empresaId/:id')
-  @EmpresaPermissions('archivos.eliminar')
+  @Roles(ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.WRITE] })
   @ApiOperation({
     summary: 'Eliminar archivo',
     description: 'Elimina un archivo del sistema',
@@ -205,7 +213,8 @@ export class ArchivosController {
   }
 
   @Post(':empresaId/:id/versiones')
-  @EmpresaPermissions('archivos.crear')
+  @Roles(ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.WRITE] })
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -234,7 +243,8 @@ export class ArchivosController {
   }
 
   @Get(':empresaId/:id/versiones')
-  @EmpresaPermissions('archivos.ver')
+  @Roles(ROLES.CLIENTE, ROLES.ADMIN, ROLES.SUPER_ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.DOCUMENTOS.READ] })
   @ApiOperation({
     summary: 'Obtener versiones',
     description: 'Retorna una lista de versiones de un archivo',

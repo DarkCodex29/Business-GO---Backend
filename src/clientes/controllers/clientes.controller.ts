@@ -17,22 +17,24 @@ import {
 import { ClientesService } from '../services/clientes.service';
 import { CreateClientDto } from '../dto/create-cliente.dto';
 import { UpdateClientDto } from '../dto/update-cliente.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { ROLES } from '../../common/constants/roles.constant';
 
 @ApiTags('Clientes')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
 @Controller('clientes/:empresaId')
-@Roles('ADMIN', 'EMPRESA')
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN)
 export class ClientesController {
   constructor(private readonly clientesService: ClientesService) {}
 
   @Get()
-  @EmpresaPermissions('clientes.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.READ] })
   @ApiOperation({ summary: 'Obtener todos los clientes de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
@@ -44,7 +46,7 @@ export class ClientesController {
   }
 
   @Get(':clienteId')
-  @EmpresaPermissions('clientes.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.READ] })
   @ApiOperation({ summary: 'Obtener un cliente específico' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -60,7 +62,7 @@ export class ClientesController {
   }
 
   @Post()
-  @EmpresaPermissions('clientes.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.WRITE] })
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Cliente creado exitosamente' })
@@ -72,7 +74,7 @@ export class ClientesController {
   }
 
   @Patch(':clienteId')
-  @EmpresaPermissions('clientes.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.WRITE] })
   @ApiOperation({ summary: 'Actualizar un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })

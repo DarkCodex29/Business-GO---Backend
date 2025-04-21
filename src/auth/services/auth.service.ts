@@ -2,12 +2,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../email/email.service';
 import { SessionService } from './session.service';
-import * as bcrypt from 'bcrypt';
 import { Request } from 'express';
-import { UsersService } from '../../users/users.service';
+import { UsuariosService } from '../../users/services/usuarios.service';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from '../dto/login.dto';
+import { RolesService } from '../../roles/services/roles.service';
+import * as bcrypt from 'bcrypt';
+import { RoleType, ROLES } from '../../common/constants/roles.constant';
 
 @Injectable()
 export class AuthService {
@@ -15,8 +17,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly sessionService: SessionService,
-    private readonly usersService: UsersService,
+    private readonly usuariosService: UsuariosService,
     private readonly prisma: PrismaService,
+    private readonly rolesService: RolesService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -25,6 +28,7 @@ export class AuthService {
       include: {
         rol: true,
         empresas: {
+          where: { estado: 'activo' },
           include: {
             rol_empresa: {
               include: {
@@ -50,7 +54,10 @@ export class AuthService {
   }
 
   async register(registerDto: any, req: Request) {
-    const user = await this.usersService.create(registerDto);
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const userData = { ...registerDto, password: hashedPassword };
+
+    const user = await this.usuariosService.create(userData);
     const tokens = await this.generateTokens(user, req);
 
     // Enviar email de bienvenida
@@ -65,26 +72,23 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
 
+    // Preparar los permisos de empresa para el token
+    const empresaPermissions = user.empresas
+      .filter((empresa) => empresa.rol_empresa !== null)
+      .map((empresa) => ({
+        empresaId: empresa.empresa_id,
+        rol: empresa.rol_empresa!.nombre,
+        permisos: empresa.rol_empresa!.permisos.map((permiso) => ({
+          recurso: permiso.recurso,
+          accion: permiso.accion,
+        })),
+      }));
+
     const payload = {
       sub: user.id_usuario,
       email: user.email,
-      rol: {
-        id: user.rol.id_rol,
-        nombre: user.rol.nombre,
-      },
-      empresas: user.empresas.map((empresa) => ({
-        id: empresa.empresa_id,
-        rol: empresa.rol_empresa
-          ? {
-              id: empresa.rol_empresa.id_rol,
-              nombre: empresa.rol_empresa.nombre,
-              permisos: empresa.rol_empresa.permisos.map((permiso) => ({
-                recurso: permiso.recurso,
-                accion: permiso.accion,
-              })),
-            }
-          : null,
-      })),
+      rol: user.rol.nombre as RoleType,
+      empresas: empresaPermissions,
     };
 
     const token = this.jwtService.sign(payload);
@@ -103,12 +107,8 @@ export class AuthService {
       user: {
         id: user.id_usuario,
         email: user.email,
-        nombre: user.nombre,
         rol: user.rol.nombre,
-        empresas: user.empresas.map((empresa) => ({
-          id: empresa.empresa_id,
-          rol: empresa.rol_empresa?.nombre,
-        })),
+        empresas: empresaPermissions,
       },
     };
   }
@@ -148,16 +148,9 @@ export class AuthService {
 
   async logout(token: string) {
     // Revocar el token
-    await this.prisma.tokenRevocado.create({
-      data: {
-        token_jti: token,
-        id_usuario: 0, // Se actualizará con el ID real del usuario
-      },
-    });
-
-    // Eliminar la sesión
-    await this.prisma.sesionUsuario.deleteMany({
+    await this.prisma.sesionUsuario.updateMany({
       where: { token },
+      data: { fecha_expiracion: new Date() },
     });
   }
 
@@ -171,7 +164,7 @@ export class AuthService {
   }
 
   async getProfile(userId: number) {
-    return this.usersService.findOne(userId);
+    return this.usuariosService.findOne(userId);
   }
 
   async refreshToken(token: string) {
@@ -192,5 +185,70 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException();
     }
+  }
+
+  async validateToken(token: string) {
+    try {
+      const payload = this.jwtService.verify(token);
+      const sesion = await this.prisma.sesionUsuario.findFirst({
+        where: {
+          token,
+          fecha_expiracion: { gt: new Date() },
+        },
+      });
+
+      if (!sesion) {
+        throw new UnauthorizedException('Token inválido o expirado');
+      }
+
+      return payload;
+    } catch (error) {
+      console.error('Error al validar token:', error);
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+  }
+
+  async isAdmin(userId: number): Promise<boolean> {
+    const user = await this.prisma.usuario.findUnique({
+      where: { id_usuario: userId },
+      include: { rol: true },
+    });
+
+    return (
+      user?.rol.nombre === ROLES.ADMIN || user?.rol.nombre === ROLES.SUPER_ADMIN
+    );
+  }
+
+  async hasEmpresaPermission(
+    userId: number,
+    empresaId: number,
+    requiredPermissions: string[],
+  ): Promise<boolean> {
+    const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
+      where: {
+        usuario_id: userId,
+        empresa_id: empresaId,
+        estado: 'activo',
+      },
+      include: {
+        rol_empresa: {
+          include: {
+            permisos: true,
+          },
+        },
+      },
+    });
+
+    if (!usuarioEmpresa?.rol_empresa) {
+      return false;
+    }
+
+    return requiredPermissions.some((requiredPermission) =>
+      usuarioEmpresa.rol_empresa!.permisos.some(
+        (permiso) =>
+          permiso.recurso === requiredPermission.split(':')[0] &&
+          permiso.accion === requiredPermission.split(':')[1],
+      ),
+    );
   }
 }

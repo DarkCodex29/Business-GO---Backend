@@ -13,7 +13,7 @@ import { ReembolsosService } from '../services/reembolsos.service';
 import { CreateReembolsoDto } from '../dto/create-reembolso.dto';
 import { UpdateReembolsoDto } from '../dto/update-reembolso.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 import {

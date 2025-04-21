@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
-import { CreateFeedbackDto } from '../../fidelizacion/dto/create-feedback.dto';
+import { CreateNotificacionFeedbackDto } from '../dto/create-notificacion-feedback.dto';
 import { CreateFidelizacionDto } from '../../fidelizacion/dto/create-fidelizacion.dto';
 import { UpdatePuntosFidelizacionDto } from '../../fidelizacion/dto/update-puntos-fidelizacion.dto';
 
@@ -211,11 +211,11 @@ export class ClientesNotificacionesService {
     return notificaciones;
   }
 
-  // Feedback
-  async createFeedback(
+  // Feedback de Notificaciones
+  async createNotificacionFeedback(
     empresaId: number,
     clienteId: number,
-    createFeedbackDto: CreateFeedbackDto,
+    createFeedbackDto: CreateNotificacionFeedbackDto,
   ) {
     // Verificar que el cliente pertenece a la empresa
     const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
@@ -231,18 +231,18 @@ export class ClientesNotificacionesService {
       );
     }
 
-    // Si se proporciona un pedidoId, verificar que pertenece al cliente
-    if (createFeedbackDto.pedidoId) {
-      const historialCompra = await this.prisma.historialCompra.findFirst({
+    // Si se proporciona un notificacionId, verificar que pertenece al cliente
+    if (createFeedbackDto.notificacionId) {
+      const notificacion = await this.prisma.notificacion.findFirst({
         where: {
-          id_historial: createFeedbackDto.pedidoId,
+          id_notificacion: createFeedbackDto.notificacionId,
           id_cliente: clienteId,
         },
       });
 
-      if (!historialCompra) {
+      if (!notificacion) {
         throw new NotFoundException(
-          `Pedido con ID ${createFeedbackDto.pedidoId} no encontrado para el cliente ${clienteId}`,
+          `Notificación con ID ${createFeedbackDto.notificacionId} no encontrada para el cliente ${clienteId}`,
         );
       }
     }
@@ -251,11 +251,12 @@ export class ClientesNotificacionesService {
       data: {
         comentario: createFeedbackDto.descripcion,
         id_cliente: clienteId,
+        id_notificacion: createFeedbackDto.notificacionId,
       },
     });
   }
 
-  async getFeedbackCliente(empresaId: number, clienteId: number) {
+  async getNotificacionFeedbackCliente(empresaId: number, clienteId: number) {
     // Verificar que el cliente pertenece a la empresa
     const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
       where: {
@@ -273,6 +274,10 @@ export class ClientesNotificacionesService {
     return this.prisma.feedback.findMany({
       where: {
         id_cliente: clienteId,
+        id_notificacion: { not: null },
+      },
+      include: {
+        notificacion: true,
       },
       orderBy: {
         fecha_feedback: 'desc',
@@ -280,7 +285,7 @@ export class ClientesNotificacionesService {
     });
   }
 
-  async getFeedbackEmpresa(empresaId: number) {
+  async getNotificacionFeedbackEmpresa(empresaId: number) {
     // Obtener todos los clientes de la empresa
     const clientesEmpresa = await this.prisma.clienteEmpresa.findMany({
       where: { empresa_id: empresaId },
@@ -289,10 +294,11 @@ export class ClientesNotificacionesService {
 
     const clienteIds = clientesEmpresa.map((ce) => ce.cliente_id);
 
-    // Obtener todos los feedback de los clientes de la empresa
+    // Obtener todos los feedback de notificaciones de los clientes de la empresa
     return this.prisma.feedback.findMany({
       where: {
         id_cliente: { in: clienteIds },
+        id_notificacion: { not: null },
       },
       include: {
         cliente: {
@@ -301,6 +307,7 @@ export class ClientesNotificacionesService {
             email: true,
           },
         },
+        notificacion: true,
       },
       orderBy: {
         fecha_feedback: 'desc',

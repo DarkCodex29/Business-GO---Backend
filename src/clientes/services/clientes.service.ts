@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateClientDto } from '../dto/create-cliente.dto';
+import { UpdateClientDto } from '../dto/update-cliente.dto';
 
 @Injectable()
 export class ClientesService {
@@ -58,7 +60,7 @@ export class ClientesService {
     return clienteEmpresa.cliente;
   }
 
-  async createCliente(empresaId: number, createClienteDto: any) {
+  async createCliente(empresaId: number, createClienteDto: CreateClientDto) {
     const {
       nombre,
       email,
@@ -80,11 +82,13 @@ export class ClientesService {
         preferencias,
         limite_credito,
         dias_credito,
-        usuario: {
-          connect: {
-            id_usuario: id_usuario,
-          },
-        },
+        usuario: id_usuario
+          ? {
+              connect: {
+                id_usuario: id_usuario,
+              },
+            }
+          : undefined,
         empresas: {
           create: {
             empresa_id: empresaId,
@@ -99,9 +103,9 @@ export class ClientesService {
   async updateCliente(
     empresaId: number,
     clienteId: number,
-    updateClienteDto: any,
+    updateClienteDto: UpdateClientDto,
   ) {
-    // Verificar que el cliente pertenece a la empresa
+    // Verificar que el cliente existe para la empresa
     const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
       where: {
         empresa_id: empresaId,
@@ -116,13 +120,11 @@ export class ClientesService {
     }
 
     // Actualizar el cliente
-    const clienteActualizado = await this.prisma.cliente.update({
+    return this.prisma.cliente.update({
       where: {
         id_cliente: clienteId,
       },
       data: updateClienteDto,
     });
-
-    return clienteActualizado;
   }
 }

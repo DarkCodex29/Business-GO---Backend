@@ -15,25 +15,27 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { DireccionesService } from '../services/direcciones.service';
 import { CreateClienteDireccionDto } from '../dto/create-direccion.dto';
 import { UpdateClienteDireccionDto } from '../dto/update-direccion.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Direcciones')
 @ApiBearerAuth()
 @Controller('direcciones/:empresaId')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Roles('ADMIN', 'EMPRESA')
+@Roles(ROLES.ADMIN)
 export class DireccionesController {
   constructor(private readonly direccionesService: DireccionesService) {}
 
   @Post('clientes/:clienteId')
-  @EmpresaPermissions('direcciones.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.WRITE] })
   @ApiOperation({ summary: 'Crear una dirección para un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -54,7 +56,7 @@ export class DireccionesController {
   }
 
   @Get('clientes/:clienteId')
-  @EmpresaPermissions('direcciones.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.READ] })
   @ApiOperation({ summary: 'Obtener direcciones de un cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
@@ -70,7 +72,7 @@ export class DireccionesController {
   }
 
   @Get(':direccionId')
-  @EmpresaPermissions('direcciones.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.READ] })
   @ApiOperation({ summary: 'Obtener una dirección específica' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })
@@ -86,7 +88,7 @@ export class DireccionesController {
   }
 
   @Patch(':direccionId')
-  @EmpresaPermissions('direcciones.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.WRITE] })
   @ApiOperation({ summary: 'Actualizar una dirección' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })
@@ -107,7 +109,7 @@ export class DireccionesController {
   }
 
   @Delete(':direccionId')
-  @EmpresaPermissions('direcciones.eliminar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.CLIENTES.DELETE] })
   @ApiOperation({ summary: 'Eliminar una dirección' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'direccionId', description: 'ID de la dirección' })

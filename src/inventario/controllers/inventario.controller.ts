@@ -6,22 +6,27 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { InventarioService } from '../services/inventario.service';
 import { UpdateInventarioStockDto } from '../dto/update-stock.dto';
 import { UpdateInventarioDisponibilidadDto } from '../dto/update-disponibilidad.dto';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Inventario')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('inventario')
 export class InventarioController {
   constructor(private readonly inventarioService: InventarioService) {}
 
   @Get(':empresaId')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener todo el inventario de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Inventario obtenido exitosamente' })
@@ -30,7 +35,7 @@ export class InventarioController {
   }
 
   @Get(':empresaId/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener un producto del inventario por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -41,7 +46,7 @@ export class InventarioController {
   }
 
   @Get(':empresaId/stock/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener stock de un producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -52,7 +57,7 @@ export class InventarioController {
   }
 
   @Get(':empresaId/disponibilidad/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener disponibilidad de un producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -66,7 +71,7 @@ export class InventarioController {
   }
 
   @Patch(':empresaId/stock/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.WRITE] })
   @ApiOperation({ summary: 'Actualizar el stock de un producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -85,7 +90,7 @@ export class InventarioController {
   }
 
   @Patch(':empresaId/disponibilidad/:id')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.WRITE] })
   @ApiOperation({ summary: 'Actualizar la disponibilidad de un producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
@@ -107,10 +112,12 @@ export class InventarioController {
   }
 
   @Get(':empresaId/stock-bajo/:umbral')
-  @Roles('ADMIN', 'EMPRESA')
-  @ApiOperation({ summary: 'Obtener productos con stock bajo' })
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
+  @ApiOperation({
+    summary: 'Obtener productos con stock bajo del umbral especificado',
+  })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'umbral', description: 'Cantidad mínima de stock' })
+  @ApiParam({ name: 'umbral', description: 'Umbral de stock bajo' })
   @ApiResponse({
     status: 200,
     description: 'Lista de productos con stock bajo',
@@ -119,11 +126,11 @@ export class InventarioController {
     @Param('empresaId') empresaId: string,
     @Param('umbral') umbral: string,
   ) {
-    return this.inventarioService.getStockBajo(+umbral, +empresaId);
+    return this.inventarioService.getStockBajo(+empresaId, +umbral);
   }
 
   @Get(':empresaId/sin-stock')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener productos sin stock' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de productos sin stock' })
@@ -132,7 +139,7 @@ export class InventarioController {
   }
 
   @Get(':empresaId/agotados')
-  @Roles('ADMIN', 'EMPRESA')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
   @ApiOperation({ summary: 'Obtener productos agotados' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de productos agotados' })

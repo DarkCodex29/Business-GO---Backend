@@ -7,20 +7,40 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfiguracionImpuestosService } from '../services/configuracion-impuestos.service';
 import { CreateConfiguracionImpuestosDto } from '../dto/create-configuracion-impuestos.dto';
 import { UpdateConfiguracionImpuestosDto } from '../dto/update-configuracion-impuestos.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Configuración de Impuestos')
 @Controller('configuracion-impuestos')
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.ADMIN)
+@ApiBearerAuth()
 export class ConfiguracionImpuestosController {
   constructor(
     private readonly configuracionImpuestosService: ConfiguracionImpuestosService,
   ) {}
 
   @Post(':empresaId')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.IMPUESTOS.WRITE],
+  })
   @ApiOperation({
     summary: 'Crear configuración de impuestos',
     description: 'Crea una nueva configuración de impuestos para una empresa',
@@ -49,6 +69,9 @@ export class ConfiguracionImpuestosController {
   }
 
   @Get()
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.IMPUESTOS.READ],
+  })
   @ApiOperation({
     summary: 'Obtener todas las configuraciones',
     description: 'Retorna todas las configuraciones de impuestos',
@@ -62,6 +85,9 @@ export class ConfiguracionImpuestosController {
   }
 
   @Get(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.IMPUESTOS.READ],
+  })
   @ApiOperation({
     summary: 'Obtener una configuración',
     description: 'Retorna una configuración de impuestos específica',
@@ -84,6 +110,9 @@ export class ConfiguracionImpuestosController {
   }
 
   @Patch(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.IMPUESTOS.WRITE],
+  })
   @ApiOperation({
     summary: 'Actualizar configuración',
     description: 'Actualiza una configuración de impuestos existente',
@@ -112,6 +141,9 @@ export class ConfiguracionImpuestosController {
   }
 
   @Delete(':id')
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.EMPRESA.CONFIGURACION.IMPUESTOS.DELETE],
+  })
   @ApiOperation({
     summary: 'Eliminar configuración',
     description: 'Elimina una configuración de impuestos',

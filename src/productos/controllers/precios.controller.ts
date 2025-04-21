@@ -15,25 +15,27 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { PreciosService } from '../services/precios.service';
 import { CreatePrecioDto } from '../dto/create-precio.dto';
 import { UpdatePrecioDto } from '../dto/update-precio.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Precios')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('precios/:empresaId')
 export class PreciosController {
   constructor(private readonly preciosService: PreciosService) {}
 
   @Post()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('precios.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Crear un nuevo precio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Precio creado exitosamente' })
@@ -47,8 +49,7 @@ export class PreciosController {
   }
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('precios.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener todos los precios de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de precios' })
@@ -57,8 +58,7 @@ export class PreciosController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('precios.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener un precio por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del precio' })
@@ -69,8 +69,7 @@ export class PreciosController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('precios.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Actualizar un precio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del precio' })
@@ -85,8 +84,7 @@ export class PreciosController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('precios.eliminar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.DELETE] })
   @ApiOperation({ summary: 'Eliminar un precio' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del precio' })

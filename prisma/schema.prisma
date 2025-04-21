@@ -224,6 +224,7 @@ model Notificacion {
   fecha_notificacion DateTime @default(now())
   estado             String   @default("pendiente")
   cliente            Cliente  @relation(fields: [id_cliente], references: [id_cliente])
+  feedback           Feedback[]
 
   @@map("notificaciones")
 }
@@ -233,7 +234,9 @@ model Feedback {
   id_cliente     Int
   comentario     String
   fecha_feedback DateTime @default(now())
+  id_notificacion Int?
   cliente        Cliente  @relation(fields: [id_cliente], references: [id_cliente])
+  notificacion   Notificacion? @relation(fields: [id_notificacion], references: [id_notificacion])
 
   @@map("feedback")
 }

@@ -21,17 +21,24 @@ import { CreateEmpresaDto } from '../dto/create-empresa.dto';
 import { UpdateEmpresaDto } from '../dto/update-empresa.dto';
 import { CreateDireccionDto } from '../dto/create-direccion.dto';
 import { UpdateDireccionDto } from '../dto/update-direccion.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { Public } from '../../auth/decorators/public.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
+import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Empresas')
 @Controller('empresas')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN)
 @ApiBearerAuth()
 export class EmpresasController {
   constructor(private readonly empresasService: EmpresasService) {}
 
   @Post()
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.WRITE] })
   @ApiOperation({ summary: 'Crear una nueva empresa' })
   @ApiResponse({
     status: 201,
@@ -43,7 +50,7 @@ export class EmpresasController {
   }
 
   @Get()
-  @Public()
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.READ] })
   @ApiOperation({ summary: 'Obtener todas las empresas' })
   @ApiResponse({
     status: 200,
@@ -58,7 +65,7 @@ export class EmpresasController {
   }
 
   @Get(':id')
-  @Public()
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.READ] })
   @ApiOperation({ summary: 'Obtener una empresa por ID' })
   @ApiResponse({
     status: 200,
@@ -70,6 +77,7 @@ export class EmpresasController {
   }
 
   @Patch(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.WRITE] })
   @ApiOperation({ summary: 'Actualizar una empresa' })
   @ApiResponse({
     status: 200,
@@ -84,6 +92,7 @@ export class EmpresasController {
   }
 
   @Delete(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.DELETE] })
   @ApiOperation({ summary: 'Eliminar una empresa' })
   @ApiResponse({
     status: 200,
@@ -96,6 +105,7 @@ export class EmpresasController {
 
   // Endpoints para gestionar direcciones
   @Post(':id/direcciones')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.DIRECCIONES.WRITE] })
   @ApiOperation({ summary: 'Crear una dirección para una empresa' })
   @ApiResponse({
     status: 201,
@@ -111,6 +121,7 @@ export class EmpresasController {
   }
 
   @Patch(':id/direcciones/:direccionId')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.DIRECCIONES.WRITE] })
   @ApiOperation({ summary: 'Actualizar una dirección de una empresa' })
   @ApiResponse({
     status: 200,
@@ -130,6 +141,7 @@ export class EmpresasController {
   }
 
   @Delete(':id/direcciones/:direccionId')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.DIRECCIONES.DELETE] })
   @ApiOperation({ summary: 'Eliminar una dirección de una empresa' })
   @ApiResponse({
     status: 200,
@@ -145,6 +157,7 @@ export class EmpresasController {
 
   // Endpoints para gestionar la relación usuario-empresa
   @Post(':id/usuarios/:usuarioId')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.USUARIOS.ASSIGN] })
   @ApiOperation({ summary: 'Asignar un usuario a una empresa' })
   @ApiResponse({
     status: 201,
@@ -160,6 +173,7 @@ export class EmpresasController {
   }
 
   @Delete(':id/usuarios/:usuarioId')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.EMPRESA.USUARIOS.DELETE] })
   @ApiOperation({ summary: 'Remover un usuario de una empresa' })
   @ApiResponse({
     status: 200,

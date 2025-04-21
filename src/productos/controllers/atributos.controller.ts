@@ -15,25 +15,27 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AtributosService } from '../services/atributos.service';
 import { CreateAtributoDto } from '../dto/create-atributo.dto';
 import { UpdateAtributoDto } from '../dto/update-atributo.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Atributos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
+@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 @Controller('atributos/:empresaId')
 export class AtributosController {
   constructor(private readonly atributosService: AtributosService) {}
 
   @Post()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.crear')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Crear un nuevo atributo' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 201, description: 'Atributo creado exitosamente' })
@@ -47,8 +49,7 @@ export class AtributosController {
   }
 
   @Get()
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener todos los atributos de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({ status: 200, description: 'Lista de atributos' })
@@ -57,8 +58,7 @@ export class AtributosController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.ver')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
   @ApiOperation({ summary: 'Obtener un atributo por ID' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del atributo' })
@@ -68,9 +68,22 @@ export class AtributosController {
     return this.atributosService.findOne(+id, +empresaId);
   }
 
+  @Get('producto/:id_producto')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.READ] })
+  @ApiOperation({ summary: 'Obtener todos los atributos de un producto' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id_producto', description: 'ID del producto' })
+  @ApiResponse({ status: 200, description: 'Lista de atributos del producto' })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  findByProducto(
+    @Param('empresaId') empresaId: string,
+    @Param('id_producto') id_producto: string,
+  ) {
+    return this.atributosService.findByProducto(+id_producto, +empresaId);
+  }
+
   @Patch(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.editar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.WRITE] })
   @ApiOperation({ summary: 'Actualizar un atributo' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del atributo' })
@@ -85,8 +98,7 @@ export class AtributosController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.eliminar')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.PRODUCTOS.DELETE] })
   @ApiOperation({ summary: 'Eliminar un atributo' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID del atributo' })
@@ -94,20 +106,5 @@ export class AtributosController {
   @ApiResponse({ status: 404, description: 'Atributo no encontrado' })
   remove(@Param('empresaId') empresaId: string, @Param('id') id: string) {
     return this.atributosService.remove(+id, +empresaId);
-  }
-
-  @Get('producto/:id_producto')
-  @Roles('ADMIN', 'EMPRESA')
-  @EmpresaPermissions('atributos.ver')
-  @ApiOperation({ summary: 'Obtener todos los atributos de un producto' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'id_producto', description: 'ID del producto' })
-  @ApiResponse({ status: 200, description: 'Lista de atributos del producto' })
-  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  findByProducto(
-    @Param('empresaId') empresaId: string,
-    @Param('id_producto') id_producto: string,
-  ) {
-    return this.atributosService.findByProducto(+id_producto, +empresaId);
   }
 }
