@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -26,12 +28,15 @@ import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.g
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 import { ROLES } from '../../common/constants/roles.constant';
 import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { PaginationDto } from '../dto/pagination.dto';
+import { ModerarValoracionDto } from '../dto/moderar-valoracion.dto';
+import { EmpresaId } from '../../common/decorators/empresa-id.decorator';
 
 @ApiTags('Valoraciones')
 @ApiBearerAuth()
 @Controller('valoraciones')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN)
+@Roles(ROLES.ADMIN)
 export class ValoracionesController {
   constructor(private readonly valoracionesService: ValoracionesService) {}
 
@@ -57,13 +62,28 @@ export class ValoracionesController {
   @EmpresaPermissions({ permissions: [PERMISSIONS.VALORACIONES.VIEW] })
   @ApiOperation({ summary: 'Obtener todas las valoraciones de una empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Número de página',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Elementos por página',
+    type: Number,
+  })
   @ApiResponse({ status: 200, description: 'Lista de valoraciones' })
   @ApiResponse({
     status: 403,
     description: 'No tiene permisos para ver valoraciones',
   })
-  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
-    return this.valoracionesService.findAll(empresaId);
+  findAll(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.valoracionesService.findAll(empresaId, paginationDto);
   }
 
   @Get(':empresaId/:id')
@@ -137,6 +157,18 @@ export class ValoracionesController {
   @ApiOperation({ summary: 'Obtener valoraciones por producto' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'productoId', description: 'ID del producto' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Número de página',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Elementos por página',
+    type: Number,
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de valoraciones del producto',
@@ -149,8 +181,13 @@ export class ValoracionesController {
   findByProducto(
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('productoId', ParseIntPipe) productoId: number,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return this.valoracionesService.findByProducto(productoId, empresaId);
+    return this.valoracionesService.findByProducto(
+      productoId,
+      empresaId,
+      paginationDto,
+    );
   }
 
   @Get(':empresaId/cliente/:clienteId')
@@ -158,6 +195,18 @@ export class ValoracionesController {
   @ApiOperation({ summary: 'Obtener valoraciones por cliente' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Número de página',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Elementos por página',
+    type: Number,
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de valoraciones del cliente',
@@ -170,7 +219,37 @@ export class ValoracionesController {
   findByCliente(
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('clienteId', ParseIntPipe) clienteId: number,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return this.valoracionesService.findByCliente(clienteId, empresaId);
+    return this.valoracionesService.findByCliente(
+      clienteId,
+      empresaId,
+      paginationDto,
+    );
+  }
+
+  @Patch(':id/moderar')
+  @Roles(ROLES.ADMIN)
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VALORACIONES.MODERAR] })
+  @ApiOperation({ summary: 'Moderar una valoración' })
+  @ApiParam({ name: 'id', description: 'ID de la valoración a moderar' })
+  @ApiResponse({
+    status: 200,
+    description: 'Valoración moderada exitosamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Valoración no encontrada',
+  })
+  moderarValoracion(
+    @Param('id', ParseIntPipe) id: number,
+    @EmpresaId() empresaId: number,
+    @Body() moderarValoracionDto: ModerarValoracionDto,
+  ) {
+    return this.valoracionesService.moderarValoracion(
+      id,
+      empresaId,
+      moderarValoracionDto,
+    );
   }
 }

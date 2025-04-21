@@ -213,6 +213,8 @@ model Valoracion {
   id_producto    Int
   puntuacion     Int
   comentario     String?
+  estado_moderacion String @default("pendiente")
+  comentario_moderador String?
 
   @@map("valoraciones")
 }

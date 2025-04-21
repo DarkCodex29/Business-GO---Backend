@@ -245,6 +245,7 @@ export const PERMISSIONS = {
     CREATE: 'valoraciones:crear',
     EDIT: 'valoraciones:editar',
     VIEW: 'valoraciones:ver',
+    MODERAR: 'valoraciones:moderar',
   },
 } as const;
 
