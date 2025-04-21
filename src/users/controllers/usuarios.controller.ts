@@ -15,6 +15,9 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -40,20 +43,108 @@ export class UsuariosController {
   @Post()
   @Roles(ROLES.SUPER_ADMIN)
   @EmpresaPermissions({ permissions: [PERMISSIONS.USUARIOS.WRITE] })
-  @ApiOperation({ summary: 'Crear un nuevo usuario' })
-  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  @ApiResponse({ status: 409, description: 'El email ya está registrado' })
+  @ApiOperation({
+    summary: 'Crear un nuevo usuario',
+    description:
+      'Crea un nuevo usuario en el sistema. Solo el super admin puede crear usuarios.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario creado exitosamente',
+    schema: {
+      example: {
+        id_usuario: 1,
+        nombre: 'Juan Pérez',
+        email: 'juan@ejemplo.com',
+        telefono: '+51999999999',
+        fecha_registro: '2024-03-20T15:30:00Z',
+        activo: true,
+        rol: {
+          id_rol: 1,
+          nombre: 'ADMIN',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'El email es inválido',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El email ya está registrado',
+    schema: {
+      example: {
+        statusCode: 409,
+        message: 'El email ya está registrado',
+        error: 'Conflict',
+      },
+    },
+  })
+  @ApiBody({ type: CreateUserDto })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usuariosService.create(createUserDto);
   }
 
   @Get()
   @EmpresaPermissions({ permissions: [PERMISSIONS.USUARIOS.READ] })
-  @ApiOperation({ summary: 'Obtener todos los usuarios' })
+  @ApiOperation({
+    summary: 'Obtener todos los usuarios',
+    description:
+      'Obtiene una lista paginada de usuarios con opciones de búsqueda.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de usuarios obtenida exitosamente',
+    schema: {
+      example: {
+        data: [
+          {
+            id_usuario: 1,
+            nombre: 'Juan Pérez',
+            email: 'juan@ejemplo.com',
+            telefono: '+51999999999',
+            fecha_registro: '2024-03-20T15:30:00Z',
+            activo: true,
+            rol: {
+              id_rol: 1,
+              nombre: 'ADMIN',
+            },
+          },
+        ],
+        meta: {
+          total: 50,
+          page: 1,
+          limit: 10,
+          totalPages: 5,
+        },
+      },
+    },
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número de página',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Límite de resultados por página',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Término de búsqueda',
   })
   findAll(
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
@@ -68,6 +159,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Obtener un usuario por ID' })
   @ApiResponse({ status: 200, description: 'Usuario encontrado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  @ApiParam({ name: 'id', description: 'ID del usuario', type: Number })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.findOne(id);
   }
@@ -77,6 +169,8 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Actualizar un usuario' })
   @ApiResponse({ status: 200, description: 'Usuario actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  @ApiParam({ name: 'id', description: 'ID del usuario', type: Number })
+  @ApiBody({ type: UpdateUserDto })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
@@ -90,6 +184,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Eliminar un usuario' })
   @ApiResponse({ status: 200, description: 'Usuario eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  @ApiParam({ name: 'id', description: 'ID del usuario', type: Number })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.remove(id);
   }
@@ -99,6 +194,7 @@ export class UsuariosController {
   @ApiResponse({ status: 200, description: 'Contraseña cambiada exitosamente' })
   @ApiResponse({ status: 400, description: 'Contraseña actual incorrecta' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  @ApiBody({ type: ChangePasswordDto })
   changePassword(@Body() changePasswordDto: ChangePasswordDto) {
     return this.usuariosService.changePassword(
       changePasswordDto.usuario_id,

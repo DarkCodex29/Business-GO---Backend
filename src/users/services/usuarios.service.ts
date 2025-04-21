@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -14,87 +16,136 @@ import { SesionUsuarioDto } from '../dto/sesion-usuario.dto';
 import { PermisoUsuarioDto } from '../dto/permiso-usuario.dto';
 import * as bcrypt from 'bcrypt';
 import { PermisosService } from '../../auth/services/permisos.service';
+import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class UsuariosService {
+  private readonly logger = new Logger(UsuariosService.name);
+  private readonly CACHE_TTL = 300; // 5 minutos en segundos
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly permisosService: PermisosService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
-  async create(createUserDto: CreateUserDto) {
-    const existingUser = await this.prisma.usuario.findUnique({
-      where: { email: createUserDto.email },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('El email ya está registrado');
-    }
-
-    const hashedPassword = await bcrypt.hash(createUserDto.contrasena, 10);
-
-    // Crear el usuario con su rol
-    const user = await this.prisma.usuario.create({
-      data: {
-        nombre: createUserDto.nombre,
-        email: createUserDto.email,
-        contrasena: hashedPassword,
-        telefono: createUserDto.telefono,
-        rol: {
-          connect: { id_rol: createUserDto.rolId },
-        },
-        // Si es un cliente, crear el perfil de cliente
-        ...(createUserDto.rolId === 3 && {
-          perfil_cliente: {
-            create: {
-              nombre: createUserDto.nombre,
-              email: createUserDto.email,
-              telefono: createUserDto.telefono,
-            },
-          },
-        }),
-      },
-      include: {
-        rol: true,
-        perfil_cliente: true,
-        empresas: {
-          include: {
-            empresa: true,
-          },
-        },
-      },
-    });
-
-    // Si se proporciona un ID de empresa, crear la relación usuario-empresa
-    if (createUserDto.empresaId) {
-      await this.prisma.usuarioEmpresa.create({
-        data: {
-          usuario_id: user.id_usuario,
-          empresa_id: createUserDto.empresaId,
-          es_dueno: createUserDto.esDueno ?? false,
-        },
-      });
-    }
-
-    return user;
+  private getCacheKey(page: number, limit: number, search?: string): string {
+    return `users_page${page}_limit${limit}_search${search ?? 'none'}`;
   }
 
-  async findAll(page = 1, limit = 10, search?: string) {
-    const skip = (page - 1) * limit;
-    const where = search
+  private buildSearchWhere(search?: string) {
+    return search
       ? {
           OR: [
             { nombre: { contains: search } },
             { email: { contains: search } },
+            { telefono: { contains: search } },
           ],
         }
       : {};
+  }
 
-    const [users, total] = await Promise.all([
+  private async getCachedUsers(page: number, limit: number, search?: string) {
+    const cacheKey = this.getCacheKey(page, limit, search);
+    const cachedResult = await this.cacheManager.get(cacheKey);
+    if (cachedResult) {
+      this.logger.log(`Resultados obtenidos del caché: ${cacheKey}`);
+      return cachedResult;
+    }
+    return null;
+  }
+
+  private async queryUsers(skip: number, limit: number, where: any) {
+    return Promise.all([
       this.prisma.usuario.findMany({
+        where,
         skip,
         take: limit,
-        where,
+        orderBy: { fecha_registro: 'desc' },
+        select: {
+          id_usuario: true,
+          nombre: true,
+          email: true,
+          telefono: true,
+          estado_civil: true,
+          fecha_registro: true,
+          activo: true,
+          rol: true,
+          empresas: true,
+          perfil_cliente: true,
+        },
+      }),
+      this.prisma.usuario.count({ where }),
+    ]);
+  }
+
+  async create(createUserDto: CreateUserDto) {
+    try {
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(createUserDto.email)) {
+        throw new BadRequestException('Formato de email inválido');
+      }
+
+      // Validar formato de teléfono (opcional)
+      if (createUserDto.telefono) {
+        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+        if (!phoneRegex.test(createUserDto.telefono)) {
+          throw new BadRequestException('Formato de teléfono inválido');
+        }
+      }
+
+      // Validar longitud del nombre
+      if (
+        createUserDto.nombre.length < 2 ||
+        createUserDto.nombre.length > 100
+      ) {
+        throw new BadRequestException(
+          'El nombre debe tener entre 2 y 100 caracteres',
+        );
+      }
+
+      // Validar contraseña fuerte
+      const passwordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(createUserDto.contrasena)) {
+        throw new BadRequestException(
+          'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial',
+        );
+      }
+
+      const existingUser = await this.prisma.usuario.findUnique({
+        where: { email: createUserDto.email },
+      });
+
+      if (existingUser) {
+        throw new ConflictException('El email ya está registrado');
+      }
+
+      const hashedPassword = await bcrypt.hash(createUserDto.contrasena, 10);
+
+      // Crear el usuario con su rol
+      const user = await this.prisma.usuario.create({
+        data: {
+          nombre: createUserDto.nombre,
+          email: createUserDto.email,
+          contrasena: hashedPassword,
+          telefono: createUserDto.telefono,
+          rol: {
+            connect: { id_rol: createUserDto.rolId },
+          },
+          // Si es un cliente, crear el perfil de cliente
+          ...(createUserDto.rolId === 3 && {
+            perfil_cliente: {
+              create: {
+                nombre: createUserDto.nombre,
+                email: createUserDto.email,
+                telefono: createUserDto.telefono,
+              },
+            },
+          }),
+        },
         include: {
           rol: true,
           perfil_cliente: true,
@@ -104,27 +155,67 @@ export class UsuariosService {
             },
           },
         },
-        orderBy: {
-          nombre: 'asc',
+      });
+
+      // Si se proporciona un ID de empresa, crear la relación usuario-empresa
+      if (createUserDto.empresaId) {
+        await this.prisma.usuarioEmpresa.create({
+          data: {
+            usuario_id: user.id_usuario,
+            empresa_id: createUserDto.empresaId,
+            es_dueno: createUserDto.esDueno ?? false,
+          },
+        });
+      }
+
+      await this.invalidateUserCache();
+      this.logger.log(`Usuario creado exitosamente: ${user.id_usuario}`);
+      return user;
+    } catch (error) {
+      if (error.code === 'P2002') {
+        this.logger.error(
+          `Error al crear usuario: Email duplicado - ${createUserDto.email}`,
+        );
+        throw new ConflictException('El email ya está registrado');
+      }
+      this.logger.error(`Error al crear usuario: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async findAll(page = 1, limit = 10, search?: string) {
+    try {
+      const cachedResult = await this.getCachedUsers(page, limit, search);
+      if (cachedResult) return cachedResult;
+
+      const skip = (page - 1) * limit;
+      const where = this.buildSearchWhere(search);
+      const [users, total] = await this.queryUsers(skip, limit, where);
+
+      const result = {
+        data: users,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
         },
-      }),
-      this.prisma.usuario.count({ where }),
-    ]);
+      };
 
-    const usersWithoutPassword = users.map((user) => {
-      const { contrasena, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
+      await this.cacheManager.set(
+        this.getCacheKey(page, limit, search),
+        result,
+        this.CACHE_TTL,
+      );
+      this.logger.log(
+        `Usuarios obtenidos y cacheados: ${users.length} de ${total}`,
+      );
 
-    return {
-      data: usersWithoutPassword,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+      return result;
+    } catch (error) {
+      this.logger.error(`Error al obtener usuarios: ${error.message}`);
+      throw error;
+    }
   }
 
   private async obtenerTotalClientes(
@@ -147,225 +238,109 @@ export class UsuariosService {
   }
 
   async findOne(id: number) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: id },
-      include: {
-        rol: {
-          include: {
-            permisoRol: {
-              include: {
-                permiso: true,
-              },
-            },
-          },
-        },
-        perfil_cliente: true,
-        empresas: {
-          include: {
-            empresa: true,
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    // Obtener permisos del usuario
-    const permisos = await this.permisosService.obtenerPermisosUsuario(id);
-
-    // Obtener empresas a las que tiene acceso (si es admin)
-    let empresasAcceso: any[] = [];
-    if (user.rol.nombre === 'ADMIN') {
-      empresasAcceso = await this.prisma.empresa.findMany({
-        select: {
-          id_empresa: true,
-          nombre: true,
-          tipo_empresa: true,
-        },
-        take: 5, // Limitamos a 5 para no sobrecargar la respuesta
+    try {
+      const user = await this.prisma.usuario.findUnique({
+        where: { id_usuario: id },
       });
-    } else {
-      // Si no es admin, mostrar las empresas a las que está asociado
-      empresasAcceso = user.empresas.map((ue) => ({
-        id_empresa: ue.empresa.id_empresa,
-        nombre: ue.empresa.nombre,
-        tipo_empresa: ue.empresa.tipo_empresa,
-        es_dueno: ue.es_dueno,
-      }));
+
+      if (!user) {
+        this.logger.warn(`Usuario no encontrado: ${id}`);
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      }
+
+      return user;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Error al obtener usuario ${id}: ${error.message}`);
+      throw error;
     }
-
-    // Obtener clientes a los que tiene acceso (si es admin o empresa)
-    let clientesAcceso: any[] = [];
-    if (user.rol.nombre === 'ADMIN' || user.rol.nombre === 'EMPRESA') {
-      const empresaIds =
-        user.rol.nombre === 'ADMIN'
-          ? undefined
-          : user.empresas.map((ue) => ue.empresa_id);
-
-      clientesAcceso = await this.prisma.clienteEmpresa
-        .findMany({
-          where: empresaIds
-            ? {
-                empresa_id: {
-                  in: empresaIds,
-                },
-              }
-            : undefined,
-          select: {
-            cliente: {
-              select: {
-                id_cliente: true,
-                nombre: true,
-                email: true,
-              },
-            },
-            fecha_registro: true,
-          },
-          take: 5, // Limitamos a 5 para no sobrecargar la respuesta
-        })
-        .then((ce) =>
-          ce.map((item) => ({
-            id_cliente: item.cliente.id_cliente,
-            nombre: item.cliente.nombre,
-            email: item.cliente.email,
-            fecha_registro: item.fecha_registro,
-          })),
-        );
-    }
-
-    // Obtener totales
-    const totalClientes = await this.obtenerTotalClientes(
-      user.rol.nombre,
-      user.rol.nombre === 'EMPRESA' ? user.empresas[0]?.empresa_id : undefined,
-    );
-    const totalEmpresas =
-      user.rol.nombre === 'ADMIN'
-        ? await this.prisma.empresa.count()
-        : user.empresas.length;
-
-    // Devolver una respuesta más limpia y organizada
-    return {
-      usuario: {
-        id: user.id_usuario,
-        nombre: user.nombre,
-        email: user.email,
-        telefono: user.telefono,
-        rol: {
-          id: user.rol.id_rol,
-          nombre: user.rol.nombre,
-          descripcion: user.rol.descripcion,
-        },
-      },
-      permisos: permisos.map((p) => ({
-        id: p.id_permiso,
-        nombre: p.nombre,
-        descripcion: p.descripcion,
-        recurso: p.recurso,
-        accion: p.accion,
-      })),
-      acceso: {
-        empresas: empresasAcceso,
-        clientes: clientesAcceso,
-        totalEmpresas,
-        totalClientes,
-      },
-    };
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: id },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    if (updateUserDto.email && updateUserDto.email !== user.email) {
-      const existingUser = await this.prisma.usuario.findUnique({
-        where: { email: updateUserDto.email },
-      });
-
-      if (existingUser) {
-        throw new ConflictException('El email ya está registrado');
+  private async validateUpdateData(
+    updateUserDto: UpdateUserDto,
+    currentEmail: string,
+  ) {
+    if (updateUserDto.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(updateUserDto.email)) {
+        throw new BadRequestException('Formato de email inválido');
+      }
+      if (updateUserDto.email !== currentEmail) {
+        const existingUser = await this.prisma.usuario.findUnique({
+          where: { email: updateUserDto.email },
+        });
+        if (existingUser) {
+          throw new ConflictException('El email ya está registrado');
+        }
       }
     }
 
-    let hashedPassword;
-    if (updateUserDto.contrasena) {
-      hashedPassword = await bcrypt.hash(updateUserDto.contrasena, 10);
+    if (updateUserDto.telefono) {
+      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(updateUserDto.telefono)) {
+        throw new BadRequestException('Formato de teléfono inválido');
+      }
     }
 
-    // Actualizar el usuario
-    const updatedUser = await this.prisma.usuario.update({
-      where: { id_usuario: id },
-      data: {
-        nombre: updateUserDto.nombre,
-        email: updateUserDto.email,
-        contrasena: hashedPassword,
-        telefono: updateUserDto.telefono,
-        ...(updateUserDto.rolId && {
-          rol: {
-            connect: { id_rol: updateUserDto.rolId },
-          },
-        }),
-      },
-      include: {
-        rol: true,
-        perfil_cliente: true,
-        empresas: {
-          include: {
-            empresa: true,
-          },
-        },
-      },
-    });
+    if (updateUserDto.nombre) {
+      if (
+        updateUserDto.nombre.length < 2 ||
+        updateUserDto.nombre.length > 100
+      ) {
+        throw new BadRequestException(
+          'El nombre debe tener entre 2 y 100 caracteres',
+        );
+      }
+    }
+  }
 
-    // Si se proporciona un ID de empresa, actualizar o crear la relación usuario-empresa
-    if (updateUserDto.empresaId) {
-      await this.prisma.usuarioEmpresa.upsert({
-        where: {
-          usuario_id_empresa_id: {
-            usuario_id: id,
-            empresa_id: updateUserDto.empresaId,
-          },
-        },
-        update: {
-          es_dueno: updateUserDto.esDueno || false,
-        },
-        create: {
-          usuario_id: id,
-          empresa_id: updateUserDto.empresaId,
-          es_dueno: updateUserDto.esDueno || false,
-        },
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    try {
+      const user = await this.findOne(id);
+      await this.validateUpdateData(updateUserDto, user.email);
+
+      const updatedUser = await this.prisma.usuario.update({
+        where: { id_usuario: id },
+        data: updateUserDto,
       });
-    }
 
-    return updatedUser;
+      await this.invalidateUserCache();
+      this.logger.log(`Usuario actualizado exitosamente: ${id}`);
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      if (error.code === 'P2002') {
+        this.logger.error(
+          `Error al actualizar usuario: Email duplicado - ${updateUserDto.email}`,
+        );
+        throw new ConflictException('El email ya está registrado');
+      }
+      this.logger.error(`Error al actualizar usuario ${id}: ${error.message}`);
+      throw error;
+    }
   }
 
   async remove(id: number) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: id },
-    });
+    try {
+      await this.findOne(id);
+      // Eliminar relaciones primero
+      await this.prisma.usuarioEmpresa.deleteMany({
+        where: { usuario_id: id },
+      });
 
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
+      // Eliminar el usuario
+      await this.prisma.usuario.delete({
+        where: { id_usuario: id },
+      });
+
+      await this.invalidateUserCache();
+      this.logger.log(`Usuario eliminado exitosamente: ${id}`);
+      return { message: 'Usuario eliminado exitosamente' };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Error al eliminar usuario ${id}: ${error.message}`);
+      throw error;
     }
-
-    // Eliminar relaciones primero
-    await this.prisma.usuarioEmpresa.deleteMany({
-      where: { usuario_id: id },
-    });
-
-    // Eliminar el usuario
-    await this.prisma.usuario.delete({
-      where: { id_usuario: id },
-    });
-
-    return { message: 'Usuario eliminado correctamente' };
   }
 
   async findByEmail(email: string) {
@@ -382,48 +357,43 @@ export class UsuariosService {
     });
   }
 
-  async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id_usuario: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-      changePasswordDto.currentPassword,
-      user.contrasena,
-    );
-
-    if (!isPasswordValid) {
-      throw new BadRequestException('La contraseña actual es incorrecta');
-    }
-
-    if (
-      changePasswordDto.newPassword !== changePasswordDto.confirmNewPassword
-    ) {
-      throw new BadRequestException('Las contraseñas nuevas no coinciden');
-    }
-
-    if (changePasswordDto.currentPassword === changePasswordDto.newPassword) {
-      throw new BadRequestException(
-        'La nueva contraseña debe ser diferente a la actual',
+  async changePassword(id: number, changePasswordDto: ChangePasswordDto) {
+    try {
+      const user = await this.findOne(id);
+      const isPasswordValid = await bcrypt.compare(
+        changePasswordDto.currentPassword,
+        user.contrasena,
       );
+
+      if (!isPasswordValid) {
+        this.logger.warn(
+          `Intento fallido de cambio de contraseña para usuario ${id}`,
+        );
+        throw new BadRequestException('Contraseña actual incorrecta');
+      }
+
+      const hashedPassword = await bcrypt.hash(
+        changePasswordDto.newPassword,
+        10,
+      );
+      await this.prisma.usuario.update({
+        where: { id_usuario: id },
+        data: { contrasena: hashedPassword },
+      });
+
+      this.logger.log(`Contraseña cambiada exitosamente para usuario: ${id}`);
+      return { message: 'Contraseña actualizada exitosamente' };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      )
+        throw error;
+      this.logger.error(
+        `Error al cambiar contraseña para usuario ${id}: ${error.message}`,
+      );
+      throw error;
     }
-
-    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
-
-    await this.prisma.usuario.update({
-      where: { id_usuario: userId },
-      data: {
-        contrasena: hashedPassword,
-      },
-    });
-
-    return {
-      message: 'Contraseña actualizada exitosamente',
-    };
   }
 
   // Nuevos métodos para gestionar las relaciones usuario-empresa
@@ -716,5 +686,18 @@ export class UsuariosService {
         },
       },
     });
+  }
+
+  // Método para invalidar el caché cuando se modifica un usuario
+  private async invalidateUserCache(): Promise<void> {
+    try {
+      // Invalidar el caché de la primera página
+      const cacheKey = this.getCacheKey(1, 10, '');
+      await this.cacheManager.del(cacheKey);
+      this.logger.log('Caché de usuarios invalidado');
+    } catch (error) {
+      this.logger.error(`Error al invalidar caché: ${error.message}`);
+      // No lanzamos el error para no interrumpir la operación principal
+    }
   }
 }

@@ -236,6 +236,16 @@ export const PERMISSIONS = {
       WRITE: 'notificaciones:feedback:write',
     },
   },
+
+  // Permisos de Valoraciones
+  VALORACIONES: {
+    READ: 'valoraciones:read',
+    WRITE: 'valoraciones:write',
+    DELETE: 'valoraciones:delete',
+    CREATE: 'valoraciones:crear',
+    EDIT: 'valoraciones:editar',
+    VIEW: 'valoraciones:ver',
+  },
 } as const;
 
 // Tipo que combina todos los permisos posibles
@@ -258,6 +268,7 @@ export type PermissionType =
   | (typeof PERMISSIONS.REPORTES.PRODUCTOS)[keyof typeof PERMISSIONS.REPORTES.PRODUCTOS]
   | (typeof PERMISSIONS.REPORTES.CLIENTES)[keyof typeof PERMISSIONS.REPORTES.CLIENTES]
   | (typeof PERMISSIONS.REPORTES.FINANCIERO)[keyof typeof PERMISSIONS.REPORTES.FINANCIERO]
+  | (typeof PERMISSIONS.VALORACIONES)[keyof typeof PERMISSIONS.VALORACIONES]
   | typeof PERMISSIONS.NOTIFICACIONES.SEND
   | typeof PERMISSIONS.NOTIFICACIONES.BULK
   | typeof PERMISSIONS.CLIENTES.DELETE
