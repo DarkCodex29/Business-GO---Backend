@@ -19,28 +19,37 @@ import {
 import { NotasDebitoService } from '../services/notas-debito.service';
 import { CreateNotaDebitoDto } from '../dto/create-nota-debito.dto';
 import { UpdateNotaDebitoDto } from '../dto/update-nota-debito.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { EmpresaId } from '../../common/decorators/empresa-id.decorator';
 
 @ApiTags('Notas de Débito')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('notas-debito')
-@Roles('ADMIN', 'EMPRESA')
+@Controller('empresas/:empresaId/notas-debito')
 export class NotasDebitoController {
   constructor(private readonly notasDebitoService: NotasDebitoService) {}
 
-  @Post(':empresaId')
-  @EmpresaPermissions('notas_debito.crear')
+  @Post()
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.CONTADOR,
+  )
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.VENTAS.NOTAS_DEBITO.CREATE],
+  })
   @ApiOperation({
     summary: 'Crear una nueva nota de débito',
     description:
       'Crea una nueva nota de débito asociada a una factura existente',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
     description: 'Nota de débito creada exitosamente',
@@ -55,35 +64,51 @@ export class NotasDebitoController {
     description: 'Factura, empresa o cliente no encontrado',
   })
   create(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Body() createNotaDebitoDto: CreateNotaDebitoDto,
   ) {
     return this.notasDebitoService.create(empresaId, createNotaDebitoDto);
   }
 
-  @Get(':empresaId')
-  @EmpresaPermissions('notas_debito.ver')
+  @Get()
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.CONTADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.VENTAS.NOTAS_DEBITO.READ],
+  })
   @ApiOperation({
     summary: 'Obtener todas las notas de débito',
     description: 'Retorna una lista de todas las notas de débito en el sistema',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
     description: 'Lista de notas de débito recuperada exitosamente',
     type: [CreateNotaDebitoDto],
   })
-  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+  findAll(@EmpresaId() empresaId: number) {
     return this.notasDebitoService.findAll(empresaId);
   }
 
-  @Get(':empresaId/:id')
-  @EmpresaPermissions('notas_debito.ver')
+  @Get(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.CONTADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.VENTAS.NOTAS_DEBITO.READ],
+  })
   @ApiOperation({
     summary: 'Obtener una nota de débito por ID',
     description: 'Retorna los detalles de una nota de débito específica',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la nota de débito' })
   @ApiResponse({
     status: 200,
@@ -92,19 +117,26 @@ export class NotasDebitoController {
   })
   @ApiResponse({ status: 404, description: 'Nota de débito no encontrada' })
   findOne(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.notasDebitoService.findOne(empresaId, id);
   }
 
-  @Patch(':empresaId/:id')
-  @EmpresaPermissions('notas_debito.editar')
+  @Patch(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.CONTADOR,
+  )
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.VENTAS.NOTAS_DEBITO.UPDATE],
+  })
   @ApiOperation({
     summary: 'Actualizar una nota de débito',
     description: 'Actualiza los datos de una nota de débito existente',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la nota de débito' })
   @ApiResponse({
     status: 200,
@@ -117,20 +149,27 @@ export class NotasDebitoController {
   })
   @ApiResponse({ status: 404, description: 'Nota de débito no encontrada' })
   update(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateNotaDebitoDto: UpdateNotaDebitoDto,
   ) {
     return this.notasDebitoService.update(empresaId, id, updateNotaDebitoDto);
   }
 
-  @Delete(':empresaId/:id')
-  @EmpresaPermissions('notas_debito.eliminar')
+  @Delete(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.CONTADOR,
+  )
+  @EmpresaPermissions({
+    permissions: [PERMISSIONS.VENTAS.NOTAS_DEBITO.DELETE],
+  })
   @ApiOperation({
     summary: 'Eliminar una nota de débito',
     description: 'Elimina una nota de débito del sistema',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la nota de débito' })
   @ApiResponse({
     status: 200,
@@ -142,7 +181,7 @@ export class NotasDebitoController {
   })
   @ApiResponse({ status: 404, description: 'Nota de débito no encontrada' })
   remove(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.notasDebitoService.remove(empresaId, id);

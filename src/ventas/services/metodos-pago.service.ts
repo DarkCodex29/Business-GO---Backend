@@ -7,7 +7,9 @@ import { UpdateMetodoPagoDto } from '../dto/update-metodo-pago.dto';
 export class MetodosPagoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createMetodoPagoDto: CreateMetodoPagoDto) {
+  async create(empresaId: number, createMetodoPagoDto: CreateMetodoPagoDto) {
+    // El parámetro empresaId se incluye para mantener la consistencia con otros servicios
+    // aunque el modelo MetodoPago no tiene relación directa con la empresa
     return this.prisma.metodoPago.create({
       data: {
         nombre: createMetodoPagoDto.nombre,
@@ -19,7 +21,8 @@ export class MetodosPagoService {
     });
   }
 
-  findAll() {
+  findAll(empresaId: number) {
+    // El parámetro empresaId se incluye para mantener la consistencia con otros servicios
     return this.prisma.metodoPago.findMany({
       include: {
         pagos: true,
@@ -27,7 +30,8 @@ export class MetodosPagoService {
     });
   }
 
-  findOne(id: number) {
+  findOne(empresaId: number, id: number) {
+    // El parámetro empresaId se incluye para mantener la consistencia con otros servicios
     return this.prisma.metodoPago.findUnique({
       where: { id_metodo_pago: id },
       include: {
@@ -36,7 +40,12 @@ export class MetodosPagoService {
     });
   }
 
-  async update(id: number, updateMetodoPagoDto: UpdateMetodoPagoDto) {
+  async update(
+    empresaId: number,
+    id: number,
+    updateMetodoPagoDto: UpdateMetodoPagoDto,
+  ) {
+    // El parámetro empresaId se incluye para mantener la consistencia con otros servicios
     // Verificar si existe el método de pago
     const metodoPago = await this.prisma.metodoPago.findUnique({
       where: { id_metodo_pago: id },
@@ -61,7 +70,8 @@ export class MetodosPagoService {
     });
   }
 
-  async remove(id: number) {
+  async remove(empresaId: number, id: number) {
+    // El parámetro empresaId se incluye para mantener la consistencia con otros servicios
     // Verificar si existe el método de pago
     const metodoPago = await this.prisma.metodoPago.findUnique({
       where: { id_metodo_pago: id },

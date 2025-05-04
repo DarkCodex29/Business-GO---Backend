@@ -83,10 +83,10 @@ export class CreateClientDto {
 
   @ApiProperty({
     description: 'ID del usuario asociado (si existe)',
-    example: '123e4567-e89b-12d3-a456-426614174000',
+    example: '1',
     required: false,
   })
   @IsOptional()
-  @IsUUID()
-  id_usuario?: string;
+  @IsNumber()
+  id_usuario?: number;
 }

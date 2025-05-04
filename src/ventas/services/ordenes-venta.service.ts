@@ -261,7 +261,57 @@ export class OrdenesVentaService {
     }
 
     return this.prisma.ordenVenta.delete({
-      where: { id_orden_venta: id },
+      where: {
+        id_orden_venta: id,
+      },
+    });
+  }
+
+  async aprobar(empresaId: number, id: number) {
+    const orden = await this.findOne(id, empresaId);
+
+    if (orden.estado !== 'PENDIENTE') {
+      throw new BadRequestException(
+        'Solo se pueden aprobar órdenes en estado pendiente',
+      );
+    }
+
+    return this.prisma.ordenVenta.update({
+      where: {
+        id_orden_venta: id,
+      },
+      data: {
+        estado: 'APROBADA',
+      },
+      include: {
+        items: true,
+        cliente: true,
+        cotizacion: true,
+      },
+    });
+  }
+
+  async cancelar(empresaId: number, id: number) {
+    const orden = await this.findOne(id, empresaId);
+
+    if (orden.estado === 'FACTURADA') {
+      throw new BadRequestException(
+        'No se puede cancelar una orden de venta facturada',
+      );
+    }
+
+    return this.prisma.ordenVenta.update({
+      where: {
+        id_orden_venta: id,
+      },
+      data: {
+        estado: 'CANCELADA',
+      },
+      include: {
+        items: true,
+        cliente: true,
+        cotizacion: true,
+      },
     });
   }
 }

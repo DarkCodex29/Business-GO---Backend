@@ -83,6 +83,57 @@ export const PERMISSIONS = {
     DELETE: 'ventas:delete',
     CANCEL: 'ventas:cancel',
     REFUND: 'ventas:refund',
+    COTIZACIONES: {
+      READ: 'ventas:cotizaciones:read',
+      CREATE: 'ventas:cotizaciones:create',
+      UPDATE: 'ventas:cotizaciones:update',
+      DELETE: 'ventas:cotizaciones:delete',
+      PRINT: 'ventas:cotizaciones:print',
+    },
+    ORDENES: {
+      READ: 'ventas:ordenes:read',
+      CREATE: 'ventas:ordenes:create',
+      UPDATE: 'ventas:ordenes:update',
+      DELETE: 'ventas:ordenes:delete',
+      APPROVE: 'ventas:ordenes:approve',
+      CANCEL: 'ventas:ordenes:cancel',
+      PRINT: 'ventas:ordenes:print',
+    },
+    FACTURAS: {
+      READ: 'ventas:facturas:read',
+      CREATE: 'ventas:facturas:create',
+      UPDATE: 'ventas:facturas:update',
+      DELETE: 'ventas:facturas:delete',
+      PRINT: 'ventas:facturas:print',
+    },
+    NOTAS_CREDITO: {
+      READ: 'ventas:notas_credito:read',
+      CREATE: 'ventas:notas_credito:create',
+      UPDATE: 'ventas:notas_credito:update',
+      DELETE: 'ventas:notas_credito:delete',
+      PRINT: 'ventas:notas_credito:print',
+    },
+    NOTAS_DEBITO: {
+      READ: 'ventas:notas_debito:read',
+      CREATE: 'ventas:notas_debito:create',
+      UPDATE: 'ventas:notas_debito:update',
+      DELETE: 'ventas:notas_debito:delete',
+      PRINT: 'ventas:notas_debito:print',
+    },
+    PAGOS: {
+      READ: 'ventas:pagos:read',
+      CREATE: 'ventas:pagos:create',
+      UPDATE: 'ventas:pagos:update',
+      DELETE: 'ventas:pagos:delete',
+      PROCESS: 'ventas:pagos:process',
+    },
+    REEMBOLSOS: {
+      READ: 'ventas:reembolsos:read',
+      CREATE: 'ventas:reembolsos:create',
+      UPDATE: 'ventas:reembolsos:update',
+      DELETE: 'ventas:reembolsos:delete',
+      APPROVE: 'ventas:reembolsos:approve',
+    },
   },
 
   // Permisos de Inventario
@@ -270,6 +321,13 @@ export type PermissionType =
   | (typeof PERMISSIONS.REPORTES.CLIENTES)[keyof typeof PERMISSIONS.REPORTES.CLIENTES]
   | (typeof PERMISSIONS.REPORTES.FINANCIERO)[keyof typeof PERMISSIONS.REPORTES.FINANCIERO]
   | (typeof PERMISSIONS.VALORACIONES)[keyof typeof PERMISSIONS.VALORACIONES]
+  | (typeof PERMISSIONS.VENTAS.COTIZACIONES)[keyof typeof PERMISSIONS.VENTAS.COTIZACIONES]
+  | (typeof PERMISSIONS.VENTAS.ORDENES)[keyof typeof PERMISSIONS.VENTAS.ORDENES]
+  | (typeof PERMISSIONS.VENTAS.FACTURAS)[keyof typeof PERMISSIONS.VENTAS.FACTURAS]
+  | (typeof PERMISSIONS.VENTAS.NOTAS_CREDITO)[keyof typeof PERMISSIONS.VENTAS.NOTAS_CREDITO]
+  | (typeof PERMISSIONS.VENTAS.NOTAS_DEBITO)[keyof typeof PERMISSIONS.VENTAS.NOTAS_DEBITO]
+  | (typeof PERMISSIONS.VENTAS.PAGOS)[keyof typeof PERMISSIONS.VENTAS.PAGOS]
+  | (typeof PERMISSIONS.VENTAS.REEMBOLSOS)[keyof typeof PERMISSIONS.VENTAS.REEMBOLSOS]
   | typeof PERMISSIONS.NOTIFICACIONES.SEND
   | typeof PERMISSIONS.NOTIFICACIONES.BULK
   | typeof PERMISSIONS.CLIENTES.DELETE

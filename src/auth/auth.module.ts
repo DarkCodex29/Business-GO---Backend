@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './services/auth.service';
@@ -32,7 +32,7 @@ import { RolesModule } from '../roles/roles.module';
       }),
       inject: [ConfigService],
     }),
-    UsuariosModule,
+    forwardRef(() => UsuariosModule),
     PrismaModule,
     EmailModule,
     RolesModule,

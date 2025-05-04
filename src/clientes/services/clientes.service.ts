@@ -72,6 +72,11 @@ export class ClientesService {
       id_usuario,
     } = createClienteDto;
 
+    // Verificar si el id_usuario existe
+    if (!id_usuario) {
+      throw new Error('Se requiere un ID de usuario para crear un cliente');
+    }
+
     // Crear el cliente
     const cliente = await this.prisma.cliente.create({
       data: {
@@ -82,13 +87,11 @@ export class ClientesService {
         preferencias,
         limite_credito,
         dias_credito,
-        usuario: id_usuario
-          ? {
-              connect: {
-                id_usuario: id_usuario,
-              },
-            }
-          : undefined,
+        usuario: {
+          connect: {
+            id_usuario: id_usuario,
+          },
+        },
         empresas: {
           create: {
             empresa_id: empresaId,
@@ -119,12 +122,32 @@ export class ClientesService {
       );
     }
 
-    // Actualizar el cliente
+    // Preparar datos para actualizar - excluir id_usuario de la actualización directa
+    const { id_usuario, ...restData } = updateClienteDto;
+
+    // Si se proporciona id_usuario, actualizar la relación
+    if (id_usuario) {
+      return this.prisma.cliente.update({
+        where: {
+          id_cliente: clienteId,
+        },
+        data: {
+          ...restData,
+          usuario: {
+            connect: {
+              id_usuario: id_usuario,
+            },
+          },
+        },
+      });
+    }
+
+    // Actualizar el cliente sin modificar la relación con el usuario
     return this.prisma.cliente.update({
       where: {
         id_cliente: clienteId,
       },
-      data: updateClienteDto,
+      data: restData,
     });
   }
 }

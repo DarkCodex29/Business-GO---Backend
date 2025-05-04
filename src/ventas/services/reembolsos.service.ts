@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReembolsoDto } from '../dto/create-reembolso.dto';
 import { UpdateReembolsoDto } from '../dto/update-reembolso.dto';
@@ -103,5 +107,47 @@ export class ReembolsosService {
         id_reembolso: id,
       },
     });
+  }
+
+  async approve(empresaId: number, id: number) {
+    const reembolso = await this.findOne(empresaId, id);
+
+    // Verificar que el pago existe
+    const pago = await this.prisma.pago.findUnique({
+      where: {
+        id_pago: reembolso.id_pago,
+      },
+    });
+
+    if (!pago) {
+      throw new NotFoundException('Pago asociado no encontrado');
+    }
+
+    // Verificar que el monto de reembolso no excede el monto del pago
+    if (reembolso.monto > pago.monto) {
+      throw new BadRequestException(
+        'El monto del reembolso excede el monto del pago',
+      );
+    }
+
+    // Actualizar el estado del reembolso
+    const reembolsoActualizado = await this.prisma.reembolso.update({
+      where: {
+        id_reembolso: id,
+      },
+      data: {
+        // Aquí se puede añadir un campo de estado si existe en el modelo, por ejemplo:
+        // estado: 'APROBADO',
+        fecha_reembolso: new Date(), // Actualizar la fecha de reembolso
+      },
+      include: {
+        pago: true,
+      },
+    });
+
+    // También se podría actualizar el estado del pago o crear un registro de transacción
+    // según los requisitos del negocio
+
+    return reembolsoActualizado;
   }
 }

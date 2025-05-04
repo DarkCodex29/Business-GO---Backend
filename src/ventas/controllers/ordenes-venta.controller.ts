@@ -19,27 +19,34 @@ import {
 import { OrdenesVentaService } from '../services/ordenes-venta.service';
 import { CreateOrdenVentaDto } from '../dto/create-orden-venta.dto';
 import { UpdateOrdenVentaDto } from '../dto/update-orden-venta.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
+import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
+import { PERMISSIONS } from '../../common/constants/permissions.constant';
+import { EmpresaId } from '../../common/decorators/empresa-id.decorator';
 
 @ApiTags('Órdenes de Venta')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
-@Controller('ordenes-venta')
-@Roles('ADMIN', 'EMPRESA')
+@Controller('empresas/:empresaId/ordenes-venta')
 export class OrdenesVentaController {
   constructor(private readonly ordenesVentaService: OrdenesVentaService) {}
 
-  @Post(':empresaId')
-  @EmpresaPermissions('ordenes_venta.crear')
+  @Post()
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.CREATE] })
   @ApiOperation({
     summary: 'Crear una nueva orden de venta',
     description: 'Crea una nueva orden de venta con sus detalles',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
     description: 'Orden de venta creada exitosamente',
@@ -54,36 +61,46 @@ export class OrdenesVentaController {
     description: 'Empresa o cliente no encontrado',
   })
   create(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Body() createOrdenVentaDto: CreateOrdenVentaDto,
   ) {
     return this.ordenesVentaService.create(empresaId, createOrdenVentaDto);
   }
 
-  @Get(':empresaId')
-  @EmpresaPermissions('ordenes_venta.ver')
+  @Get()
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.READ] })
   @ApiOperation({
     summary: 'Obtener todas las órdenes de venta',
     description:
       'Retorna una lista de todas las órdenes de venta en el sistema',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
     description: 'Lista de órdenes de venta recuperada exitosamente',
     type: [CreateOrdenVentaDto],
   })
-  findAll(@Param('empresaId', ParseIntPipe) empresaId: number) {
+  findAll(@EmpresaId() empresaId: number) {
     return this.ordenesVentaService.findAll(empresaId);
   }
 
-  @Get(':empresaId/:id')
-  @EmpresaPermissions('ordenes_venta.ver')
+  @Get(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.READ] })
   @ApiOperation({
     summary: 'Obtener una orden de venta por ID',
     description: 'Retorna los detalles de una orden de venta específica',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la orden de venta' })
   @ApiResponse({
     status: 200,
@@ -92,19 +109,24 @@ export class OrdenesVentaController {
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
   findOne(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.ordenesVentaService.findOne(+empresaId, +id);
+    return this.ordenesVentaService.findOne(id, empresaId);
   }
 
-  @Patch(':empresaId/:id')
-  @EmpresaPermissions('ordenes_venta.editar')
+  @Patch(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.UPDATE] })
   @ApiOperation({
     summary: 'Actualizar una orden de venta',
     description: 'Actualiza los datos de una orden de venta existente',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la orden de venta' })
   @ApiResponse({
     status: 200,
@@ -118,24 +140,25 @@ export class OrdenesVentaController {
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
   update(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateOrdenVentaDto: UpdateOrdenVentaDto,
   ) {
-    return this.ordenesVentaService.update(
-      +empresaId,
-      +id,
-      updateOrdenVentaDto,
-    );
+    return this.ordenesVentaService.update(id, empresaId, updateOrdenVentaDto);
   }
 
-  @Delete(':empresaId/:id')
-  @EmpresaPermissions('ordenes_venta.eliminar')
+  @Delete(':id')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.DELETE] })
   @ApiOperation({
     summary: 'Eliminar una orden de venta',
     description: 'Elimina una orden de venta del sistema',
   })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'id', description: 'ID de la orden de venta' })
   @ApiResponse({
     status: 200,
@@ -147,9 +170,68 @@ export class OrdenesVentaController {
   })
   @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
   remove(
-    @Param('empresaId', ParseIntPipe) empresaId: number,
+    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.ordenesVentaService.remove(+empresaId, +id);
+    return this.ordenesVentaService.remove(id, empresaId);
+  }
+
+  @Patch(':id/aprobar')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.APPROVE] })
+  @ApiOperation({
+    summary: 'Aprobar una orden de venta',
+    description: 'Cambia el estado de una orden de venta a aprobada',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la orden de venta' })
+  @ApiResponse({
+    status: 200,
+    description: 'Orden de venta aprobada exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'No se puede aprobar una orden de venta ya aprobada o cancelada',
+  })
+  @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
+  aprobar(
+    @EmpresaId() empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.ordenesVentaService.aprobar(empresaId, id);
+  }
+
+  @Patch(':id/cancelar')
+  @Roles(
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES_EMPRESA.ADMINISTRADOR,
+    ROLES_EMPRESA.VENDEDOR,
+  )
+  @EmpresaPermissions({ permissions: [PERMISSIONS.VENTAS.ORDENES.CANCEL] })
+  @ApiOperation({
+    summary: 'Cancelar una orden de venta',
+    description: 'Cambia el estado de una orden de venta a cancelada',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la orden de venta' })
+  @ApiResponse({
+    status: 200,
+    description: 'Orden de venta cancelada exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No se puede cancelar una orden de venta ya facturada',
+  })
+  @ApiResponse({ status: 404, description: 'Orden de venta no encontrada' })
+  cancelar(
+    @EmpresaId() empresaId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.ordenesVentaService.cancelar(empresaId, id);
   }
 }
