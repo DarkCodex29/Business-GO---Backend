@@ -144,20 +144,22 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
 
 ```bash
    npm install
-   ```
+```
 
 3. **Configurar Variables de Entorno:**
 
    ```bash
    cp .env.example .env
    # Editar .env con tus valores
-```
+   ```
+
+````
 
 4. **Aplicar Migraciones:**
 
 ```bash
    npx prisma migrate dev
-   ```
+````
 
 5. **Inicializar Roles y Permisos:**
 
@@ -174,7 +176,7 @@ Backend robusto desarrollado con NestJS para la gestión integral de empresas. E
    # Producción
    npm run build
    npm run start:prod
-   ```
+```
 
 ## 🏗️ Estructura del Proyecto
 
@@ -241,8 +243,17 @@ src/
 │   └── entities/          # Entidades de archivos
 ├── common/               # Utilidades comunes
 │   ├── decorators/        # Decoradores comunes
+│   │   ├── roles.decorator.ts
+│   │   ├── empresa-id.decorator.ts        # Decorador para extraer ID de empresa
+│   │   └── empresa-permissions.decorator.ts # Decorador para permisos a nivel empresa
+│   ├── constants/        # Constantes compartidas
+│   │   ├── permissions.constant.ts       # Definición de permisos como constantes
+│   │   └── roles.constant.ts             # Definición de roles como constantes
 │   ├── filters/          # Filtros de excepciones
 │   ├── guards/           # Guards comunes
+│   │   ├── jwt-auth.guard.ts
+│   │   ├── roles.guard.ts
+│   │   └── empresa-permission.guard.ts   # Guard para validar permisos a nivel empresa
 │   ├── interceptors/     # Interceptores
 │   └── middleware/       # Middleware común
 ├── config/              # Configuraciones
@@ -255,6 +266,39 @@ src/
     ├── migrations/      # Migraciones de la base de datos
     └── seed.ts          # Script de inicialización de datos
 ```
+
+## 🆕 Mejoras Recientes
+
+### 📈 Estandarización y Optimización (Mayo 2025)
+
+- **Estandarización de Rutas API:**
+
+  - Implementación del patrón uniforme `empresas/:empresaId/[recurso]` para todos los endpoints relacionados con empresas
+  - Mejora en la consistencia de la API y facilidad de uso
+
+- **Decoradores Personalizados:**
+
+  - Nuevo decorador `@EmpresaId()` para extraer automáticamente el ID de empresa de la ruta
+  - Reducción de código duplicado y mejora en la legibilidad
+
+- **Sistema de Permisos Mejorado:**
+
+  - Uso de constantes para permisos (`PERMISSIONS`) en lugar de strings literales
+  - Mejor detección de errores en tiempo de compilación
+  - Facilita el mantenimiento y la consistencia del código
+
+- **Optimización de Servicios:**
+
+  - Corrección de dependencias circulares usando `forwardRef()`
+  - Implementación de caché para mejorar el rendimiento
+  - Validación mejorada de tipos en los DTOs
+
+- **Seguridad:**
+  - Adición de `SUPER_ADMIN` a todos los endpoints para garantizar acceso completo
+  - Mejora en la validación de parámetros con `ParseIntPipe`
+  - Actualización de los guards de autenticación y autorización
+
+Esta estandarización y las mejoras técnicas aumentan significativamente la mantenibilidad del código, mejoran la experiencia del desarrollador, y establecen una base más sólida para el crecimiento futuro de la aplicación.
 
 ## 📝 Licencia
 

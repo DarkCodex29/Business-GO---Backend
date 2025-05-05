@@ -118,10 +118,10 @@ export class NotasCreditoController {
   })
   @ApiResponse({ status: 404, description: 'Nota de crédito no encontrada' })
   findOne(
-    @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
+    @EmpresaId() empresaId: number,
   ) {
-    return this.notasCreditoService.findOne(empresaId, id);
+    return this.notasCreditoService.findOne(id, empresaId);
   }
 
   @Patch(':id')
@@ -154,7 +154,7 @@ export class NotasCreditoController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateNotaCreditoDto: UpdateNotaCreditoDto,
   ) {
-    return this.notasCreditoService.update(empresaId, id, updateNotaCreditoDto);
+    return this.notasCreditoService.update(id, empresaId, updateNotaCreditoDto);
   }
 
   @Delete(':id')
@@ -185,6 +185,6 @@ export class NotasCreditoController {
     @EmpresaId() empresaId: number,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.notasCreditoService.remove(empresaId, id);
+    return this.notasCreditoService.remove(id, empresaId);
   }
 }

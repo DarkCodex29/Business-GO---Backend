@@ -2,9 +2,26 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ErrorInterceptor } from './common/interceptors/error.interceptor';
+import * as Sentry from '@sentry/node';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Inicializar Sentry para monitoreo de errores en producción
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV ?? 'development',
+      // Performance monitoring
+      tracesSampleRate: 1.0,
+      // Set sampling rate for profiling - this is relative to tracesSampleRate
+      profilesSampleRate: 1.0,
+    });
+  }
+
+  // Registrar interceptor de errores global
+  app.useGlobalInterceptors(new ErrorInterceptor());
 
   // Configuración global de pipes
   app.useGlobalPipes(
@@ -54,6 +71,9 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(3000);
+  await app.listen(process.env.PORT ?? 3000);
+  console.log(`Aplicación corriendo en: ${await app.getUrl()}`);
 }
-bootstrap();
+
+// Usar void para indicar explícitamente que no nos interesa manejar la promesa
+void bootstrap();

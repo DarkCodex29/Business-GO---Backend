@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './users/usuarios.module';
@@ -15,6 +20,7 @@ import { ValoracionesModule } from './valoraciones/valoraciones.module';
 import { InventarioModule } from './inventario/inventario.module';
 import { ComprasModule } from './compras/compras.module';
 import { FidelizacionModule } from './fidelizacion/fidelizacion.module';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 
 @Module({
   imports: [
@@ -39,4 +45,10 @@ import { FidelizacionModule } from './fidelizacion/fidelizacion.module';
     FidelizacionModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RateLimitMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+}
