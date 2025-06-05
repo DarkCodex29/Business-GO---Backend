@@ -3,9 +3,9 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  Inject,
   Logger,
 } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
@@ -14,24 +14,34 @@ import { UsuarioRolEmpresaDto } from '../dto/usuario-rol-empresa.dto';
 import { Autenticacion2FADto } from '../dto/autenticacion-2fa.dto';
 import { SesionUsuarioDto } from '../dto/sesion-usuario.dto';
 import { PermisoUsuarioDto } from '../dto/permiso-usuario.dto';
-import * as bcrypt from 'bcrypt';
 import { PermisosService } from '../../auth/services/permisos.service';
-import { Cache } from 'cache-manager';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { UserValidationService } from './user-validation.service';
+import { UserCacheService } from './user-cache.service';
+import { UserPasswordService } from './user-password.service';
+import { BaseCrudService } from '../../common/services/base-crud.service';
 
 @Injectable()
-export class UsuariosService {
-  private readonly logger = new Logger(UsuariosService.name);
-  private readonly CACHE_TTL = 300; // 5 minutos en segundos
-
+export class UsuariosService extends BaseCrudService<
+  any,
+  CreateUserDto,
+  UpdateUserDto
+> {
   constructor(
-    private readonly prisma: PrismaService,
+    protected readonly prisma: PrismaService,
     private readonly permisosService: PermisosService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
+    private readonly userValidationService: UserValidationService,
+    private readonly userCacheService: UserCacheService,
+    private readonly userPasswordService: UserPasswordService,
+  ) {
+    super(prisma, 'usuario', UsuariosService.name);
+  }
 
-  private getCacheKey(page: number, limit: number, search?: string): string {
-    return `users_page${page}_limit${limit}_search${search ?? 'none'}`;
+  protected getModel() {
+    return this.prisma.usuario;
+  }
+
+  protected getIdField(id: number) {
+    return { id_usuario: id };
   }
 
   private buildSearchWhere(search?: string) {
@@ -44,16 +54,6 @@ export class UsuariosService {
           ],
         }
       : {};
-  }
-
-  private async getCachedUsers(page: number, limit: number, search?: string) {
-    const cacheKey = this.getCacheKey(page, limit, search);
-    const cachedResult = await this.cacheManager.get(cacheKey);
-    if (cachedResult) {
-      this.logger.log(`Resultados obtenidos del caché: ${cacheKey}`);
-      return cachedResult;
-    }
-    return null;
   }
 
   private async queryUsers(skip: number, limit: number, where: any) {
@@ -82,48 +82,21 @@ export class UsuariosService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      // Validar formato de email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(createUserDto.email)) {
-        throw new BadRequestException('Formato de email inválido');
-      }
+      // Validar datos usando el servicio especializado
+      this.userValidationService.validateEmail(createUserDto.email);
+      this.userValidationService.validatePhone(createUserDto.telefono);
+      this.userValidationService.validateName(createUserDto.nombre);
+      this.userValidationService.validatePassword(createUserDto.contrasena);
 
-      // Validar formato de teléfono (opcional)
-      if (createUserDto.telefono) {
-        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-        if (!phoneRegex.test(createUserDto.telefono)) {
-          throw new BadRequestException('Formato de teléfono inválido');
-        }
-      }
+      // Validar unicidad del email
+      await this.userValidationService.validateEmailUniqueness(
+        createUserDto.email,
+      );
 
-      // Validar longitud del nombre
-      if (
-        createUserDto.nombre.length < 2 ||
-        createUserDto.nombre.length > 100
-      ) {
-        throw new BadRequestException(
-          'El nombre debe tener entre 2 y 100 caracteres',
-        );
-      }
-
-      // Validar contraseña fuerte
-      const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-      if (!passwordRegex.test(createUserDto.contrasena)) {
-        throw new BadRequestException(
-          'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial',
-        );
-      }
-
-      const existingUser = await this.prisma.usuario.findUnique({
-        where: { email: createUserDto.email },
-      });
-
-      if (existingUser) {
-        throw new ConflictException('El email ya está registrado');
-      }
-
-      const hashedPassword = await bcrypt.hash(createUserDto.contrasena, 10);
+      // Hashear contraseña usando el servicio especializado
+      const hashedPassword = await this.userPasswordService.hashPassword(
+        createUserDto.contrasena,
+      );
 
       // Crear el usuario con su rol
       const user = await this.prisma.usuario.create({
@@ -168,7 +141,7 @@ export class UsuariosService {
         });
       }
 
-      await this.invalidateUserCache();
+      await this.userCacheService.invalidateUserCache();
       this.logger.log(`Usuario creado exitosamente: ${user.id_usuario}`);
       return user;
     } catch (error) {
@@ -185,7 +158,12 @@ export class UsuariosService {
 
   async findAll(page = 1, limit = 10, search?: string) {
     try {
-      const cachedResult = await this.getCachedUsers(page, limit, search);
+      // Intentar obtener del caché
+      const cachedResult = await this.userCacheService.getCachedUsers(
+        page,
+        limit,
+        search,
+      );
       if (cachedResult) return cachedResult;
 
       const skip = (page - 1) * limit;
@@ -202,11 +180,8 @@ export class UsuariosService {
         },
       };
 
-      await this.cacheManager.set(
-        this.getCacheKey(page, limit, search),
-        result,
-        this.CACHE_TTL,
-      );
+      // Cachear resultado
+      await this.userCacheService.setCachedUsers(page, limit, search, result);
       this.logger.log(
         `Usuarios obtenidos y cacheados: ${users.length} de ${total}`,
       );
@@ -304,7 +279,7 @@ export class UsuariosService {
         data: updateUserDto,
       });
 
-      await this.invalidateUserCache();
+      await this.userCacheService.invalidateUserCache();
       this.logger.log(`Usuario actualizado exitosamente: ${id}`);
       return updatedUser;
     } catch (error) {
@@ -333,7 +308,7 @@ export class UsuariosService {
         where: { id_usuario: id },
       });
 
-      await this.invalidateUserCache();
+      await this.userCacheService.invalidateUserCache();
       this.logger.log(`Usuario eliminado exitosamente: ${id}`);
       return { message: 'Usuario eliminado exitosamente' };
     } catch (error) {
@@ -358,42 +333,7 @@ export class UsuariosService {
   }
 
   async changePassword(id: number, changePasswordDto: ChangePasswordDto) {
-    try {
-      const user = await this.findOne(id);
-      const isPasswordValid = await bcrypt.compare(
-        changePasswordDto.currentPassword,
-        user.contrasena,
-      );
-
-      if (!isPasswordValid) {
-        this.logger.warn(
-          `Intento fallido de cambio de contraseña para usuario ${id}`,
-        );
-        throw new BadRequestException('Contraseña actual incorrecta');
-      }
-
-      const hashedPassword = await bcrypt.hash(
-        changePasswordDto.newPassword,
-        10,
-      );
-      await this.prisma.usuario.update({
-        where: { id_usuario: id },
-        data: { contrasena: hashedPassword },
-      });
-
-      this.logger.log(`Contraseña cambiada exitosamente para usuario: ${id}`);
-      return { message: 'Contraseña actualizada exitosamente' };
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      )
-        throw error;
-      this.logger.error(
-        `Error al cambiar contraseña para usuario ${id}: ${error.message}`,
-      );
-      throw error;
-    }
+    return this.userPasswordService.changePassword(id, changePasswordDto);
   }
 
   // Nuevos métodos para gestionar las relaciones usuario-empresa
@@ -686,18 +626,5 @@ export class UsuariosService {
         },
       },
     });
-  }
-
-  // Método para invalidar el caché cuando se modifica un usuario
-  private async invalidateUserCache(): Promise<void> {
-    try {
-      // Invalidar el caché de la primera página
-      const cacheKey = this.getCacheKey(1, 10, '');
-      await this.cacheManager.del(cacheKey);
-      this.logger.log('Caché de usuarios invalidado');
-    } catch (error) {
-      this.logger.error(`Error al invalidar caché: ${error.message}`);
-      // No lanzamos el error para no interrumpir la operación principal
-    }
   }
 }

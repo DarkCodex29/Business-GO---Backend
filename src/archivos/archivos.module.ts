@@ -1,13 +1,22 @@
 import { Module } from '@nestjs/common';
-import { ArchivosController } from './controllers/archivos.controller';
 import { ArchivosService } from './services/archivos.service';
+import { ArchivosValidationService } from './services/archivos-validation.service';
+import { ArchivosCalculationService } from './services/archivos-calculation.service';
+import { ArchivosController } from './archivos.controller';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule],
   controllers: [ArchivosController],
-  providers: [ArchivosService],
-  exports: [ArchivosService],
+  providers: [
+    ArchivosService,
+    ArchivosValidationService,
+    ArchivosCalculationService,
+  ],
+  exports: [
+    ArchivosService,
+    ArchivosValidationService,
+    ArchivosCalculationService,
+  ],
 })
 export class ArchivosModule {}

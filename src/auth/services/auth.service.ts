@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../email/email.service';
 import { SessionService } from './session.service';
@@ -10,9 +14,18 @@ import { LoginDto } from '../dto/login.dto';
 import { RolesService } from '../../roles/services/roles.service';
 import * as bcrypt from 'bcrypt';
 import { RoleType, ROLES } from '../../common/constants/roles.constant';
+import {
+  IAuthStrategy,
+  AuthCredentials,
+  AuthResult,
+} from '../interfaces/auth-strategy.interface';
+import { EmailPasswordStrategy } from '../strategies/email-password.strategy';
+import { WhatsAppStrategy } from '../strategies/whatsapp.strategy';
 
 @Injectable()
 export class AuthService {
+  private strategies = new Map<string, IAuthStrategy>();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
@@ -20,7 +33,13 @@ export class AuthService {
     private readonly usuariosService: UsuariosService,
     private readonly prisma: PrismaService,
     private readonly rolesService: RolesService,
-  ) {}
+    private readonly emailPasswordStrategy: EmailPasswordStrategy,
+    private readonly whatsAppStrategy: WhatsAppStrategy,
+  ) {
+    // Registrar estrategias
+    this.strategies.set('email', this.emailPasswordStrategy);
+    this.strategies.set('whatsapp', this.whatsAppStrategy);
+  }
 
   async validateUser(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({
@@ -61,7 +80,16 @@ export class AuthService {
     const tokens = await this.generateTokens(user, req);
 
     // Enviar email de bienvenida
-    await this.emailService.sendWelcomeEmail(user.email, user.nombre);
+    const empresaId =
+      user.empresas && user.empresas.length > 0
+        ? user.empresas[0].empresa_id.toString()
+        : 'default';
+
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      { nombre: user.nombre },
+      empresaId,
+    );
 
     return {
       user,
@@ -69,48 +97,59 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+  // Método principal de autenticación multi-canal
+  async authenticate(
+    credentials: AuthCredentials,
+    req?: Request,
+  ): Promise<AuthResult> {
+    const strategy = this.strategies.get(credentials.type);
 
-    // Preparar los permisos de empresa para el token
-    const empresaPermissions = user.empresas
-      .filter((empresa) => empresa.rol_empresa !== null)
-      .map((empresa) => ({
-        empresaId: empresa.empresa_id,
-        rol: empresa.rol_empresa!.nombre,
-        permisos: empresa.rol_empresa!.permisos.map((permiso) => ({
-          recurso: permiso.recurso,
-          accion: permiso.accion,
-        })),
-      }));
+    if (!strategy) {
+      throw new BadRequestException(
+        `Método de autenticación '${credentials.type}' no soportado`,
+      );
+    }
 
-    const payload = {
-      sub: user.id_usuario,
-      email: user.email,
-      rol: user.rol.nombre as RoleType,
-      empresas: empresaPermissions,
-    };
+    const result = await strategy.validate(credentials, req);
 
-    const token = this.jwtService.sign(payload);
+    // Si es una respuesta de verificación (WhatsApp initiate), retornarla directamente
+    if (result.requiresVerification) {
+      return result;
+    }
 
-    // Registrar la sesión
-    await this.prisma.sesionUsuario.create({
-      data: {
-        id_usuario: user.id_usuario,
-        token,
-        fecha_expiracion: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
-      },
-    });
+    // Si es un usuario válido, generar tokens
+    const tokens = await strategy.generateTokens(result, req);
 
     return {
-      access_token: token,
       user: {
-        id: user.id_usuario,
-        email: user.email,
-        rol: user.rol.nombre,
-        empresas: empresaPermissions,
+        id: result.id_usuario,
+        email: result.email,
+        telefono: result.telefono,
+        rol: result.rol.nombre,
+        empresas:
+          result.empresas?.map((empresa: any) => ({
+            empresaId: empresa.empresa_id,
+            rol: empresa.rol_empresa?.nombre,
+            permisos:
+              empresa.rol_empresa?.permisos?.map((permiso: any) => ({
+                recurso: permiso.recurso,
+                accion: permiso.accion,
+              })) || [],
+          })) || [],
       },
+      tokens,
     };
+  }
+
+  // Mantener método login original para compatibilidad
+  async login(loginDto: LoginDto, req?: Request) {
+    const credentials: AuthCredentials = {
+      type: 'email',
+      identifier: loginDto.email,
+      credential: loginDto.password,
+    };
+
+    return this.authenticate(credentials, req);
   }
 
   private async generateTokens(user: any, req: Request) {
@@ -250,5 +289,59 @@ export class AuthService {
           permiso.accion === requiredPermission.split(':')[1],
       ),
     );
+  }
+
+  // Métodos agregados para JWT Strategy
+  async isTokenRevoked(jti: string): Promise<boolean> {
+    return this.sessionService.isTokenRevoked(jti);
+  }
+
+  async validateTokenPayload(payload: any) {
+    try {
+      const user = await this.prisma.usuario.findUnique({
+        where: {
+          id_usuario: payload.sub,
+          activo: true, // Solo usuarios activos
+        },
+        include: {
+          rol: true,
+          empresas: {
+            where: { estado: 'activo' },
+            include: {
+              rol_empresa: {
+                include: {
+                  permisos: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      // Formatear respuesta consistente
+      return {
+        id_usuario: user.id_usuario,
+        email: user.email,
+        telefono: user.telefono,
+        rol: user.rol.nombre,
+        empresas:
+          user.empresas?.map((empresa: any) => ({
+            empresaId: empresa.empresa_id,
+            rol: empresa.rol_empresa?.nombre,
+            permisos:
+              empresa.rol_empresa?.permisos?.map((permiso: any) => ({
+                recurso: permiso.recurso,
+                accion: permiso.accion,
+              })) || [],
+          })) || [],
+      };
+    } catch (error) {
+      console.error('Error validating token payload:', error);
+      return null;
+    }
   }
 }

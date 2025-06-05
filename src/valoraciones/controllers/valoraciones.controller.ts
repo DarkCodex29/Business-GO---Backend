@@ -246,7 +246,7 @@ export class ValoracionesController {
     @EmpresaId() empresaId: number,
     @Body() moderarValoracionDto: ModerarValoracionDto,
   ) {
-    return this.valoracionesService.moderarValoracion(
+    return this.valoracionesService.moderar(
       id,
       empresaId,
       moderarValoracionDto,

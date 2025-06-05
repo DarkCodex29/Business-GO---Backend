@@ -5,6 +5,8 @@ import {
   Body,
   Patch,
   Param,
+  Delete,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -12,15 +14,18 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { ClientesNotificacionesService } from '../services/notificaciones.service';
+import { NotificacionesService } from '../services/notificaciones.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
+import { UpdateNotificacionDto } from '../dto/update-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
 import { CreateNotificacionFeedbackDto } from '../dto/create-notificacion-feedback.dto';
+import { PaginationDto } from '../dto/pagination.dto';
 import { EmpresaPermissionGuard } from '../../common/guards/empresa-permission.guard';
 import { EmpresaPermissions } from '../../common/decorators/empresa-permissions.decorator';
 import { ROLES, ROLES_EMPRESA } from '../../common/constants/roles.constant';
@@ -28,123 +33,219 @@ import { PERMISSIONS } from '../../common/constants/permissions.constant';
 
 @ApiTags('Notificaciones')
 @ApiBearerAuth()
-@Controller('notificaciones/:empresaId')
+@Controller('empresas/:empresaId/notificaciones')
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
 @Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
-export class ClientesNotificacionesController {
-  constructor(
-    private readonly clientesNotificacionesService: ClientesNotificacionesService,
-  ) {}
+export class NotificacionesController {
+  constructor(private readonly notificacionesService: NotificacionesService) {}
 
-  // Notificaciones individuales
+  // CRUD básico de notificaciones
+
   @Post('clientes/:clienteId')
   @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.SEND] })
-  @ApiOperation({ summary: 'Crear notificación para un cliente' })
+  @ApiOperation({ summary: 'Crear notificación para un cliente específico' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 201,
     description: 'Notificación creada exitosamente',
   })
-  createNotificacion(
+  async create(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
     @Body() createNotificacionDto: CreateNotificacionDto,
   ) {
-    return this.clientesNotificacionesService.createNotificacion(
-      empresaId,
-      clienteId,
+    return await this.notificacionesService.create(
+      +empresaId,
+      +clienteId,
       createNotificacionDto,
     );
   }
 
+  @Get()
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({
+    summary: 'Obtener todas las notificaciones de la empresa con paginación',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({ name: 'page', required: false, description: 'Número de página' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Elementos por página',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    description: 'Filtrar por estado',
+  })
+  @ApiQuery({
+    name: 'cliente_id',
+    required: false,
+    description: 'Filtrar por cliente',
+  })
+  @ApiQuery({
+    name: 'fecha_desde',
+    required: false,
+    description: 'Filtrar desde fecha',
+  })
+  @ApiQuery({
+    name: 'fecha_hasta',
+    required: false,
+    description: 'Filtrar hasta fecha',
+  })
+  @ApiQuery({
+    name: 'buscar_mensaje',
+    required: false,
+    description: 'Buscar en mensaje',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de notificaciones de la empresa',
+  })
+  async findAll(
+    @Param('empresaId') empresaId: number,
+    @Query() paginationDto: PaginationDto,
+    @Query() filters: any,
+  ) {
+    return await this.notificacionesService.findAll(
+      +empresaId,
+      paginationDto,
+      filters,
+    );
+  }
+
+  @Get(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({ summary: 'Obtener una notificación específica' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID de la notificación' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalles de la notificación',
+  })
+  async findOne(
+    @Param('empresaId') empresaId: number,
+    @Param('id') id: number,
+  ) {
+    return await this.notificacionesService.findOne(+id, +empresaId);
+  }
+
+  @Patch(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.WRITE] })
+  @ApiOperation({ summary: 'Actualizar una notificación' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID de la notificación' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notificación actualizada exitosamente',
+  })
+  async update(
+    @Param('empresaId') empresaId: number,
+    @Param('id') id: number,
+    @Body() updateNotificacionDto: UpdateNotificacionDto,
+  ) {
+    return await this.notificacionesService.update(
+      +id,
+      +empresaId,
+      updateNotificacionDto,
+    );
+  }
+
+  @Delete(':id')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.DELETE] })
+  @ApiOperation({ summary: 'Eliminar una notificación' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'id', description: 'ID de la notificación' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notificación eliminada exitosamente',
+  })
+  async remove(@Param('empresaId') empresaId: number, @Param('id') id: number) {
+    await this.notificacionesService.remove(+id, +empresaId);
+    return { message: 'Notificación eliminada exitosamente' };
+  }
+
+  // Endpoints específicos
+
   @Get('clientes/:clienteId')
   @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
-  @ApiOperation({ summary: 'Obtener notificaciones de un cliente' })
+  @ApiOperation({ summary: 'Obtener notificaciones de un cliente específico' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 200,
     description: 'Lista de notificaciones del cliente',
   })
-  getNotificacionesCliente(
+  async findByCliente(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
+    @Query() paginationDto: PaginationDto,
   ) {
-    return this.clientesNotificacionesService.getNotificacionesCliente(
-      empresaId,
-      clienteId,
+    return await this.notificacionesService.findByCliente(
+      +empresaId,
+      +clienteId,
+      paginationDto,
     );
   }
 
-  @Get()
-  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
-  @ApiOperation({ summary: 'Obtener todas las notificaciones de la empresa' })
-  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de todas las notificaciones de la empresa',
-  })
-  getNotificacionesEmpresa(@Param('empresaId') empresaId: number) {
-    return this.clientesNotificacionesService.getNotificacionesEmpresa(
-      empresaId,
-    );
-  }
-
-  @Get('pendientes')
+  @Get('estado/pendientes')
   @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
   @ApiOperation({ summary: 'Obtener notificaciones pendientes de la empresa' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de notificaciones pendientes de la empresa',
+    description: 'Lista de notificaciones pendientes',
   })
-  getNotificacionesPendientesEmpresa(@Param('empresaId') empresaId: number) {
-    return this.clientesNotificacionesService.getNotificacionesPendientesEmpresa(
-      empresaId,
+  async findPendientes(
+    @Param('empresaId') empresaId: number,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return await this.notificacionesService.findPendientes(
+      +empresaId,
+      paginationDto,
     );
   }
 
-  @Patch(':notificacionId/leida')
+  @Patch(':id/marcar-leida')
   @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.WRITE] })
   @ApiOperation({ summary: 'Marcar notificación como leída' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
-  @ApiParam({ name: 'notificacionId', description: 'ID de la notificación' })
+  @ApiParam({ name: 'id', description: 'ID de la notificación' })
   @ApiResponse({
     status: 200,
     description: 'Notificación marcada como leída exitosamente',
   })
-  marcarNotificacionLeida(
+  async marcarLeida(
     @Param('empresaId') empresaId: number,
-    @Param('notificacionId') notificacionId: number,
+    @Param('id') id: number,
   ) {
-    return this.clientesNotificacionesService.marcarNotificacionLeida(
-      empresaId,
-      notificacionId,
-    );
+    return await this.notificacionesService.marcarLeida(+id, +empresaId);
   }
 
   // Notificaciones masivas
+
   @Post('bulk')
   @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.BULK] })
-  @ApiOperation({ summary: 'Crear notificaciones en bulk' })
+  @ApiOperation({ summary: 'Crear notificaciones masivas' })
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 201,
-    description: 'Notificaciones creadas exitosamente',
+    description: 'Notificaciones masivas creadas exitosamente',
   })
-  createNotificacionBulk(
+  async createBulk(
     @Param('empresaId') empresaId: number,
     @Body() createNotificacionBulkDto: CreateNotificacionBulkDto,
   ) {
-    return this.clientesNotificacionesService.createNotificacionBulk(
-      empresaId,
+    return await this.notificacionesService.createNotificacionBulk(
+      +empresaId,
       createNotificacionBulkDto,
     );
   }
 
-  // Feedback de Notificaciones
-  @Post('clientes/:clienteId/notificacion-feedback')
+  // Feedback de notificaciones
+
+  @Post('clientes/:clienteId/feedback')
   @EmpresaPermissions({
     permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.WRITE],
   })
@@ -153,21 +254,21 @@ export class ClientesNotificacionesController {
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 201,
-    description: 'Feedback de notificación registrado exitosamente',
+    description: 'Feedback registrado exitosamente',
   })
-  createNotificacionFeedback(
+  async createFeedback(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
-    @Body() createNotificacionFeedbackDto: CreateNotificacionFeedbackDto,
+    @Body() createFeedbackDto: CreateNotificacionFeedbackDto,
   ) {
-    return this.clientesNotificacionesService.createNotificacionFeedback(
-      empresaId,
-      clienteId,
-      createNotificacionFeedbackDto,
+    return await this.notificacionesService.createNotificacionFeedback(
+      +empresaId,
+      +clienteId,
+      createFeedbackDto,
     );
   }
 
-  @Get('clientes/:clienteId/notificacion-feedback')
+  @Get('clientes/:clienteId/feedback')
   @EmpresaPermissions({
     permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.READ],
   })
@@ -176,19 +277,19 @@ export class ClientesNotificacionesController {
   @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de feedback de notificaciones del cliente',
+    description: 'Lista de feedback del cliente',
   })
-  getNotificacionFeedbackCliente(
+  async getFeedbackCliente(
     @Param('empresaId') empresaId: number,
     @Param('clienteId') clienteId: number,
   ) {
-    return this.clientesNotificacionesService.getNotificacionFeedbackCliente(
-      empresaId,
-      clienteId,
+    return await this.notificacionesService.getNotificacionFeedbackCliente(
+      +empresaId,
+      +clienteId,
     );
   }
 
-  @Get('notificacion-feedback')
+  @Get('feedback')
   @EmpresaPermissions({
     permissions: [PERMISSIONS.NOTIFICACIONES.FEEDBACK.READ],
   })
@@ -198,11 +299,104 @@ export class ClientesNotificacionesController {
   @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de todos los feedback de notificaciones de la empresa',
+    description: 'Lista de todos los feedback de la empresa',
   })
-  getNotificacionFeedbackEmpresa(@Param('empresaId') empresaId: number) {
-    return this.clientesNotificacionesService.getNotificacionFeedbackEmpresa(
-      empresaId,
+  async getFeedbackEmpresa(@Param('empresaId') empresaId: number) {
+    return await this.notificacionesService.getNotificacionFeedbackEmpresa(
+      +empresaId,
+    );
+  }
+
+  // Métricas y análisis
+
+  @Get('metricas/generales')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({ summary: 'Obtener métricas generales de notificaciones' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas generales de notificaciones',
+  })
+  async getMetricasGenerales(@Param('empresaId') empresaId: number) {
+    return await this.notificacionesService.getMetricasGenerales(+empresaId);
+  }
+
+  @Get('clientes/:clienteId/estadisticas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({
+    summary: 'Obtener estadísticas de notificaciones de un cliente',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiParam({ name: 'clienteId', description: 'ID del cliente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estadísticas del cliente',
+  })
+  async getEstadisticasCliente(
+    @Param('empresaId') empresaId: number,
+    @Param('clienteId') clienteId: number,
+  ) {
+    return await this.notificacionesService.getEstadisticasCliente(
+      +empresaId,
+      +clienteId,
+    );
+  }
+
+  @Get('metricas/tendencia')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({ summary: 'Obtener tendencia de notificaciones' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({
+    name: 'dias',
+    required: false,
+    description: 'Número de días (default: 30)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tendencia de notificaciones por día',
+  })
+  async getTendencia(
+    @Param('empresaId') empresaId: number,
+    @Query('dias') dias?: number,
+  ) {
+    return await this.notificacionesService.getTendenciaNotificaciones(
+      +empresaId,
+      dias ? +dias : 30,
+    );
+  }
+
+  @Get('metricas/feedback-analisis')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({ summary: 'Obtener análisis de feedback' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({
+    status: 200,
+    description: 'Análisis de feedback de notificaciones',
+  })
+  async getAnalisisFeedback(@Param('empresaId') empresaId: number) {
+    return await this.notificacionesService.getAnalisisFeedback(+empresaId);
+  }
+
+  @Get('clientes/mas-activos')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({ summary: 'Obtener clientes más activos en notificaciones' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({
+    name: 'limite',
+    required: false,
+    description: 'Número de clientes (default: 10)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de clientes más activos',
+  })
+  async getClientesMasActivos(
+    @Param('empresaId') empresaId: number,
+    @Query('limite') limite?: number,
+  ) {
+    return await this.notificacionesService.getClientesMasActivos(
+      +empresaId,
+      limite ? +limite : 10,
     );
   }
 }

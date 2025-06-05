@@ -9,38 +9,68 @@ import { CreateEmpresaDto } from '../dto/create-empresa.dto';
 import { UpdateEmpresaDto } from '../dto/update-empresa.dto';
 import { CreateDireccionDto } from '../dto/create-direccion.dto';
 import { UpdateDireccionDto } from '../dto/update-direccion.dto';
+import { EmpresaValidationService } from './empresa-validation.service';
 
 @Injectable()
 export class EmpresasService {
   private readonly logger = new Logger(EmpresasService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly empresaValidationService: EmpresaValidationService,
+  ) {}
 
   async create(createEmpresaDto: CreateEmpresaDto) {
     try {
-      return await this.prisma.empresa.create({
+      // Validaciones usando el servicio especializado
+      this.empresaValidationService.validateRuc(createEmpresaDto.ruc);
+      this.empresaValidationService.validateTelefono(createEmpresaDto.telefono);
+      this.empresaValidationService.validateTipoEmpresa(
+        createEmpresaDto.tipo_empresa,
+      );
+
+      if (createEmpresaDto.tipo_contribuyente) {
+        this.empresaValidationService.validateTipoContribuyente(
+          createEmpresaDto.tipo_contribuyente,
+        );
+      }
+
+      // Validar RUC único
+      await this.empresaValidationService.validateUniqueRuc(
+        createEmpresaDto.ruc,
+      );
+
+      const empresa = await this.prisma.empresa.create({
         data: {
           nombre: createEmpresaDto.nombre,
           razon_social: createEmpresaDto.razon_social,
           nombre_comercial: createEmpresaDto.nombre_comercial,
           ruc: createEmpresaDto.ruc,
           telefono: createEmpresaDto.telefono,
-          tipo_empresa: createEmpresaDto.tipo_empresa,
-          tipo_contribuyente: createEmpresaDto.tipo_contribuyente ?? 'RER',
+          tipo_empresa: createEmpresaDto.tipo_empresa.toUpperCase(),
+          tipo_contribuyente:
+            createEmpresaDto.tipo_contribuyente?.toUpperCase() ?? 'RER',
           estado: 'activo',
-          latitud: createEmpresaDto.latitud
-            ? String(createEmpresaDto.latitud)
-            : '0',
-          longitud: createEmpresaDto.longitud
-            ? String(createEmpresaDto.longitud)
-            : '0',
+          latitud: createEmpresaDto.latitud?.toString() ?? '0',
+          longitud: createEmpresaDto.longitud?.toString() ?? '0',
         },
       });
+
+      this.logger.log(
+        `Empresa creada exitosamente: ${empresa.nombre} (ID: ${empresa.id_empresa})`,
+      );
+      return empresa;
     } catch (error) {
       this.logger.error(`Error al crear empresa: ${error.message}`);
-      if (error.code === 'P2002') {
-        throw new BadRequestException('Ya existe una empresa con este nombre');
+
+      if (error instanceof BadRequestException) {
+        throw error;
       }
+
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Ya existe una empresa con este RUC');
+      }
+
       throw error;
     }
   }

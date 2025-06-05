@@ -27,6 +27,11 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Request as ExpressRequest } from 'express';
 import { SessionService } from '../services/session.service';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
+import {
+  InitiateWhatsAppLoginDto,
+  VerifyWhatsAppLoginDto,
+} from '../dto/whatsapp-auth.dto';
+import { AuthCredentials } from '../interfaces/auth-strategy.interface';
 
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -52,11 +57,11 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Iniciar sesión' })
+  @ApiOperation({ summary: 'Iniciar sesión con email y contraseña' })
   @ApiResponse({ status: 200, description: 'Login exitoso' })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: ExpressRequest) {
+    return this.authService.login(loginDto, req);
   }
 
   @Post('logout')
@@ -185,5 +190,92 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  }
+
+  // ========================================
+  // ENDPOINTS WHATSAPP
+  // ========================================
+
+  @Public()
+  @Post('whatsapp/initiate')
+  @ApiOperation({
+    summary: 'Iniciar login por WhatsApp',
+    description:
+      'Envía un código de verificación al número de WhatsApp proporcionado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Código enviado exitosamente',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          sessionId: 'wa_123456789',
+          message: 'Código de verificación enviado a +51987654321',
+          requiresVerification: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Número de teléfono inválido' })
+  async initiateWhatsAppLogin(
+    @Body() dto: InitiateWhatsAppLoginDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const credentials: AuthCredentials = {
+      type: 'whatsapp',
+      identifier: dto.phoneNumber,
+      metadata: {
+        action: 'initiate',
+        contactName: dto.contactName,
+      },
+    };
+
+    return this.authService.authenticate(credentials, req);
+  }
+
+  @Public()
+  @Post('whatsapp/verify')
+  @ApiOperation({
+    summary: 'Verificar código de WhatsApp',
+    description: 'Verifica el código recibido por WhatsApp y completa el login',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Login exitoso',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          user: {
+            id: 1,
+            telefono: '+51987654321',
+            rol: 'CLIENTE',
+            empresas: [],
+          },
+          tokens: {
+            access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            refresh_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Código inválido o expirado' })
+  async verifyWhatsAppLogin(
+    @Body() dto: VerifyWhatsAppLoginDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const credentials: AuthCredentials = {
+      type: 'whatsapp',
+      identifier: '', // No necesario para verificación
+      credential: dto.code,
+      metadata: {
+        action: 'verify',
+        sessionId: dto.sessionId,
+      },
+    };
+
+    return this.authService.authenticate(credentials, req);
   }
 }

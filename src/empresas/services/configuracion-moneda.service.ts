@@ -1,46 +1,92 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateConfiguracionMonedaDto } from '../dto/create-configuracion-moneda.dto';
 import { UpdateConfiguracionMonedaDto } from '../dto/update-configuracion-moneda.dto';
+import { BaseConfiguracionService } from './base-configuracion.service';
+import { EmpresaValidationService } from './empresa-validation.service';
 
 @Injectable()
-export class ConfiguracionMonedaService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async create(
-    empresaId: number,
-    createConfiguracionMonedaDto: CreateConfiguracionMonedaDto,
+export class ConfiguracionMonedaService extends BaseConfiguracionService<
+  any,
+  CreateConfiguracionMonedaDto,
+  UpdateConfiguracionMonedaDto
+> {
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly empresaValidationService: EmpresaValidationService,
   ) {
-    // Verificar si la empresa existe
-    const empresa = await this.prisma.empresa.findUnique({
+    super(prisma, empresaValidationService);
+  }
+
+  protected getConfigurationName(): string {
+    return 'Configuración de moneda';
+  }
+
+  protected async findConfiguration(empresaId: number) {
+    return this.prisma.configuracionMoneda.findUnique({
       where: { id_empresa: empresaId },
+      include: { empresa: true },
     });
+  }
 
-    if (!empresa) {
-      throw new NotFoundException(`Empresa con ID ${empresaId} no encontrada`);
-    }
-
-    // Verificar si ya existe una configuración de moneda para la empresa
-    const configuracionExistente =
-      await this.prisma.configuracionMoneda.findUnique({
-        where: { id_empresa: empresaId },
-      });
-
-    if (configuracionExistente) {
-      throw new Error('La empresa ya tiene una configuración de moneda');
-    }
-
-    // Crear la configuración de moneda
+  protected async createConfiguration(
+    empresaId: number,
+    createDto: CreateConfiguracionMonedaDto,
+  ) {
     return this.prisma.configuracionMoneda.create({
       data: {
         id_empresa: empresaId,
-        moneda_principal: createConfiguracionMonedaDto.moneda_principal,
-        moneda_secundaria: createConfiguracionMonedaDto.moneda_secundaria,
-        tipo_cambio: createConfiguracionMonedaDto.tipo_cambio,
-        redondeo: createConfiguracionMonedaDto.redondeo,
-        formato_moneda: createConfiguracionMonedaDto.formato_moneda,
+        moneda_principal: createDto.moneda_principal,
+        moneda_secundaria: createDto.moneda_secundaria,
+        tipo_cambio: createDto.tipo_cambio,
+        redondeo: createDto.redondeo,
+        formato_moneda: createDto.formato_moneda,
       },
+      include: { empresa: true },
     });
+  }
+
+  protected async updateConfiguration(
+    empresaId: number,
+    updateDto: UpdateConfiguracionMonedaDto,
+  ) {
+    return this.prisma.configuracionMoneda.update({
+      where: { id_empresa: empresaId },
+      data: updateDto,
+      include: { empresa: true },
+    });
+  }
+
+  protected async deleteConfiguration(empresaId: number): Promise<void> {
+    await this.prisma.configuracionMoneda.delete({
+      where: { id_empresa: empresaId },
+    });
+  }
+
+  protected async validateUniqueConfiguration(
+    empresaId: number,
+  ): Promise<void> {
+    const existing = await this.prisma.configuracionMoneda.findUnique({
+      where: { id_empresa: empresaId },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        'La empresa ya tiene una configuración de moneda',
+      );
+    }
+  }
+
+  protected validateCreateData(createDto: CreateConfiguracionMonedaDto): void {
+    if (createDto.tipo_cambio <= 0) {
+      throw new BadRequestException('El tipo de cambio debe ser mayor a 0');
+    }
+
+    if (createDto.redondeo < 0 || createDto.redondeo > 4) {
+      throw new BadRequestException(
+        'El redondeo debe estar entre 0 y 4 decimales',
+      );
+    }
   }
 
   async findAll() {
@@ -48,66 +94,6 @@ export class ConfiguracionMonedaService {
       include: {
         empresa: true,
       },
-    });
-  }
-
-  async findOne(empresaId: number) {
-    const configuracion = await this.prisma.configuracionMoneda.findUnique({
-      where: { id_empresa: empresaId },
-      include: {
-        empresa: true,
-      },
-    });
-
-    if (!configuracion) {
-      throw new NotFoundException(
-        `Configuración de moneda para empresa ${empresaId} no encontrada`,
-      );
-    }
-
-    return configuracion;
-  }
-
-  async update(
-    empresaId: number,
-    updateConfiguracionMonedaDto: UpdateConfiguracionMonedaDto,
-  ) {
-    // Verificar si existe la configuración
-    const configuracion = await this.prisma.configuracionMoneda.findUnique({
-      where: { id_empresa: empresaId },
-    });
-
-    if (!configuracion) {
-      throw new NotFoundException(
-        `Configuración de moneda para empresa ${empresaId} no encontrada`,
-      );
-    }
-
-    // Actualizar la configuración
-    return this.prisma.configuracionMoneda.update({
-      where: { id_empresa: empresaId },
-      data: updateConfiguracionMonedaDto,
-      include: {
-        empresa: true,
-      },
-    });
-  }
-
-  async remove(empresaId: number) {
-    // Verificar si existe la configuración
-    const configuracion = await this.prisma.configuracionMoneda.findUnique({
-      where: { id_empresa: empresaId },
-    });
-
-    if (!configuracion) {
-      throw new NotFoundException(
-        `Configuración de moneda para empresa ${empresaId} no encontrada`,
-      );
-    }
-
-    // Eliminar la configuración
-    return this.prisma.configuracionMoneda.delete({
-      where: { id_empresa: empresaId },
     });
   }
 }

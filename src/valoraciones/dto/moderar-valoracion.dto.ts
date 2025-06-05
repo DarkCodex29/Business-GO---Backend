@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEnum, IsOptional } from 'class-validator';
 
 export enum EstadoModeracion {
-  APROBADA = 'aprobada',
-  RECHAZADA = 'rechazada',
-  PENDIENTE = 'pendiente',
+  APROBADO = 'APROBADO',
+  RECHAZADO = 'RECHAZADO',
+  PENDIENTE = 'PENDIENTE',
 }
 
 export class ModerarValoracionDto {

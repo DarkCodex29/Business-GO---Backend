@@ -1,3 +1,4 @@
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const permisosBasicos = [
@@ -161,89 +162,128 @@ const rolesBasicos = [
 ];
 
 export async function inicializarPermisos(prisma: PrismaService) {
-  console.log('Inicializando permisos básicos...');
+  const logger = new Logger('InicializarPermisos');
 
-  // Obtener permisos existentes
-  const permisosExistentes = await prisma.permiso.findMany({
-    select: { nombre: true },
-  });
-  const nombresPermisosExistentes = new Set(
-    permisosExistentes.map((p) => p.nombre),
-  );
+  try {
+    logger.log('Iniciando proceso de inicialización de permisos básicos...');
 
-  // Crear o actualizar permisos
-  for (const permiso of permisosBasicos) {
-    await prisma.permiso.upsert({
-      where: { nombre: permiso.nombre },
-      update: {
-        descripcion: permiso.descripcion,
-        recurso: permiso.recurso,
-        accion: permiso.accion,
-      },
-      create: permiso,
+    // Obtener permisos existentes
+    const permisosExistentes = await prisma.permiso.findMany({
+      select: { nombre: true },
     });
-    nombresPermisosExistentes.delete(permiso.nombre);
-  }
-
-  // Remover permisos obsoletos si es necesario
-  if (nombresPermisosExistentes.size > 0) {
-    console.log(
-      'Removiendo permisos obsoletos:',
-      Array.from(nombresPermisosExistentes),
-    );
-    await prisma.permiso.deleteMany({
-      where: {
-        nombre: {
-          in: Array.from(nombresPermisosExistentes),
-        },
-      },
-    });
-  }
-
-  console.log('Permisos básicos actualizados');
-
-  // Crear roles y asignar permisos
-  for (const rol of rolesBasicos) {
-    const { nombre, descripcion, permisos: permisosRol } = rol;
-
-    // Crear o actualizar rol
-    const rolCreado = await prisma.rol.upsert({
-      where: { nombre },
-      update: { descripcion },
-      create: { nombre, descripcion },
-    });
-
-    // Obtener IDs de los permisos
-    const permisosIds = await Promise.all(
-      permisosRol.map(async (nombrePermiso) => {
-        const permiso = await prisma.permiso.findUnique({
-          where: { nombre: nombrePermiso },
-        });
-        if (!permiso) {
-          console.warn(`Permiso no encontrado: ${nombrePermiso}`);
-          return null;
-        }
-        return permiso.id_permiso;
-      }),
+    const nombresPermisosExistentes = new Set(
+      permisosExistentes.map((p) => p.nombre),
     );
 
-    // Remover permisos existentes del rol
-    await prisma.permisoRol.deleteMany({
-      where: { rol_id: rolCreado.id_rol },
-    });
-
-    // Asignar nuevos permisos al rol
-    for (const permisoId of permisosIds) {
-      if (permisoId) {
-        await prisma.permisoRol.create({
-          data: {
-            rol_id: rolCreado.id_rol,
-            permiso_id: permisoId,
+    // Crear o actualizar permisos
+    for (const permiso of permisosBasicos) {
+      try {
+        await prisma.permiso.upsert({
+          where: { nombre: permiso.nombre },
+          update: {
+            descripcion: permiso.descripcion,
+            recurso: permiso.recurso,
+            accion: permiso.accion,
           },
+          create: permiso,
         });
+        nombresPermisosExistentes.delete(permiso.nombre);
+      } catch (error) {
+        logger.error(`Error al procesar permiso ${permiso.nombre}:`, error);
+        throw error;
       }
     }
-  }
 
-  console.log('Roles básicos actualizados y permisos asignados');
+    // Remover permisos obsoletos si es necesario
+    if (nombresPermisosExistentes.size > 0) {
+      logger.warn(
+        `Removiendo permisos obsoletos: ${Array.from(nombresPermisosExistentes).join(', ')}`,
+      );
+
+      try {
+        await prisma.permiso.deleteMany({
+          where: {
+            nombre: {
+              in: Array.from(nombresPermisosExistentes),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error al remover permisos obsoletos:', error);
+        throw error;
+      }
+    }
+
+    logger.log('Permisos básicos actualizados exitosamente');
+
+    // Crear roles y asignar permisos
+    for (const rol of rolesBasicos) {
+      try {
+        const { nombre, descripcion, permisos: permisosRol } = rol;
+
+        // Crear o actualizar rol
+        const rolCreado = await prisma.rol.upsert({
+          where: { nombre },
+          update: { descripcion },
+          create: { nombre, descripcion },
+        });
+
+        // Obtener IDs de los permisos
+        const permisosIds = await Promise.all(
+          permisosRol.map(async (nombrePermiso) => {
+            try {
+              const permiso = await prisma.permiso.findUnique({
+                where: { nombre: nombrePermiso },
+              });
+              if (!permiso) {
+                logger.warn(`Permiso no encontrado: ${nombrePermiso}`);
+                return null;
+              }
+              return permiso.id_permiso;
+            } catch (error) {
+              logger.error(`Error al buscar permiso ${nombrePermiso}:`, error);
+              return null;
+            }
+          }),
+        );
+
+        // Remover permisos existentes del rol
+        await prisma.permisoRol.deleteMany({
+          where: { rol_id: rolCreado.id_rol },
+        });
+
+        // Asignar nuevos permisos al rol
+        for (const permisoId of permisosIds) {
+          if (permisoId) {
+            try {
+              await prisma.permisoRol.create({
+                data: {
+                  rol_id: rolCreado.id_rol,
+                  permiso_id: permisoId,
+                },
+              });
+            } catch (error) {
+              logger.error(
+                `Error al asignar permiso ${permisoId} al rol ${nombre}:`,
+                error,
+              );
+              throw error;
+            }
+          }
+        }
+
+        logger.log(
+          `Rol ${nombre} actualizado con ${permisosIds.filter(Boolean).length} permisos`,
+        );
+      } catch (error) {
+        logger.error(`Error al procesar rol ${rol.nombre}:`, error);
+        throw error;
+      }
+    }
+
+    logger.log('Proceso de inicialización completado exitosamente');
+  } catch (error) {
+    logger.error('Error durante la inicialización de permisos:', error);
+    throw error;
+  }
 }

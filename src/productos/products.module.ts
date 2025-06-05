@@ -13,6 +13,11 @@ import { AtributosService } from './services/atributos.service';
 import { CategoriasService } from './services/categorias.service';
 import { SubcategoriasService } from './services/subcategorias.service';
 
+// Nuevos servicios especializados aplicando SOLID
+import { ProductoValidationService } from './services/producto-validation.service';
+import { BaseProductoService } from './services/base-producto.service';
+import { StockManagementService } from './services/stock-management.service';
+
 @Module({
   controllers: [
     ProductosController,
@@ -23,21 +28,33 @@ import { SubcategoriasService } from './services/subcategorias.service';
     SubcategoriasController,
   ],
   providers: [
+    // Servicios principales
     ProductosService,
     StockService,
     PreciosService,
     AtributosService,
     CategoriasService,
     SubcategoriasService,
+    
+    // Servicios especializados SOLID
+    ProductoValidationService,
+    StockManagementService,
+    
+    // Infraestructura
     PrismaService,
   ],
   exports: [
+    // Servicios principales
     ProductosService,
     StockService,
     PreciosService,
     AtributosService,
     CategoriasService,
     SubcategoriasService,
+    
+    // Servicios especializados
+    ProductoValidationService,
+    StockManagementService,
   ],
 })
 export class ProductosModule {}

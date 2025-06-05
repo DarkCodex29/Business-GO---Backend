@@ -19,6 +19,8 @@ import { InitPermisosCommand } from '../common/commands/init-permisos.command';
 import { PermisosController } from './controllers/permisos.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesModule } from '../roles/roles.module';
+import { EmailPasswordStrategy } from './strategies/email-password.strategy';
+import { WhatsAppStrategy } from './strategies/whatsapp.strategy';
 
 @Global()
 @Module({
@@ -47,6 +49,9 @@ import { RolesModule } from '../roles/roles.module';
     TokenValidationMiddleware,
     PermisosService,
     InitPermisosCommand,
+    // Estrategias de autenticación
+    EmailPasswordStrategy,
+    WhatsAppStrategy,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

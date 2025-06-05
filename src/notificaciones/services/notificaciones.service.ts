@@ -1,124 +1,226 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
+import { UpdateNotificacionDto } from '../dto/update-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
 import { CreateNotificacionFeedbackDto } from '../dto/create-notificacion-feedback.dto';
-import { CreateFidelizacionDto } from '../../fidelizacion/dto/create-fidelizacion.dto';
-import { UpdatePuntosFidelizacionDto } from '../../fidelizacion/dto/update-puntos-fidelizacion.dto';
+import { PaginationDto } from '../dto/pagination.dto';
+import {
+  BaseNotificacionesService,
+  NotificacionFormatted,
+  PaginatedNotificaciones,
+  MetricasNotificaciones,
+} from './base-notificaciones.service';
+import { NotificacionesValidationService } from './notificaciones-validation.service';
+import {
+  NotificacionesCalculationService,
+  EstadisticasCliente,
+  TendenciaNotificaciones,
+  AnalisisFeedback,
+} from './notificaciones-calculation.service';
 
 @Injectable()
-export class ClientesNotificacionesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class NotificacionesService extends BaseNotificacionesService {
+  protected readonly logger = new Logger(NotificacionesService.name);
 
-  // Notificaciones individuales
-  async createNotificacion(
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly validationService: NotificacionesValidationService,
+    protected readonly calculationService: NotificacionesCalculationService,
+  ) {
+    super(prisma, validationService, calculationService);
+  }
+
+  /**
+   * Crear nueva notificación individual
+   */
+  async create(
     empresaId: number,
     clienteId: number,
     createNotificacionDto: CreateNotificacionDto,
-  ) {
-    // Verificar que el cliente pertenece a la empresa
-    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
-      where: {
-        cliente_id: clienteId,
-        empresa_id: empresaId,
-      },
-    });
+  ): Promise<NotificacionFormatted> {
+    return await this.createNotificacion(
+      createNotificacionDto,
+      empresaId,
+      clienteId,
+    );
+  }
 
-    if (!clienteEmpresa) {
-      throw new NotFoundException(
-        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
+  /**
+   * Obtener notificaciones paginadas con filtros
+   */
+  async findAll(
+    empresaId: number,
+    paginationDto: PaginationDto,
+    filters: any = {},
+  ): Promise<PaginatedNotificaciones> {
+    const { page = 1, limit = 10 } = paginationDto;
+    return await this.getNotificaciones(empresaId, page, limit, filters);
+  }
+
+  /**
+   * Obtener una notificación específica
+   */
+  async findOne(id: number, empresaId: number): Promise<NotificacionFormatted> {
+    return await this.formatNotificacionResponse(id, empresaId);
+  }
+
+  /**
+   * Actualizar notificación
+   */
+  async update(
+    id: number,
+    empresaId: number,
+    updateNotificacionDto: UpdateNotificacionDto,
+  ): Promise<NotificacionFormatted> {
+    return await this.updateNotificacion(id, updateNotificacionDto, empresaId);
+  }
+
+  /**
+   * Eliminar notificación
+   */
+  async remove(id: number, empresaId: number): Promise<void> {
+    await this.deleteNotificacion(id, empresaId);
+  }
+
+  /**
+   * Obtener notificaciones de un cliente específico
+   */
+  async findByCliente(
+    empresaId: number,
+    clienteId: number,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedNotificaciones> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const filters = { cliente_id: clienteId };
+    return await this.getNotificaciones(empresaId, page, limit, filters);
+  }
+
+  /**
+   * Marcar notificación como leída
+   */
+  async marcarLeida(
+    id: number,
+    empresaId: number,
+  ): Promise<NotificacionFormatted> {
+    return await this.marcarComoLeida(id, empresaId);
+  }
+
+  /**
+   * Obtener notificaciones pendientes
+   */
+  async findPendientes(
+    empresaId: number,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedNotificaciones> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const filters = { estado: 'pendiente' };
+    return await this.getNotificaciones(empresaId, page, limit, filters);
+  }
+
+  // Implementación de métodos abstractos del BaseNotificacionesService
+
+  /**
+   * Validaciones previas a la creación de notificación
+   */
+  protected async preCreateValidation(
+    createDto: CreateNotificacionDto,
+    empresaId: number,
+    clienteId: number,
+  ): Promise<void> {
+    // Validar que el cliente pertenece a la empresa
+    await this.validationService.validateClienteEmpresa(clienteId, empresaId);
+
+    // Validar datos de la notificación
+    this.validationService.validateCreateData(createDto);
+
+    // Validar límites de envío
+    await this.validationService.validateSendingLimits(empresaId);
+
+    // Validar políticas de comunicación
+    const notificacionData = { mensaje: createDto.contenido };
+    const cumplePoliticas =
+      this.validationService.validatePoliticasComunicacion(notificacionData);
+
+    if (!cumplePoliticas) {
+      throw new Error(
+        'La notificación no cumple con las políticas de comunicación',
       );
     }
-
-    return this.prisma.notificacion.create({
-      data: {
-        mensaje: createNotificacionDto.contenido,
-        id_cliente: clienteId,
-        estado: 'pendiente',
-      },
-    });
   }
 
-  async getNotificacionesCliente(empresaId: number, clienteId: number) {
-    // Verificar que el cliente pertenece a la empresa
-    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
-      where: {
-        cliente_id: clienteId,
-        empresa_id: empresaId,
-      },
+  /**
+   * Post-procesamiento después de crear notificación
+   */
+  protected async postCreateNotificacion(
+    notificacion: any,
+    empresaId: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Notificación ${notificacion.id_notificacion} creada para empresa ${empresaId}`,
+    );
+
+    // Aquí se podrían agregar acciones adicionales como:
+    // - Envío de notificaciones push
+    // - Registro de auditoría
+    // - Actualización de métricas en tiempo real
+  }
+
+  /**
+   * Post-procesamiento después de actualizar notificación
+   */
+  protected async postUpdateNotificacion(
+    notificacion: any,
+    empresaId: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Notificación ${notificacion.id_notificacion} actualizada para empresa ${empresaId}`,
+    );
+  }
+
+  /**
+   * Pre-procesamiento antes de eliminar notificación
+   */
+  protected async preDeleteNotificacion(
+    id: number,
+    empresaId: number,
+  ): Promise<void> {
+    this.logger.warn(`Eliminando notificación ${id} de empresa ${empresaId}`);
+
+    // Verificar si hay feedback asociado
+    const feedbackCount = await this.prisma.feedback.count({
+      where: { id_notificacion: id },
     });
 
-    if (!clienteEmpresa) {
-      throw new NotFoundException(
-        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
+    if (feedbackCount > 0) {
+      this.logger.warn(
+        `La notificación ${id} tiene ${feedbackCount} feedback(s) asociado(s)`,
       );
     }
-
-    return this.prisma.notificacion.findMany({
-      where: {
-        id_cliente: clienteId,
-      },
-      orderBy: {
-        fecha_notificacion: 'desc',
-      },
-    });
   }
 
-  async getNotificacionesEmpresa(empresaId: number) {
-    // Obtener todos los clientes de la empresa
-    const clientesEmpresa = await this.prisma.clienteEmpresa.findMany({
-      where: { empresa_id: empresaId },
-      select: { cliente_id: true },
-    });
-
-    const clienteIds = clientesEmpresa.map((ce) => ce.cliente_id);
-
-    // Obtener todas las notificaciones de los clientes de la empresa
-    return this.prisma.notificacion.findMany({
-      where: {
-        id_cliente: { in: clienteIds },
-      },
-      include: {
-        cliente: {
-          select: {
-            nombre: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        fecha_notificacion: 'desc',
-      },
-    });
+  /**
+   * Post-procesamiento después de eliminar notificación
+   */
+  protected async postDeleteNotificacion(
+    id: number,
+    empresaId: number,
+  ): Promise<void> {
+    this.logger.log(`Notificación ${id} eliminada de empresa ${empresaId}`);
   }
 
-  async getNotificacionesPendientesEmpresa(empresaId: number) {
-    // Obtener todos los clientes de la empresa
-    const clientesEmpresa = await this.prisma.clienteEmpresa.findMany({
-      where: { empresa_id: empresaId },
-      select: { cliente_id: true },
-    });
+  /**
+   * Post-procesamiento después de marcar como leída
+   */
+  protected async postMarcarLeida(
+    notificacion: any,
+    empresaId: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Notificación ${notificacion.id_notificacion} marcada como leída para empresa ${empresaId}`,
+    );
 
-    const clienteIds = clientesEmpresa.map((ce) => ce.cliente_id);
-
-    // Obtener las notificaciones pendientes de los clientes de la empresa
-    return this.prisma.notificacion.findMany({
-      where: {
-        id_cliente: { in: clienteIds },
-        estado: 'pendiente',
-      },
-      include: {
-        cliente: {
-          select: {
-            nombre: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        fecha_notificacion: 'desc',
-      },
-    });
+    // Actualizar métricas de apertura en tiempo real si es necesario
   }
 
   async marcarNotificacionLeida(empresaId: number, notificacionId: number) {
@@ -315,164 +417,60 @@ export class ClientesNotificacionesService {
     });
   }
 
-  // Fidelización
-  async createFidelizacion(
+  // Métodos adicionales para métricas y análisis
+
+  /**
+   * Obtener métricas generales de notificaciones
+   */
+  async getMetricasGenerales(
     empresaId: number,
-    createFidelizacionDto: CreateFidelizacionDto,
-  ) {
-    // Verificar si ya existe un programa de fidelización para la empresa
-    const fidelizacionExistente = await this.prisma.fidelizacion.findFirst({
-      where: {
-        cliente: {
-          empresas: {
-            some: {
-              empresa_id: empresaId,
-            },
-          },
-        },
-      },
-    });
-
-    if (fidelizacionExistente) {
-      throw new Error(
-        `Ya existe un programa de fidelización para la empresa ${empresaId}`,
-      );
-    }
-
-    // Obtener un cliente de la empresa para crear el programa de fidelización
-    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
-      where: { empresa_id: empresaId },
-    });
-
-    if (!clienteEmpresa) {
-      throw new NotFoundException(
-        `No se encontraron clientes para la empresa ${empresaId}`,
-      );
-    }
-
-    return this.prisma.fidelizacion.create({
-      data: {
-        id_cliente: clienteEmpresa.cliente_id,
-        fecha_inicio: new Date(),
-        puntos_actuales: 0,
-      },
-    });
+  ): Promise<MetricasNotificaciones> {
+    return await this.calculationService.calculateMetricasGenerales(empresaId);
   }
 
-  async getFidelizacionCliente(empresaId: number, clienteId: number) {
-    // Verificar que el cliente pertenece a la empresa
-    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
-      where: {
-        cliente_id: clienteId,
-        empresa_id: empresaId,
-      },
-    });
-
-    if (!clienteEmpresa) {
-      throw new NotFoundException(
-        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
-      );
-    }
-
-    // Obtener el programa de fidelización del cliente
-    const fidelizacion = await this.prisma.fidelizacion.findFirst({
-      where: {
-        id_cliente: clienteId,
-        cliente: {
-          empresas: {
-            some: {
-              empresa_id: empresaId,
-            },
-          },
-        },
-      },
-    });
-
-    if (!fidelizacion) {
-      throw new NotFoundException(
-        `No existe un programa de fidelización para el cliente ${clienteId}`,
-      );
-    }
-
-    return fidelizacion;
-  }
-
-  async getFidelizacionEmpresa(empresaId: number) {
-    // Obtener todos los clientes de la empresa
-    const clientesEmpresa = await this.prisma.clienteEmpresa.findMany({
-      where: { empresa_id: empresaId },
-      select: { cliente_id: true },
-    });
-
-    const clienteIds = clientesEmpresa.map((ce) => ce.cliente_id);
-
-    // Obtener los programas de fidelización de todos los clientes de la empresa
-    return this.prisma.fidelizacion.findMany({
-      where: {
-        id_cliente: { in: clienteIds },
-      },
-      include: {
-        cliente: {
-          select: {
-            nombre: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        puntos_actuales: 'desc',
-      },
-    });
-  }
-
-  async updatePuntosFidelizacion(
+  /**
+   * Obtener estadísticas de un cliente específico
+   */
+  async getEstadisticasCliente(
     empresaId: number,
     clienteId: number,
-    updatePuntosFidelizacionDto: UpdatePuntosFidelizacionDto,
-  ) {
-    // Verificar que el cliente pertenece a la empresa
-    const clienteEmpresa = await this.prisma.clienteEmpresa.findFirst({
-      where: {
-        cliente_id: clienteId,
-        empresa_id: empresaId,
-      },
-    });
+  ): Promise<EstadisticasCliente> {
+    return await this.calculationService.calculateEstadisticasCliente(
+      clienteId,
+      empresaId,
+    );
+  }
 
-    if (!clienteEmpresa) {
-      throw new NotFoundException(
-        `Cliente con ID ${clienteId} no encontrado para la empresa ${empresaId}`,
-      );
-    }
+  /**
+   * Obtener tendencia de notificaciones
+   */
+  async getTendenciaNotificaciones(
+    empresaId: number,
+    dias: number = 30,
+  ): Promise<TendenciaNotificaciones[]> {
+    return await this.calculationService.calculateTendenciaNotificaciones(
+      empresaId,
+      dias,
+    );
+  }
 
-    // Verificar que existe un programa de fidelización
-    const fidelizacion = await this.prisma.fidelizacion.findFirst({
-      where: {
-        id_cliente: clienteId,
-        cliente: {
-          empresas: {
-            some: {
-              empresa_id: empresaId,
-            },
-          },
-        },
-      },
-    });
+  /**
+   * Obtener análisis de feedback
+   */
+  async getAnalisisFeedback(empresaId: number): Promise<AnalisisFeedback> {
+    return await this.calculationService.calculateAnalisisFeedback(empresaId);
+  }
 
-    if (!fidelizacion) {
-      throw new NotFoundException(
-        `No existe un programa de fidelización para el cliente ${clienteId}`,
-      );
-    }
-
-    // Actualizar los puntos del cliente
-    return this.prisma.fidelizacion.update({
-      where: { id_fidelizacion: fidelizacion.id_fidelizacion },
-      data: {
-        puntos_actuales: updatePuntosFidelizacionDto.puntos_actuales,
-        fecha_fin: updatePuntosFidelizacionDto.fecha_fin
-          ? new Date(updatePuntosFidelizacionDto.fecha_fin)
-          : undefined,
-      },
-    });
+  /**
+   * Obtener clientes más activos
+   */
+  async getClientesMasActivos(
+    empresaId: number,
+    limite: number = 10,
+  ): Promise<EstadisticasCliente[]> {
+    return await this.calculationService.getClientesMasActivos(
+      empresaId,
+      limite,
+    );
   }
 }

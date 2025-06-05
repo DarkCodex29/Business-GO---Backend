@@ -4,6 +4,9 @@ export const ROLES = {
   CLIENTE: 'CLIENTE',
   PROVEEDOR: 'PROVEEDOR',
   API: 'API',
+  // Roles de empresa agregados para compatibilidad
+  EMPRESA_ADMIN: 'EMPRESA_ADMIN',
+  VENDEDOR: 'VENDEDOR',
 } as const;
 
 export const ROLES_EMPRESA = {

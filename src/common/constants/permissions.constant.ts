@@ -162,6 +162,14 @@ export const PERMISSIONS = {
       READ: 'reportes:ventas:read',
       EXPORT: 'reportes:ventas:export',
     },
+    COMPRAS: {
+      READ: 'reportes:compras:read',
+      EXPORT: 'reportes:compras:export',
+    },
+    INVENTARIO: {
+      READ: 'reportes:inventario:read',
+      EXPORT: 'reportes:inventario:export',
+    },
     PRODUCTOS: {
       READ: 'reportes:productos:read',
       EXPORT: 'reportes:productos:export',
@@ -316,7 +324,12 @@ export type PermissionType =
   | (typeof PERMISSIONS.FIDELIZACION.CLIENTES)[keyof typeof PERMISSIONS.FIDELIZACION.CLIENTES]
   | (typeof PERMISSIONS.FIDELIZACION.REGLAS)[keyof typeof PERMISSIONS.FIDELIZACION.REGLAS]
   | (typeof PERMISSIONS.NOTIFICACIONES.FEEDBACK)[keyof typeof PERMISSIONS.NOTIFICACIONES.FEEDBACK]
+  | typeof PERMISSIONS.NOTIFICACIONES.READ
+  | typeof PERMISSIONS.NOTIFICACIONES.WRITE
+  | typeof PERMISSIONS.NOTIFICACIONES.DELETE
   | (typeof PERMISSIONS.REPORTES.VENTAS)[keyof typeof PERMISSIONS.REPORTES.VENTAS]
+  | (typeof PERMISSIONS.REPORTES.COMPRAS)[keyof typeof PERMISSIONS.REPORTES.COMPRAS]
+  | (typeof PERMISSIONS.REPORTES.INVENTARIO)[keyof typeof PERMISSIONS.REPORTES.INVENTARIO]
   | (typeof PERMISSIONS.REPORTES.PRODUCTOS)[keyof typeof PERMISSIONS.REPORTES.PRODUCTOS]
   | (typeof PERMISSIONS.REPORTES.CLIENTES)[keyof typeof PERMISSIONS.REPORTES.CLIENTES]
   | (typeof PERMISSIONS.REPORTES.FINANCIERO)[keyof typeof PERMISSIONS.REPORTES.FINANCIERO]

@@ -3,7 +3,7 @@ import { IsNumber, IsString, Min, Max, IsOptional } from 'class-validator';
 
 export class UpdateValoracionDto {
   @ApiProperty({
-    description: 'Calificación del producto (1-5)',
+    description: 'Puntuación del producto (1-5)',
     minimum: 1,
     maximum: 5,
     required: false,
@@ -12,7 +12,7 @@ export class UpdateValoracionDto {
   @Min(1)
   @Max(5)
   @IsOptional()
-  calificacion?: number;
+  puntuacion?: number;
 
   @ApiProperty({
     description: 'Comentario sobre la valoración',

@@ -53,7 +53,7 @@ export class InventarioController {
   @ApiResponse({ status: 200, description: 'Stock encontrado' })
   @ApiResponse({ status: 404, description: 'Stock no encontrado' })
   getStock(@Param('empresaId') empresaId: string, @Param('id') id: string) {
-    return this.inventarioService.getStock(+id, +empresaId);
+    return this.inventarioService.getStock(+empresaId, +id);
   }
 
   @Get(':empresaId/disponibilidad/:id')
@@ -67,7 +67,7 @@ export class InventarioController {
     @Param('empresaId') empresaId: string,
     @Param('id') id: string,
   ) {
-    return this.inventarioService.getDisponibilidad(+id, +empresaId);
+    return this.inventarioService.getDisponibilidad(+empresaId, +id);
   }
 
   @Patch(':empresaId/stock/:id')
@@ -83,9 +83,10 @@ export class InventarioController {
     @Body() updateStockDto: UpdateInventarioStockDto,
   ) {
     return this.inventarioService.updateStock(
+      +empresaId,
       +id,
       updateStockDto.cantidad,
-      +empresaId,
+      updateStockDto.motivo,
     );
   }
 
@@ -105,9 +106,9 @@ export class InventarioController {
     @Body() updateDisponibilidadDto: UpdateInventarioDisponibilidadDto,
   ) {
     return this.inventarioService.updateDisponibilidad(
-      +id,
-      updateDisponibilidadDto.disponible,
       +empresaId,
+      +id,
+      updateDisponibilidadDto.cantidad_disponible,
     );
   }
 
@@ -127,6 +128,26 @@ export class InventarioController {
     @Param('umbral') umbral: string,
   ) {
     return this.inventarioService.getStockBajo(+empresaId, +umbral);
+  }
+
+  @Get(':empresaId/estadisticas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
+  @ApiOperation({ summary: 'Obtener estadísticas del inventario' })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({ status: 200, description: 'Estadísticas del inventario' })
+  getEstadisticas(@Param('empresaId') empresaId: string) {
+    return this.inventarioService.getEstadisticas(+empresaId);
+  }
+
+  @Get(':empresaId/alertas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.INVENTARIO.READ] })
+  @ApiOperation({
+    summary: 'Obtener alertas de inventario (stock bajo, sin stock, agotados)',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({ status: 200, description: 'Alertas de inventario' })
+  getAlertas(@Param('empresaId') empresaId: string) {
+    return this.inventarioService.getAlertas(+empresaId);
   }
 
   @Get(':empresaId/sin-stock')

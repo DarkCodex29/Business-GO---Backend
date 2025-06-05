@@ -8,7 +8,11 @@ import {
   IsEnum,
   IsNotEmpty,
   Min,
+  Max,
   IsOptional,
+  Length,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -21,113 +25,119 @@ export enum EstadoCotizacion {
 }
 
 export class ItemCotizacionDto {
-  @ApiProperty({ example: 1, description: 'ID del producto o servicio' })
-  @IsNumber()
-  @IsNotEmpty()
+  @ApiProperty({
+    example: 1,
+    description: 'ID del producto o servicio',
+    minimum: 1,
+  })
+  @IsNumber({}, { message: 'El ID del producto debe ser un número' })
+  @Min(1, { message: 'El ID del producto debe ser mayor a 0' })
+  @IsNotEmpty({ message: 'El ID del producto es obligatorio' })
   id_producto: number;
 
-  @ApiProperty({ example: 2, description: 'Cantidad del producto' })
-  @IsNumber()
-  @Min(1)
-  @IsNotEmpty()
+  @ApiProperty({
+    example: 2,
+    description: 'Cantidad del producto (unidades)',
+    minimum: 1,
+    maximum: 999999,
+  })
+  @IsNumber({}, { message: 'La cantidad debe ser un número entero' })
+  @Min(1, { message: 'La cantidad debe ser al menos 1' })
+  @Max(999999, { message: 'La cantidad no puede exceder 999,999 unidades' })
+  @IsNotEmpty({ message: 'La cantidad es obligatoria' })
   cantidad: number;
 
-  @ApiProperty({ example: 100.5, description: 'Precio unitario del producto' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
+  @ApiProperty({
+    example: 100.5,
+    description: 'Precio unitario del producto en soles peruanos',
+    minimum: 0.01,
+    maximum: 1000000,
+  })
+  @IsNumber({}, { message: 'El precio unitario debe ser un número' })
+  @Min(0.01, { message: 'El precio unitario debe ser mayor a S/ 0.01' })
+  @Max(1000000, { message: 'El precio unitario no puede exceder S/ 1,000,000' })
+  @IsNotEmpty({ message: 'El precio unitario es obligatorio' })
   precio_unitario: number;
 
-  @ApiProperty({ example: 10.0, description: 'Descuento aplicado al item' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  descuento: number;
-
   @ApiProperty({
-    example: 191.0,
-    description: 'Subtotal del item (cantidad * precio_unitario - descuento)',
+    example: 5.0,
+    description: 'Descuento aplicado al item (porcentaje o monto fijo)',
+    minimum: 0,
+    maximum: 100,
+    required: false,
   })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  subtotal: number;
+  @IsOptional()
+  @IsNumber({}, { message: 'El descuento debe ser un número' })
+  @Min(0, { message: 'El descuento no puede ser negativo' })
+  @Max(100, { message: 'El descuento porcentual no puede exceder 100%' })
+  descuento?: number = 0;
 }
 
 export class CreateCotizacionDto {
-  @ApiProperty({ example: 1, description: 'ID de la empresa' })
-  @IsNumber()
-  @IsNotEmpty()
-  id_empresa: number;
-
-  @ApiProperty({ example: 1, description: 'ID del cliente' })
-  @IsNumber()
-  @IsNotEmpty()
+  @ApiProperty({
+    example: 1,
+    description: 'ID del cliente',
+    minimum: 1,
+  })
+  @IsNumber({}, { message: 'El ID del cliente debe ser un número' })
+  @Min(1, { message: 'El ID del cliente debe ser mayor a 0' })
+  @IsNotEmpty({ message: 'El ID del cliente es obligatorio' })
   id_cliente: number;
 
   @ApiProperty({
-    example: '2024-03-15',
-    description: 'Fecha de emisión de la cotización',
+    example: '2024-03-15T00:00:00.000Z',
+    description: 'Fecha de emisión de la cotización (ISO 8601)',
   })
-  @IsDateString()
-  @IsNotEmpty()
+  @IsDateString(
+    {},
+    { message: 'La fecha de emisión debe ser una fecha válida' },
+  )
+  @IsNotEmpty({ message: 'La fecha de emisión es obligatoria' })
   fecha_emision: string;
 
   @ApiProperty({
-    example: '2024-04-15',
-    description: 'Fecha de validez de la cotización',
+    example: '2024-04-15T00:00:00.000Z',
+    description: 'Fecha de validez de la cotización (ISO 8601)',
   })
-  @IsDateString()
-  @IsNotEmpty()
+  @IsDateString(
+    {},
+    { message: 'La fecha de validez debe ser una fecha válida' },
+  )
+  @IsNotEmpty({ message: 'La fecha de validez es obligatoria' })
   fecha_validez: string;
-
-  @ApiProperty({ example: 1000.0, description: 'Subtotal de la cotización' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  subtotal: number;
-
-  @ApiProperty({ example: 100.0, description: 'Descuento total aplicado' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  descuento: number;
-
-  @ApiProperty({ example: 180.0, description: 'IGV calculado' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  igv: number;
-
-  @ApiProperty({ example: 1080.0, description: 'Total de la cotización' })
-  @IsNumber()
-  @Min(0)
-  @IsNotEmpty()
-  total: number;
 
   @ApiProperty({
     enum: EstadoCotizacion,
     example: EstadoCotizacion.PENDIENTE,
-    description: 'Estado de la cotización',
+    description: 'Estado inicial de la cotización',
   })
-  @IsEnum(EstadoCotizacion)
-  @IsNotEmpty()
+  @IsEnum(EstadoCotizacion, {
+    message:
+      'El estado debe ser: PENDIENTE, ENVIADA, ACEPTADA, RECHAZADA o VENCIDA',
+  })
+  @IsNotEmpty({ message: 'El estado es obligatorio' })
   estado: EstadoCotizacion;
 
   @ApiProperty({
-    example: 'Cotización para proyecto de desarrollo web',
-    description: 'Notas adicionales',
+    example: 'Cotización para proyecto de desarrollo web empresarial',
+    description: 'Notas adicionales o comentarios sobre la cotización',
+    maxLength: 500,
     required: false,
   })
-  @IsString()
   @IsOptional()
+  @IsString({ message: 'Las notas deben ser texto' })
+  @Length(0, 500, { message: 'Las notas no pueden exceder 500 caracteres' })
   notas?: string;
 
   @ApiProperty({
     type: [ItemCotizacionDto],
-    description: 'Items de la cotización',
+    description: 'Lista de productos/servicios incluidos en la cotización',
+    minItems: 1,
+    maxItems: 100,
   })
-  @IsArray()
+  @IsArray({ message: 'Los items deben ser un arreglo' })
+  @ArrayMinSize(1, { message: 'Debe incluir al menos un item' })
+  @ArrayMaxSize(100, { message: 'No se pueden incluir más de 100 items' })
   @ValidateNested({ each: true })
   @Type(() => ItemCotizacionDto)
   items: ItemCotizacionDto[];

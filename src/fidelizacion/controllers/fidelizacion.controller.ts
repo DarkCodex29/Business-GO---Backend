@@ -43,10 +43,7 @@ export class FidelizacionController {
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Body() createFidelizacionDto: CreateFidelizacionDto,
   ) {
-    return this.fidelizacionService.createFidelizacion(
-      empresaId,
-      createFidelizacionDto,
-    );
+    return this.fidelizacionService.create(createFidelizacionDto, empresaId);
   }
 
   @Get('cliente/:clienteId')
@@ -57,10 +54,7 @@ export class FidelizacionController {
     @Param('empresaId', ParseIntPipe) empresaId: number,
     @Param('clienteId', ParseIntPipe) clienteId: number,
   ) {
-    return this.fidelizacionService.getFidelizacionCliente(
-      empresaId,
-      clienteId,
-    );
+    return this.fidelizacionService.findByCliente(clienteId, empresaId);
   }
 
   @Get()
@@ -68,7 +62,7 @@ export class FidelizacionController {
   @ApiResponse({ status: 200, description: 'Lista de fidelizaciones' })
   @EmpresaPermissions({ permissions: [PERMISSIONS.FIDELIZACION.CLIENTES.READ] })
   getFidelizacionEmpresa(@Param('empresaId', ParseIntPipe) empresaId: number) {
-    return this.fidelizacionService.getFidelizacionEmpresa(empresaId);
+    return this.fidelizacionService.findAll(empresaId);
   }
 
   @Patch('cliente/:clienteId/puntos')
@@ -80,10 +74,10 @@ export class FidelizacionController {
     @Param('clienteId', ParseIntPipe) clienteId: number,
     @Body() updatePuntosFidelizacionDto: UpdatePuntosFidelizacionDto,
   ) {
-    return this.fidelizacionService.updatePuntosFidelizacion(
-      empresaId,
+    return this.fidelizacionService.updatePuntos(
       clienteId,
       updatePuntosFidelizacionDto,
+      empresaId,
     );
   }
 }

@@ -114,7 +114,7 @@ export class ProveedoresController {
     @Body() updateProveedorDto: UpdateProveedorDto,
     @Param('empresaId') empresaId: number,
   ) {
-    return this.proveedoresService.update(id, updateProveedorDto);
+    return this.proveedoresService.update(id, empresaId, updateProveedorDto);
   }
 
   @Delete(':empresaId/:id')
@@ -134,8 +134,8 @@ export class ProveedoresController {
   @ApiResponse({ status: 200, description: 'Proveedor eliminado exitosamente' })
   @ApiResponse({ status: 403, description: 'No autorizado' })
   @ApiResponse({ status: 404, description: 'Proveedor no encontrado' })
-  remove(@Param('id') id: number) {
-    return this.proveedoresService.remove(id);
+  remove(@Param('id') id: number, @Param('empresaId') empresaId: number) {
+    return this.proveedoresService.remove(id, empresaId);
   }
 
   @Post(':empresaId/:id/producto/:productoId')

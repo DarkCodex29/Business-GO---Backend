@@ -7,6 +7,111 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========================================
+// ENUMS CENTRALIZADOS
+// ========================================
+
+enum EstadoGeneral {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+  ELIMINADO
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PROCESANDO
+  COMPLETADO
+  FALLIDO
+  CANCELADO
+  REEMBOLSADO
+}
+
+enum EstadoOrdenVenta {
+  PENDIENTE
+  CONFIRMADA
+  EN_PROCESO
+  ENVIADA
+  ENTREGADA
+  CANCELADA
+}
+
+enum EstadoCotizacion {
+  PENDIENTE
+  ENVIADA
+  ACEPTADA
+  RECHAZADA
+  VENCIDA
+}
+
+enum EstadoFactura {
+  EMITIDA
+  PAGADA
+  VENCIDA
+  ANULADA
+}
+
+enum EstadoNotaCredito {
+  EMITIDA
+  APLICADA
+  ANULADA
+}
+
+enum EstadoModeracion {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum TipoContrato {
+  INDEFINIDO
+  TEMPORAL
+  PRACTICAS
+  FREELANCE
+}
+
+enum TipoDocumento {
+  DNI
+  CARNET_EXTRANJERIA
+  PASAPORTE
+  RUC
+}
+
+// ========================================
+// ENUMS PARA FUNCIONALIDAD SAAS
+// ========================================
+
+enum PlanSuscripcion {
+  TRIAL
+  BASICO
+  PRO
+  ENTERPRISE
+}
+
+enum EstadoSuscripcion {
+  TRIAL
+  ACTIVA
+  SUSPENDIDA
+  CANCELADA
+  VENCIDA
+}
+
+enum TipoConsulta {
+  COTIZACION
+  INFORMACION
+  SOPORTE
+  PEDIDO
+  RECLAMO
+  CATALOGO
+}
+
+enum EstadoConsulta {
+  NUEVA
+  EN_PROCESO
+  RESPONDIDA
+  CERRADA
+}
+
 model UsuarioEmpresa {
   id_usuario_empresa Int      @id @default(autoincrement())
   usuario            Usuario  @relation(fields: [usuario_id], references: [id_usuario])
@@ -64,6 +169,7 @@ model Cliente {
   fidelizacion  Fidelizacion[]
   cotizaciones  Cotizacion[]
   ordenesVenta  OrdenVenta[]
+  consultas_whatsapp ConsultaWhatsapp[]
 
   @@map("clientes")
 }
@@ -498,6 +604,23 @@ model Empresa {
   configuracionMoneda      ConfiguracionMoneda?
   reportes         Reporte[]
   plantillas_reporte PlantillaReporte[]
+  
+  // Relaciones SaaS
+  suscripcion        SuscripcionEmpresa?
+  consultas_whatsapp ConsultaWhatsapp[]
+  configuracion_whatsapp ConfiguracionWhatsapp?
+  plantillas_respuesta PlantillaRespuesta[]
+  metricas_whatsapp  MetricaWhatsapp[]
+  auditoria          Auditoria[]
+  
+  // Relaciones para integración n8n y Evolution API
+  webhook_configurations WebhookConfiguration[]
+  integration_logs       IntegrationLog[]
+  workflow_states        WorkflowState[]
+  message_queues         MessageQueue[]
+  evolution_instance     EvolutionInstance?
+  message_templates      MessageTemplate[]
+  business_events        BusinessEvent[]
 
   @@map("empresas")
 }
@@ -592,6 +715,9 @@ model Usuario {
   email         String    @unique @db.VarChar(255)
   contrasena    String    @db.VarChar(255)
   telefono      String?   @db.VarChar(20)
+  telefono_verificado Boolean @default(false)
+  whatsapp_id   String?   @unique @db.VarChar(100)
+  external_providers Json? @db.JsonB
   dni           String?   @unique @db.VarChar(20)
   tipo_documento String?  @default("DNI") @db.VarChar(10)
   fecha_nacimiento DateTime? @db.Date
@@ -619,7 +745,10 @@ model Usuario {
   reportes         Reporte[]
   ejecuciones_reporte EjecucionReporte[]
   plantillas_reporte PlantillaReporte[]
+  auditoria        Auditoria[]
 
+  @@index([telefono])
+  @@index([whatsapp_id])
   @@map("usuarios")
 }
 
@@ -719,6 +848,7 @@ model Cotizacion {
   notas              String?   @db.Text
   items              ItemCotizacion[]
   orden_venta        OrdenVenta?
+  consulta_whatsapp  ConsultaWhatsapp?
 
   @@map("cotizaciones")
 }
@@ -1040,4 +1170,446 @@ model PlantillaReporte {
   fecha_actualizacion DateTime @updatedAt
 
   @@map("plantillas_reporte")
+}
+
+// ========================================
+// MODELOS SAAS - FUNCIONALIDAD WHATSAPP
+// ========================================
+
+model SuscripcionEmpresa {
+  id_suscripcion     Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int       @unique
+  plan               PlanSuscripcion @default(TRIAL)
+  estado             EstadoSuscripcion @default(TRIAL)
+  fecha_inicio       DateTime  @default(now())
+  fecha_fin          DateTime?
+  limite_clientes    Int       @default(50)
+  limite_productos   Int       @default(25)
+  limite_usuarios    Int       @default(2)
+  limite_mensajes    Int       @default(500)
+  precio_mensual     Decimal   @db.Decimal(8,2) // En soles peruanos
+  fecha_proximo_pago DateTime?
+  activa             Boolean   @default(true)
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  // Relaciones
+  pagos_suscripcion  PagoSuscripcion[]
+
+  @@map("suscripciones_empresa")
+}
+
+model PagoSuscripcion {
+  id_pago_suscripcion Int       @id @default(autoincrement())
+  suscripcion        SuscripcionEmpresa @relation(fields: [id_suscripcion], references: [id_suscripcion])
+  id_suscripcion     Int
+  monto              Decimal   @db.Decimal(8,2) // En soles peruanos
+  fecha_pago         DateTime  @default(now())
+  metodo_pago        String    @db.VarChar(50)
+  estado_pago        EstadoPago @default(PENDIENTE)
+  referencia_externa String?   @db.VarChar(100) // ID de Stripe, PayPal, etc.
+  periodo_inicio     DateTime
+  periodo_fin        DateTime
+  comprobante_url    String?   @db.VarChar(500)
+  notas              String?   @db.Text
+
+  @@map("pagos_suscripcion")
+}
+
+model ConsultaWhatsapp {
+  id_consulta        Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  cliente            Cliente?  @relation(fields: [id_cliente], references: [id_cliente])
+  id_cliente         Int?
+  numero_telefono    String    @db.VarChar(20)
+  nombre_contacto    String?   @db.VarChar(100)
+  tipo_consulta      TipoConsulta
+  estado_consulta    EstadoConsulta @default(NUEVA)
+  mensaje_original   String    @db.Text
+  respuesta_automatica String? @db.Text
+  fecha_consulta     DateTime  @default(now())
+  fecha_respuesta    DateTime?
+  procesado_por_ia   Boolean   @default(false)
+  requiere_atencion  Boolean   @default(false)
+  tiempo_respuesta   Int?      // en minutos
+  satisfaccion       Int?      // 1-5 estrellas
+  notas_internas     String?   @db.Text
+
+  // Relaciones
+  mensajes           MensajeWhatsapp[]
+  cotizacion         Cotizacion? @relation(fields: [id_cotizacion], references: [id_cotizacion])
+  id_cotizacion      Int? @unique
+
+  @@index([id_empresa, estado_consulta])
+  @@index([numero_telefono])
+  @@index([fecha_consulta])
+  @@map("consultas_whatsapp")
+}
+
+model MensajeWhatsapp {
+  id_mensaje         Int       @id @default(autoincrement())
+  consulta           ConsultaWhatsapp @relation(fields: [id_consulta], references: [id_consulta])
+  id_consulta        Int
+  mensaje            String    @db.Text
+  es_entrante        Boolean   // true = cliente envía, false = empresa responde
+  fecha_mensaje      DateTime  @default(now())
+  tipo_mensaje       String    @default("text") // text, image, audio, document, location
+  url_archivo        String?   @db.VarChar(500)
+  nombre_archivo     String?   @db.VarChar(200)
+  tamanio_archivo    Int?      // en bytes
+  procesado          Boolean   @default(false)
+  mensaje_id_wa      String?   @db.VarChar(100) // ID del mensaje en WhatsApp
+  estado_entrega     String?   @db.VarChar(20)  // sent, delivered, read
+
+  @@index([id_consulta, fecha_mensaje])
+  @@index([mensaje_id_wa])
+  @@map("mensajes_whatsapp")
+}
+
+model ConfiguracionWhatsapp {
+  id_configuracion   Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int       @unique
+  numero_whatsapp    String    @db.VarChar(20)
+  nombre_negocio     String    @db.VarChar(100)
+  mensaje_bienvenida String    @db.Text
+  mensaje_ausencia   String?   @db.Text
+  mensaje_despedida  String?   @db.Text
+  horario_atencion   Json?     // {inicio: "09:00", fin: "18:00", dias: ["L","M","X","J","V"]}
+  respuestas_automaticas Boolean @default(true)
+  ia_habilitada      Boolean   @default(false)
+  webhook_url        String?   @db.VarChar(500)
+  token_api          String?   @db.VarChar(200)
+  instancia_id       String?   @db.VarChar(100) // ID de la instancia en Evolution API
+  activo             Boolean   @default(true)
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@map("configuracion_whatsapp")
+}
+
+model PlantillaRespuesta {
+  id_plantilla       Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  nombre             String    @db.VarChar(100)
+  tipo_consulta      TipoConsulta
+  mensaje_plantilla  String    @db.Text
+  variables          Json?     // Variables dinámicas como {nombre}, {producto}, {precio}
+  condiciones        Json?     // Condiciones para usar esta plantilla
+  activa             Boolean   @default(true)
+  orden              Int       @default(0)
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@index([id_empresa, tipo_consulta])
+  @@map("plantillas_respuesta")
+}
+
+model MetricaWhatsapp {
+  id_metrica         Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  fecha              DateTime  @db.Date
+  consultas_recibidas Int      @default(0)
+  consultas_respondidas Int    @default(0)
+  tiempo_respuesta_promedio Int? // en minutos
+  conversiones_cotizacion Int  @default(0)
+  conversiones_venta Int      @default(0)
+  clientes_nuevos    Int      @default(0)
+  mensajes_enviados  Int      @default(0)
+  mensajes_recibidos Int      @default(0)
+  satisfaccion_promedio Decimal? @db.Decimal(3,2) // promedio de satisfacción 1-5
+
+  @@unique([id_empresa, fecha])
+  @@index([fecha])
+  @@map("metricas_whatsapp")
+}
+
+// ========================================
+// ENUMS PARA AUDITORÍA
+// ========================================
+
+enum TipoAccion {
+  crear
+  leer
+  actualizar
+  eliminar
+  login
+  logout
+  acceso_denegado
+  exportar
+  importar
+  configurar
+}
+
+enum TipoRecurso {
+  usuario
+  empresa
+  cliente
+  producto
+  venta
+  compra
+  inventario
+  reporte
+  configuracion
+  sistema
+  email
+  whatsapp
+  notificacion
+  archivo
+  auditoria
+}
+
+enum NivelSeveridad {
+  info
+  warning
+  error
+  critical
+}
+
+// ========================================
+// MODELO AUDITORÍA
+// ========================================
+
+model Auditoria {
+  id                 String         @id @default(cuid())
+  accion             TipoAccion
+  recurso            TipoRecurso
+  recurso_id         String?
+  descripcion        String
+  severidad          NivelSeveridad @default(info)
+  usuario_id         Int?
+  empresa_id         Int
+  ip_address         String?
+  user_agent         String?
+  datos_anteriores   Json?
+  datos_nuevos       Json?
+  metadatos          Json?
+  fecha_evento       DateTime       @default(now())
+  
+  // Relaciones
+  usuario            Usuario?       @relation(fields: [usuario_id], references: [id_usuario])
+  empresa            Empresa        @relation(fields: [empresa_id], references: [id_empresa])
+
+  @@index([empresa_id, fecha_evento])
+  @@index([usuario_id])
+  @@index([accion])
+  @@index([recurso])
+  @@index([severidad])
+  @@map("auditoria")
+}
+
+// ========================================
+// MODELOS PARA INTEGRACIÓN N8N Y EVOLUTION API
+// ========================================
+
+// Enums para integraciones
+enum TipoIntegracion {
+  webhook_in
+  webhook_out
+  api_call
+  n8n
+  evolution
+}
+
+enum EstadoWorkflow {
+  iniciado
+  en_proceso
+  completado
+  error
+  cancelado
+}
+
+enum EstadoMensaje {
+  pendiente
+  procesando
+  enviado
+  error
+  cancelado
+}
+
+enum TipoMensajeQueue {
+  whatsapp
+  email
+  sms
+  push
+}
+
+enum EstadoConexion {
+  conectado
+  desconectado
+  qr_pendiente
+}
+
+// Configuración de webhooks por empresa
+model WebhookConfiguration {
+  id_webhook_config  Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  nombre             String    @db.VarChar(100)
+  url                String    @db.VarChar(500)
+  metodo             String    @default("POST") @db.VarChar(10)
+  headers            Json?
+  eventos            Json?     // Array de eventos que disparan el webhook
+  secreto            String?   @db.VarChar(200) // Para validación de firma
+  activo             Boolean   @default(true)
+  reintentos         Int       @default(3)
+  timeout_ms         Int       @default(30000)
+  ultima_ejecucion   DateTime?
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@unique([id_empresa, nombre])
+  @@map("webhook_configurations")
+}
+
+// Logs de integraciones
+model IntegrationLog {
+  id_log             String    @id @default(cuid())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  tipo_integracion   TipoIntegracion
+  servicio           String?   @db.VarChar(50) // 'n8n', 'evolution', 'internal'
+  evento             String?   @db.VarChar(100)
+  metodo             String?   @db.VarChar(10)
+  url                String?   @db.VarChar(500)
+  headers            Json?
+  payload            Json?
+  respuesta          Json?
+  codigo_estado      Int?
+  duracion_ms        Int?
+  exitoso            Boolean?
+  mensaje_error      String?   @db.Text
+  reintentos         Int       @default(0)
+  ip_origen          String?   @db.VarChar(45)
+  user_agent         String?   @db.Text
+  fecha_evento       DateTime  @default(now())
+  metadatos          Json?
+
+  @@index([id_empresa, fecha_evento])
+  @@index([tipo_integracion])
+  @@map("integration_logs")
+}
+
+// Estados de flujos de trabajo
+model WorkflowState {
+  id_workflow_state  Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  workflow_id        String    @db.VarChar(100) // ID del workflow en n8n
+  nombre_workflow    String?   @db.VarChar(200)
+  tipo_workflow      String?   @db.VarChar(50) // 'consulta', 'venta', 'cotizacion', 'soporte'
+  estado             EstadoWorkflow
+  paso_actual        String?   @db.VarChar(100)
+  contexto           Json?     // Datos del contexto del workflow
+  resultado          Json?
+  error              String?   @db.Text
+  iniciado_por       String?   @db.VarChar(100) // 'whatsapp', 'api', 'manual', 'scheduler'
+  referencia_id      String?   @db.VarChar(100) // ID de la entidad relacionada
+  fecha_inicio       DateTime  @default(now())
+  fecha_fin          DateTime?
+  fecha_actualizacion DateTime @updatedAt
+
+  @@unique([id_empresa, workflow_id])
+  @@index([id_empresa, estado])
+  @@map("workflow_states")
+}
+
+// Cola de mensajes pendientes
+model MessageQueue {
+  id_queue           String    @id @default(cuid())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  tipo_mensaje       TipoMensajeQueue
+  canal              String?   @db.VarChar(50) // 'evolution', 'resend', 'twilio'
+  prioridad          Int       @default(5) // 1-10, donde 1 es más alta
+  estado             EstadoMensaje @default(pendiente)
+  destinatario       String    @db.VarChar(200)
+  remitente          String?   @db.VarChar(200)
+  asunto             String?   @db.VarChar(500)
+  contenido          String    @db.Text
+  contenido_html     String?   @db.Text
+  archivos_adjuntos  Json?
+  metadatos          Json?
+  intentos           Int       @default(0)
+  max_intentos       Int       @default(3)
+  proximo_intento    DateTime?
+  mensaje_error      String?   @db.Text
+  mensaje_id_externo String?   @db.VarChar(200) // ID del mensaje en el servicio externo
+  fecha_creacion     DateTime  @default(now())
+  fecha_procesado    DateTime?
+  fecha_enviado      DateTime?
+  referencia_tipo    String?   @db.VarChar(50) // 'consulta', 'venta', 'notificacion'
+  referencia_id      Int?
+
+  @@index([estado])
+  @@index([id_empresa, fecha_creacion])
+  @@map("message_queues")
+}
+
+// Configuración de instancias de Evolution API
+model EvolutionInstance {
+  id_instance        Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int       @unique
+  instance_name      String    @unique @db.VarChar(100)
+  instance_id        String?   @db.VarChar(200)
+  numero_whatsapp    String?   @db.VarChar(20)
+  estado_conexion    EstadoConexion @default(desconectado)
+  qr_code            String?   @db.Text
+  webhook_url        String?   @db.VarChar(500)
+  webhook_token      String?   @db.VarChar(200)
+  configuracion      Json?
+  ultima_conexion    DateTime?
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@index([estado_conexion])
+  @@map("evolution_instances")
+}
+
+// Plantillas de mensajes para automatización
+model MessageTemplate {
+  id_template        Int       @id @default(autoincrement())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  codigo             String    @db.VarChar(100)
+  nombre             String    @db.VarChar(200)
+  categoria          String?   @db.VarChar(50) // 'bienvenida', 'cotizacion', 'confirmacion', 'recordatorio'
+  tipo_mensaje       String    @default("text") @db.VarChar(50) // 'text', 'button', 'list', 'media'
+  contenido          String    @db.Text
+  variables          Json?     // Variables disponibles: {{nombre}}, {{producto}}, etc
+  botones            Json?     // Para mensajes con botones
+  lista              Json?     // Para mensajes con lista
+  media_url          String?   @db.VarChar(500)
+  activo             Boolean   @default(true)
+  uso_contador       Int       @default(0)
+  fecha_creacion     DateTime  @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  @@unique([id_empresa, codigo])
+  @@index([id_empresa])
+  @@map("message_templates")
+}
+
+// Eventos de negocio para n8n
+model BusinessEvent {
+  id_event           String    @id @default(cuid())
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
+  id_empresa         Int
+  tipo_evento        String    @db.VarChar(100) // 'nueva_consulta', 'nueva_venta', 'producto_actualizado', etc
+  entidad            String    @db.VarChar(50) // 'consulta', 'venta', 'producto', 'cliente'
+  entidad_id         Int
+  datos              Json      // Datos del evento
+  procesado          Boolean   @default(false)
+  workflows_ejecutados Json?   // Array de workflows que se ejecutaron
+  fecha_evento       DateTime  @default(now())
+  fecha_procesado    DateTime?
+
+  @@index([id_empresa, tipo_evento])
+  @@index([procesado])
+  @@map("business_events")
 }

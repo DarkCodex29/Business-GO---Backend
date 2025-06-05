@@ -3,14 +3,14 @@ import { IsNumber, IsString, Min, Max, IsOptional } from 'class-validator';
 
 export class CreateValoracionDto {
   @ApiProperty({
-    description: 'Calificación del producto (1-5)',
+    description: 'Puntuación del producto (1-5)',
     minimum: 1,
     maximum: 5,
   })
   @IsNumber()
   @Min(1)
   @Max(5)
-  calificacion: number;
+  puntuacion: number;
 
   @ApiProperty({
     description: 'Comentario sobre la valoración',

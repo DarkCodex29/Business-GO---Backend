@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 
@@ -12,77 +16,99 @@ interface CreateSessionDto {
 
 @Injectable()
 export class SessionService {
+  private readonly logger = new Logger(SessionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
 
   async createSession(data: CreateSessionDto) {
-    // Crear nueva sesión
-    const session = await this.prisma.sesionUsuario.create({
-      data: {
-        id_usuario: data.userId,
-        token: data.token,
-        dispositivo: data.userAgent,
-        ip_address: data.ipAddress,
-        fecha_expiracion: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 año
-        activa: true,
-      },
-    });
+    try {
+      // Crear nueva sesión
+      const session = await this.prisma.sesionUsuario.create({
+        data: {
+          id_usuario: data.userId,
+          token: data.token,
+          dispositivo: data.userAgent,
+          ip_address: data.ipAddress,
+          fecha_expiracion: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 año
+          activa: true,
+        },
+      });
 
-    return { session, jti: data.jti };
+      this.logger.log(`Sesión creada para usuario ${data.userId}`);
+      return { session, jti: data.jti };
+    } catch (error) {
+      this.logger.error(`Error creando sesión para usuario ${data.userId}:`, error);
+      throw new InternalServerErrorException('Error al crear sesión');
+    }
   }
 
   async validateSession(token: string) {
-    const session = await this.prisma.sesionUsuario.findFirst({
-      where: {
-        token: token,
-        activa: true,
-        fecha_expiracion: {
-          gt: new Date(),
+    try {
+      const session = await this.prisma.sesionUsuario.findFirst({
+        where: {
+          token: token,
+          activa: true,
+          fecha_expiracion: {
+            gt: new Date(),
+          },
         },
-      },
-    });
+      });
 
-    return session;
+      return session;
+    } catch (error) {
+      this.logger.error('Error validando sesión:', error);
+      return null;
+    }
   }
 
   async revokeSession(token: string, reason: string = 'logout') {
-    // Buscar la sesión primero
-    const session = await this.prisma.sesionUsuario.findFirst({
-      where: {
-        token: token,
-      },
-    });
+    try {
+      // Buscar la sesión primero
+      const session = await this.prisma.sesionUsuario.findFirst({
+        where: {
+          token: token,
+        },
+      });
 
-    if (!session) {
-      return; // Si no existe la sesión, no hacemos nada
+      if (!session) {
+        this.logger.warn(`Intento de revocar sesión inexistente: ${token.substring(0, 20)}...`);
+        return; // Si no existe la sesión, no hacemos nada
+      }
+
+      // Desactivar la sesión
+      await this.prisma.sesionUsuario.updateMany({
+        where: {
+          token: token,
+        },
+        data: {
+          activa: false,
+        },
+      });
+
+      // Obtener el jti del token
+      const decoded = this.jwtService.decode(token) as any;
+      if (!decoded?.jti) {
+        this.logger.warn('Token sin JTI, no se puede registrar como revocado');
+        return;
+      }
+
+      // Registrar el token como revocado
+      await this.prisma.tokenRevocado.create({
+        data: {
+          token_jti: decoded.jti,
+          razon: reason,
+          id_usuario: session.id_usuario,
+        },
+      });
+
+      this.logger.log(`Sesión revocada para usuario ${session.id_usuario}, razón: ${reason}`);
+    } catch (error) {
+      this.logger.error('Error revocando sesión:', error);
+      throw new InternalServerErrorException('Error al revocar sesión');
     }
-
-    // Desactivar la sesión
-    await this.prisma.sesionUsuario.updateMany({
-      where: {
-        token: token,
-      },
-      data: {
-        activa: false,
-      },
-    });
-
-    // Obtener el jti del token
-    const decoded = this.jwtService.decode(token);
-    if (!decoded?.jti) {
-      return; // Si no hay jti, no hacemos nada
-    }
-
-    // Registrar el token como revocado
-    await this.prisma.tokenRevocado.create({
-      data: {
-        token_jti: decoded.jti,
-        razon: reason,
-        id_usuario: session.id_usuario,
-      },
-    });
   }
 
   async revokeAllUserSessions(userId: number, exceptToken?: string) {

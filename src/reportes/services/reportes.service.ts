@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReporteDto, TipoReporte } from '../dto/create-reporte.dto';
@@ -15,38 +16,83 @@ import {
   IReporteFinanciero,
 } from '../interfaces/reporte.interface';
 import { ReporteParamsDto } from '../dto/reporte-params.dto';
+import { BaseReportesService, IReporteQuery } from './base-reportes.service';
+import { ReportesValidationService } from './reportes-validation.service';
+import { ReportesCalculationService } from './reportes-calculation.service';
 
 @Injectable()
-export class ReportesService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ReportesService extends BaseReportesService {
+  protected readonly logger = new Logger(ReportesService.name);
+
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly reportesValidationService: ReportesValidationService,
+    protected readonly reportesCalculationService: ReportesCalculationService,
+  ) {
+    super(prisma, reportesValidationService, reportesCalculationService);
+  }
 
   async create(createReporteDto: CreateReporteDto, usuarioId: number) {
-    // Obtener el usuario y su empresa
+    this.logger.log(
+      `Creando reporte ${createReporteDto.tipo_reporte} para usuario ${usuarioId}`,
+    );
+
+    // Obtener el usuario y su empresa usando validación especializada
     const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
       where: {
         usuario_id: usuarioId,
-        fecha_fin: null, // Usuario activo es aquel que no tiene fecha_fin
+        fecha_fin: null, // Usuario activo
       },
       include: {
-        empresa: true,
+        empresa: { select: { id_empresa: true, nombre: true, estado: true } },
       },
     });
 
     if (!usuarioEmpresa) {
-      throw new ForbiddenException('Usuario no tiene una empresa asociada');
+      throw new ForbiddenException(
+        'Usuario no tiene una empresa asociada activa',
+      );
     }
 
-    return this.prisma.reporte.create({
+    const empresaId = usuarioEmpresa.empresa_id;
+
+    // Validaciones usando servicios especializados
+    await this.reportesValidationService.validateEmpresaExists(empresaId);
+    this.reportesValidationService.validateTipoReporte(
+      createReporteDto.tipo_reporte,
+    );
+    this.reportesValidationService.validateParametrosReporte(
+      createReporteDto.tipo_reporte,
+      createReporteDto.parametros,
+    );
+
+    if (createReporteDto.formato) {
+      this.reportesValidationService.validateFormatoReporte(
+        createReporteDto.formato,
+      );
+    }
+
+    await this.reportesValidationService.validatePermisoReporte(
+      usuarioId,
+      empresaId,
+      createReporteDto.tipo_reporte,
+    );
+
+    const reporte = await this.prisma.reporte.create({
       data: {
         ...createReporteDto,
         id_usuario: usuarioId,
-        id_empresa: usuarioEmpresa.empresa_id,
+        id_empresa: empresaId,
+        formato: createReporteDto.formato || 'pdf',
       },
       include: {
-        empresa: true,
-        usuario: true,
+        empresa: { select: { nombre: true } },
+        usuario: { select: { nombre: true, email: true } },
       },
     });
+
+    this.logger.log(`Reporte ${reporte.id_reporte} creado exitosamente`);
+    return reporte;
   }
 
   async findAll(empresaId: number) {
@@ -498,13 +544,146 @@ export class ReportesService {
   }
 
   async getReporteVentas(empresaId: number, params: ReporteParamsDto) {
+    this.logger.log(`Generando reporte de ventas para empresa ${empresaId}`);
+
+    const query: IReporteQuery = {
+      empresaId,
+      fechaInicio: params.fecha_inicio
+        ? new Date(params.fecha_inicio)
+        : undefined,
+      fechaFin: params.fecha_fin ? new Date(params.fecha_fin) : undefined,
+      tipoReporte: TipoReporte.VENTAS,
+      parametros: params,
+    };
+
+    // Usar servicio de cálculos especializado
+    const metricas =
+      await this.reportesCalculationService.calculateMetricasVentas(
+        empresaId,
+        query.fechaInicio,
+        query.fechaFin,
+        params,
+      );
+
+    return {
+      tipo: 'ventas',
+      empresa_id: empresaId,
+      periodo: {
+        fecha_inicio: query.fechaInicio,
+        fecha_fin: query.fechaFin,
+      },
+      metricas,
+      generado_en: new Date(),
+    };
+  }
+
+  // Implementación de métodos abstractos de BaseReportesService
+  protected async executeReporteQuery(query: IReporteQuery): Promise<any[]> {
+    switch (query.tipoReporte) {
+      case TipoReporte.VENTAS:
+        return this.executeVentasQuery(query);
+      case TipoReporte.COMPRAS:
+        return this.executeComprasQuery(query);
+      case TipoReporte.INVENTARIO:
+        return this.executeInventarioQuery(query);
+      case TipoReporte.CLIENTES:
+        return this.executeClientesQuery(query);
+      case TipoReporte.PRODUCTOS:
+        return this.executeProductosQuery(query);
+      case TipoReporte.FINANCIERO:
+        return this.executeFinancieroQuery(query);
+      default:
+        throw new Error(`Tipo de reporte no soportado: ${query.tipoReporte}`);
+    }
+  }
+
+  protected async calculateReporteMetrics(query: IReporteQuery): Promise<any> {
+    switch (query.tipoReporte) {
+      case TipoReporte.VENTAS:
+        return this.reportesCalculationService.calculateMetricasVentas(
+          query.empresaId,
+          query.fechaInicio,
+          query.fechaFin,
+          query.parametros,
+        );
+      case TipoReporte.COMPRAS:
+        return this.reportesCalculationService.calculateMetricasCompras(
+          query.empresaId,
+          query.fechaInicio,
+          query.fechaFin,
+          query.parametros,
+        );
+      case TipoReporte.INVENTARIO:
+        return this.reportesCalculationService.calculateMetricasInventario(
+          query.empresaId,
+          query.parametros,
+        );
+      case TipoReporte.CLIENTES:
+        return this.reportesCalculationService.calculateMetricasClientes(
+          query.empresaId,
+          query.fechaInicio,
+          query.fechaFin,
+          query.parametros,
+        );
+      case TipoReporte.PRODUCTOS:
+        return this.reportesCalculationService.calculateMetricasProductos(
+          query.empresaId,
+          query.parametros,
+        );
+      case TipoReporte.FINANCIERO:
+        return this.reportesCalculationService.calculateMetricasFinancieras(
+          query.empresaId,
+          query.fechaInicio,
+          query.fechaFin,
+          query.parametros,
+        );
+      default:
+        return {};
+    }
+  }
+
+  protected async countReporteRecords(query: IReporteQuery): Promise<number> {
+    const whereClause = this.buildVentasWhereClause(query);
+
+    switch (query.tipoReporte) {
+      case TipoReporte.VENTAS:
+        return this.prisma.ordenVenta.count({ where: whereClause });
+      case TipoReporte.COMPRAS:
+        return this.prisma.ordenCompra.count({ where: whereClause });
+      case TipoReporte.INVENTARIO:
+        return this.prisma.productoServicio.count({
+          where: { id_empresa: query.empresaId, es_servicio: false },
+        });
+      case TipoReporte.CLIENTES:
+        return this.prisma.clienteEmpresa.count({
+          where: { empresa_id: query.empresaId },
+        });
+      case TipoReporte.PRODUCTOS:
+        return this.prisma.productoServicio.count({
+          where: { id_empresa: query.empresaId },
+        });
+      case TipoReporte.FINANCIERO:
+        // Para financiero, contar tanto ventas como compras
+        const [ventas, compras] = await Promise.all([
+          this.prisma.ordenVenta.count({ where: whereClause }),
+          this.prisma.ordenCompra.count({ where: whereClause }),
+        ]);
+        return ventas + compras;
+      default:
+        return 0;
+    }
+  }
+
+  // Métodos específicos para cada tipo de reporte
+
+  private async executeVentasQuery(query: IReporteQuery): Promise<any[]> {
     const where = {
-      id_empresa: empresaId,
-      ...(params.fecha_inicio && params.fecha_fin
+      id_empresa: query.empresaId,
+      ...(query.fechaInicio && query.fechaFin
         ? {
             fecha_emision: {
-              gte: new Date(params.fecha_inicio),
-              lte: new Date(params.fecha_fin),
+              gte: query.fechaInicio,
+              lte: query.fechaFin,
             },
           }
         : {}),
@@ -532,13 +711,151 @@ export class ReportesService {
       0,
     );
 
-    return {
-      ventas,
-      resumen: {
-        total_ventas: totalVentas,
-        total_productos: totalProductos,
-        cantidad_ventas: ventas.length,
+    return [
+      ...ventas.map((venta) => ({
+        ...venta,
+        tipo: 'venta',
+        resumen: {
+          total_ventas: totalVentas,
+          total_productos: totalProductos,
+          cantidad_ventas: ventas.length,
+        },
+      })),
+    ];
+  }
+
+  private async executeComprasQuery(query: IReporteQuery): Promise<any[]> {
+    const where = {
+      id_empresa: query.empresaId,
+      ...(query.fechaInicio && query.fechaFin
+        ? {
+            fecha_emision: {
+              gte: query.fechaInicio,
+              lte: query.fechaFin,
+            },
+          }
+        : {}),
+    };
+
+    return this.prisma.ordenCompra.findMany({
+      where,
+      include: {
+        proveedor: true,
+        items: {
+          include: {
+            producto: true,
+          },
+        },
       },
+    });
+  }
+
+  private async executeInventarioQuery(query: IReporteQuery): Promise<any[]> {
+    return this.prisma.productoServicio.findMany({
+      where: {
+        id_empresa: query.empresaId,
+        es_servicio: false,
+      },
+      include: {
+        categoria: true,
+        subcategoria: true,
+        stock: true,
+        disponibilidad: true,
+      },
+    });
+  }
+
+  private async executeClientesQuery(query: IReporteQuery): Promise<any[]> {
+    return this.prisma.cliente.findMany({
+      where: {
+        empresas: {
+          some: {
+            empresa_id: query.empresaId,
+          },
+        },
+      },
+      include: {
+        ordenesVenta: {
+          where:
+            query.fechaInicio && query.fechaFin
+              ? {
+                  fecha_emision: {
+                    gte: query.fechaInicio,
+                    lte: query.fechaFin,
+                  },
+                }
+              : undefined,
+        },
+        valoraciones: true,
+      },
+    });
+  }
+
+  private async executeProductosQuery(query: IReporteQuery): Promise<any[]> {
+    return this.prisma.productoServicio.findMany({
+      where: {
+        id_empresa: query.empresaId,
+      },
+      include: {
+        categoria: true,
+        subcategoria: true,
+        stock: true,
+        disponibilidad: true,
+        valoraciones: true,
+      },
+    });
+  }
+
+  private async executeFinancieroQuery(query: IReporteQuery): Promise<any[]> {
+    const where = {
+      id_empresa: query.empresaId,
+      ...(query.fechaInicio && query.fechaFin
+        ? {
+            fecha_emision: {
+              gte: query.fechaInicio,
+              lte: query.fechaFin,
+            },
+          }
+        : {}),
+    };
+
+    const [ventas, compras] = await Promise.all([
+      this.prisma.ordenVenta.findMany({
+        where,
+        include: { items: true },
+      }),
+      this.prisma.ordenCompra.findMany({
+        where,
+        include: { items: true },
+      }),
+    ]);
+
+    // Combinar y marcar el tipo de transacción
+    const transacciones = [
+      ...ventas.map((v) => ({
+        ...v,
+        tipo: 'venta',
+      })),
+      ...compras.map((c) => ({
+        ...c,
+        tipo: 'compra',
+      })),
+    ];
+
+    return transacciones;
+  }
+
+  private buildVentasWhereClause(query: IReporteQuery): any {
+    return {
+      id_empresa: query.empresaId,
+      ...(query.fechaInicio && query.fechaFin
+        ? {
+            fecha_emision: {
+              gte: query.fechaInicio,
+              lte: query.fechaFin,
+            },
+          }
+        : {}),
     };
   }
 

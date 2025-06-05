@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CotizacionesController } from './controllers/cotizaciones.controller';
 import { CotizacionesService } from './services/cotizaciones.service';
+import { VentasValidationService } from './services/ventas-validation.service';
+import { VentasCalculationService } from './services/ventas-calculation.service';
 import { OrdenesVentaController } from './controllers/ordenes-venta.controller';
 import { OrdenesVentaService } from './services/ordenes-venta.service';
 import { FacturasController } from './controllers/facturas.controller';
@@ -24,6 +26,11 @@ import { ReembolsosService } from './services/reembolsos.service';
     ReembolsosController,
   ],
   providers: [
+    // Servicios especializados aplicando SRP
+    VentasValidationService,
+    VentasCalculationService,
+
+    // Servicios principales
     CotizacionesService,
     OrdenesVentaService,
     FacturasService,
@@ -32,6 +39,8 @@ import { ReembolsosService } from './services/reembolsos.service';
     ReembolsosService,
   ],
   exports: [
+    VentasValidationService,
+    VentasCalculationService,
     CotizacionesService,
     OrdenesVentaService,
     FacturasService,

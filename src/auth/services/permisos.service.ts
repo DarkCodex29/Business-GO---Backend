@@ -1,21 +1,49 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePermisoDto } from '../dto/create-permiso.dto';
 import { UpdatePermisoDto } from '../dto/update-permiso.dto';
+import { BaseCrudService } from '../../common/services/base-crud.service';
 
 @Injectable()
-export class PermisosService {
-  constructor(private readonly prisma: PrismaService) {}
+export class PermisosService extends BaseCrudService<
+  any,
+  CreatePermisoDto,
+  UpdatePermisoDto
+> {
+  constructor(prisma: PrismaService) {
+    super(prisma, 'permiso', 'Permiso');
+  }
+
+  protected getModel() {
+    return this.prisma.permiso;
+  }
+
+  protected getIdField(id: number) {
+    return { id_permiso: id };
+  }
 
   async create(createPermisoDto: CreatePermisoDto) {
-    return this.prisma.permiso.create({
-      data: {
-        nombre: createPermisoDto.nombre,
-        descripcion: createPermisoDto.descripcion,
-        recurso: createPermisoDto.recurso,
-        accion: createPermisoDto.accion,
-      },
-    });
+    try {
+      const permiso = await this.prisma.permiso.create({
+        data: {
+          nombre: createPermisoDto.nombre,
+          descripcion: createPermisoDto.descripcion,
+          recurso: createPermisoDto.recurso,
+          accion: createPermisoDto.accion,
+        },
+      });
+
+      this.logOperation('Crear', permiso.id_permiso, {
+        nombre: permiso.nombre,
+      });
+      return permiso;
+    } catch (error) {
+      this.handleError('crear', error);
+    }
   }
 
   async findAll() {
@@ -36,73 +64,67 @@ export class PermisosService {
   }
 
   async findOne(id: number) {
-    const permiso = await this.prisma.permiso.findUnique({
-      where: { id_permiso: id },
-      include: {
-        permisoRol: {
-          include: {
-            rol: true,
-          },
+    return this.findByIdOrThrow(id, {
+      permisoRol: {
+        include: {
+          rol: true,
         },
-        permisoUsuario: {
-          include: {
-            usuario: true,
-          },
+      },
+      permisoUsuario: {
+        include: {
+          usuario: true,
         },
       },
     });
-
-    if (!permiso) {
-      throw new NotFoundException('Permiso no encontrado');
-    }
-
-    return permiso;
   }
 
   async update(id: number, updatePermisoDto: UpdatePermisoDto) {
-    const permiso = await this.prisma.permiso.findUnique({
-      where: { id_permiso: id },
-    });
+    try {
+      await this.existsOrThrow(id);
 
-    if (!permiso) {
-      throw new NotFoundException('Permiso no encontrado');
+      const permiso = await this.prisma.permiso.update({
+        where: { id_permiso: id },
+        data: {
+          nombre: updatePermisoDto.nombre,
+          descripcion: updatePermisoDto.descripcion,
+          recurso: updatePermisoDto.recurso,
+          accion: updatePermisoDto.accion,
+        },
+      });
+
+      this.logOperation('Actualizar', id, updatePermisoDto);
+      return permiso;
+    } catch (error) {
+      this.handleError('actualizar', error, id);
     }
-
-    return this.prisma.permiso.update({
-      where: { id_permiso: id },
-      data: {
-        nombre: updatePermisoDto.nombre,
-        descripcion: updatePermisoDto.descripcion,
-        recurso: updatePermisoDto.recurso,
-        accion: updatePermisoDto.accion,
-      },
-    });
   }
 
   async remove(id: number) {
-    const permiso = await this.prisma.permiso.findUnique({
-      where: { id_permiso: id },
-    });
+    try {
+      await this.existsOrThrow(id);
 
-    if (!permiso) {
-      throw new NotFoundException('Permiso no encontrado');
+      // Usar transacción para garantizar consistencia
+      await this.prisma.$transaction(async (tx) => {
+        // Eliminar relaciones primero
+        await tx.permisoRol.deleteMany({
+          where: { permiso_id: id },
+        });
+
+        await tx.permisoUsuario.deleteMany({
+          where: { permiso_id: id },
+        });
+
+        // Eliminar el permiso
+        await tx.permiso.delete({
+          where: { id_permiso: id },
+        });
+      });
+
+      this.logOperation('Eliminar', id);
+      return { message: 'Permiso eliminado correctamente' };
+    } catch (error) {
+      this.handleError('eliminar', error, id);
     }
-
-    // Eliminar relaciones primero
-    await this.prisma.permisoRol.deleteMany({
-      where: { permiso_id: id },
-    });
-
-    await this.prisma.permisoUsuario.deleteMany({
-      where: { permiso_id: id },
-    });
-
-    // Eliminar el permiso
-    await this.prisma.permiso.delete({
-      where: { id_permiso: id },
-    });
-
-    return { message: 'Permiso eliminado correctamente' };
   }
 
   async asignarPermisoRol(permisoId: number, rolId: number) {
