@@ -695,6 +695,7 @@ export type TipoReporteMejorado =
   | 'CLIENTES'
   | 'PRODUCTOS'
   | 'FINANCIERO'
+  | 'WHATSAPP'
   | 'DASHBOARD'
   | 'AUDITORIA';
 
@@ -710,3 +711,214 @@ export type FormatoReporteMejorado = 'PDF' | 'EXCEL' | 'CSV' | 'JSON' | 'HTML';
 export type PeriodoAgrupacion = 'DIA' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'AÑO';
 
 export type NivelAlerta = 'INFO' | 'ADVERTENCIA' | 'ERROR' | 'CRITICO';
+
+// ========================================
+// INTERFACES PARA REPORTE DE WHATSAPP
+// ========================================
+
+export interface IWhatsappReporte {
+  periodo: string;
+  metricas_whatsapp: IMetricasWhatsappPeruanas;
+  conversaciones: IConversacionWhatsapp[];
+  instancias: IInstanciaWhatsapp[];
+  notificaciones: INotificacionWhatsapp[];
+  auditoria: IAuditoriaWhatsapp[];
+}
+
+export interface IMetricasWhatsappPeruanas {
+  // Métricas de mensajes
+  totalMensajes: number;
+  mensajesEnviados: number;
+  mensajesRecibidos: number;
+  mensajesAutomaticos: number;
+  mensajesManuales: number;
+
+  // Métricas de conversaciones
+  totalConversaciones: number;
+  conversacionesActivas: number;
+  conversacionesCerradas: number;
+  tiempoRespuestaPromedio: number; // en minutos
+
+  // Métricas de instancias
+  totalInstancias: number;
+  instanciasConectadas: number;
+  instanciasDesconectadas: number;
+  instanciasError: number;
+  uptime_promedio: number; // Porcentaje
+
+  // Métricas de notificaciones
+  notificacionesWhatsapp: number;
+  notificacionesLeidas: number;
+  notificacionesPendientes: number;
+  tiempoLecturaPromedio: number; // en horas
+
+  // Métricas de eficiencia
+  tasaRespuesta: number; // Porcentaje
+  satisfaccionCliente: number; // Promedio valoraciones
+  resolucionPrimeraRespuesta: number; // Porcentaje
+
+  // Análisis temporal
+  mensajesPorPeriodo: IMensajesPorPeriodo[];
+  horasPico: IHoraPico[];
+
+  // Top rankings
+  topConversaciones: ITopConversacion[];
+  topInstancias: ITopInstancia[];
+  topOperadores: ITopOperador[];
+
+  // Alertas específicas WhatsApp
+  alertasWhatsapp: IAlertaWhatsapp[];
+
+  // Métricas específicas peruanas
+  mensajesHorarioComercial: number;
+  mensajesFinDeSemana: number;
+  porcentajeEmojis: number;
+
+  // Formateo automático
+  tiempo_respuesta_formateado?: string;
+  tiempo_lectura_formateado?: string;
+  uptime_formateado?: string;
+}
+
+export interface IConversacionWhatsapp {
+  id_conversacion: string;
+  numero_telefono: string;
+  nombre_contacto?: string;
+  id_cliente?: number;
+  estado: 'ACTIVA' | 'CERRADA' | 'PAUSADA';
+  fecha_inicio: Date;
+  fecha_ultimo_mensaje: Date;
+  total_mensajes: number;
+  tiempo_respuesta_promedio: number;
+  operador_asignado?: string;
+  instancia: string;
+  etiquetas?: string[];
+  // Campos formateados
+  fecha_inicio_formateada?: string;
+  fecha_ultimo_mensaje_formateada?: string;
+  tiempo_respuesta_formateado?: string;
+}
+
+export interface IInstanciaWhatsapp {
+  id_instancia: string;
+  nombre: string;
+  estado_conexion: 'conectado' | 'desconectado' | 'error';
+  fecha_ultima_conexion: Date;
+  total_mensajes_enviados: number;
+  total_mensajes_recibidos: number;
+  uptime_porcentaje: number;
+  version_whatsapp: string;
+  numero_telefono?: string;
+  // Campos formateados
+  fecha_ultima_conexion_formateada?: string;
+  uptime_formateado?: string;
+}
+
+export interface INotificacionWhatsapp {
+  id_notificacion: number;
+  tipo:
+    | 'MENSAJE_ENTRANTE'
+    | 'RESPUESTA_AUTOMATICA'
+    | 'ALERTA_CONEXION'
+    | 'MENSAJE_MANUAL';
+  contenido: string;
+  fecha_creacion: Date;
+  fecha_leida?: Date;
+  estado: 'PENDIENTE' | 'LEIDA' | 'ARCHIVADA';
+  usuario_destinatario: string;
+  instancia_origen: string;
+  prioridad: 'ALTA' | 'MEDIA' | 'BAJA';
+  // Campos formateados
+  fecha_creacion_formateada?: string;
+  fecha_leida_formateada?: string;
+  tiempo_lectura_formateado?: string;
+}
+
+export interface IAuditoriaWhatsapp {
+  id_auditoria: number;
+  accion: string;
+  recurso: 'WHATSAPP';
+  descripcion: string;
+  fecha: Date;
+  usuario: string;
+  instancia?: string;
+  datos_adicionales?: any;
+  resultado: 'EXITOSO' | 'ERROR' | 'ADVERTENCIA';
+  // Campos formateados
+  fecha_formateada?: string;
+}
+
+export interface IMensajesPorPeriodo {
+  periodo: string; // 'YYYY-MM-DD HH' o 'YYYY-MM-DD' o 'YYYY-MM'
+  enviados: number;
+  recibidos: number;
+  automaticos: number;
+  manuales: number;
+  total: number;
+}
+
+export interface IHoraPico {
+  hora: number; // 0-23
+  dia_semana?: number; // 1-7 (Lunes=1)
+  total_mensajes: number;
+  porcentaje_total: number;
+  tipo_predominante: 'ENTRANTE' | 'SALIENTE' | 'AUTOMATICO';
+}
+
+export interface ITopConversacion {
+  numero_telefono: string;
+  nombre_contacto?: string;
+  total_mensajes: number;
+  tiempo_respuesta_promedio: number;
+  ultima_actividad: Date;
+  estado: string;
+  valor_cliente?: number; // Si está vinculado a cliente
+  // Campos formateados
+  tiempo_respuesta_formateado?: string;
+  ultima_actividad_formateada?: string;
+  valor_cliente_formateado?: string;
+}
+
+export interface ITopInstancia {
+  id_instancia: string;
+  nombre: string;
+  total_mensajes: number;
+  uptime_porcentaje: number;
+  tiempo_respuesta_promedio: number;
+  conversaciones_activas: number;
+  eficiencia_score: number; // Calculado
+  // Campos formateados
+  uptime_formateado?: string;
+  tiempo_respuesta_formateado?: string;
+}
+
+export interface ITopOperador {
+  id_usuario: number;
+  nombre: string;
+  mensajes_respondidos: number;
+  tiempo_respuesta_promedio: number;
+  conversaciones_atendidas: number;
+  valoracion_promedio: number;
+  instancias_asignadas: string[];
+  // Campos formateados
+  tiempo_respuesta_formateado?: string;
+}
+
+export interface IAlertaWhatsapp {
+  tipo_alerta:
+    | 'INSTANCIA_DESCONECTADA'
+    | 'TIEMPO_RESPUESTA_ALTO'
+    | 'MENSAJES_PENDIENTES'
+    | 'ERROR_WEBHOOK'
+    | 'LIMITE_MENSAJES';
+  descripcion: string;
+  instancia_afectada?: string;
+  valor_actual: string;
+  valor_umbral: string;
+  fecha_detectada: Date;
+  estado: 'ACTIVA' | 'RESUELTA' | 'EN_PROCESO';
+  prioridad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA';
+  acciones_recomendadas: string[];
+  // Campos formateados
+  fecha_detectada_formateada?: string;
+}

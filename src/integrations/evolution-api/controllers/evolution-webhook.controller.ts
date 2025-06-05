@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { EvolutionWebhookService } from '../services/evolution-webhook.service';
+import { EvolutionWhatsappBridgeService } from '../services/evolution-whatsapp-bridge.service';
 import { Public } from '../../../common/decorators/public.decorator';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
@@ -29,11 +30,12 @@ export class EvolutionWebhookController {
 
   constructor(
     private readonly evolutionWebhookService: EvolutionWebhookService,
+    private readonly bridgeService: EvolutionWhatsappBridgeService,
   ) {}
 
   @Post()
   @Public() // Webhook debe ser público
-  @Throttle(100, 60) // 100 requests por minuto
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests por minuto
   @HttpCode(HttpStatus.OK)
   @ApiExcludeEndpoint() // Excluir de Swagger ya que es interno
   async handleWebhook(
@@ -132,7 +134,7 @@ export class EvolutionWebhookController {
   }
 
   @Post('test/:instanceName')
-  @Throttle(10, 60) // Limitar tests a 10 por minuto
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // Limitar tests a 10 por minuto
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Probar webhook para una instancia' })
   @ApiResponse({ status: 200, description: 'Test ejecutado' })

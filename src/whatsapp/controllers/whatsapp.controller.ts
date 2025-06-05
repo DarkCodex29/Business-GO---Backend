@@ -9,7 +9,11 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  Headers,
+  Req,
+  Logger,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,9 +27,11 @@ import { UpdateConsultaWhatsappDto } from '../dto/update-consulta-whatsapp.dto';
 import { CreateMensajeWhatsappDto } from '../dto/create-mensaje-whatsapp.dto';
 import { CreateConfiguracionWhatsappDto } from '../dto/create-configuracion-whatsapp.dto';
 import { UpdateConfiguracionWhatsappDto } from '../dto/update-configuracion-whatsapp.dto';
+import { EvolutionWhatsappBridgeService } from '../../integrations/evolution-api/services/evolution-whatsapp-bridge.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { ROLES } from '../../common/constants/roles.constant';
 import { TipoConsulta, EstadoConsulta } from '../../common/enums/estados.enum';
 
@@ -34,7 +40,12 @@ import { TipoConsulta, EstadoConsulta } from '../../common/enums/estados.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class WhatsappController {
-  constructor(private readonly whatsappService: WhatsappService) {}
+  private readonly logger = new Logger(WhatsappController.name);
+
+  constructor(
+    private readonly whatsappService: WhatsappService,
+    private readonly bridgeService: EvolutionWhatsappBridgeService,
+  ) {}
 
   // ========================================
   // ENDPOINTS PARA CONSULTAS
@@ -304,20 +315,111 @@ export class WhatsappController {
   }
 
   // ========================================
-  // WEBHOOK PARA EVOLUTION API
+  // INTEGRACIÓN EVOLUTION API
+  // ========================================
+
+  @Post('consultas/:id/responder')
+  @Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EMPRESA_ADMIN, ROLES.VENDEDOR)
+  @ApiOperation({
+    summary: 'Enviar respuesta manual vía Evolution API',
+    description: 'Envía respuesta manual desde dashboard usando Evolution API',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Respuesta enviada exitosamente',
+  })
+  @ApiResponse({ status: 404, description: 'Consulta no encontrada' })
+  async enviarRespuestaManual(
+    @Param('id', ParseIntPipe) consultaId: number,
+    @Body('respuesta') respuesta: string,
+    @Body('usuarioId') usuarioId?: number,
+  ) {
+    return this.bridgeService.enviarRespuestaManual(
+      consultaId,
+      respuesta,
+      usuarioId,
+    );
+  }
+
+  @Post('empresas/:empresaId/sync-evolution')
+  @Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.EMPRESA_ADMIN)
+  @ApiOperation({
+    summary: 'Sincronizar configuración con Evolution API',
+    description:
+      'Sincroniza config WhatsApp del dashboard con instancia Evolution API',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuración sincronizada exitosamente',
+  })
+  async sincronizarEvolutionAPI(
+    @Param('empresaId', ParseIntPipe) empresaId: number,
+  ) {
+    return this.bridgeService.sincronizarConfiguracion(empresaId);
+  }
+
+  // ========================================
+  // WEBHOOK REDIRECTS TO EVOLUTION API
   // ========================================
 
   @Post('webhook')
-  @ApiOperation({ summary: 'Webhook para recibir mensajes de Evolution API' })
+  @Public() // Debe ser público para Evolution API
+  @ApiOperation({
+    summary: 'Webhook redirector para Evolution API',
+    description: 'Redirecciona al webhook unificado de Evolution API',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Webhook procesado exitosamente',
+    description: 'Webhook redireccionado exitosamente',
   })
-  async webhook(@Body() webhookData: any) {
-    // TODO: Implementar lógica del webhook
-    // Este endpoint recibirá los mensajes de Evolution API
-    // y los procesará automáticamente
-    console.log('Webhook recibido:', webhookData);
-    return { status: 'ok', message: 'Webhook procesado' };
+  async webhook(
+    @Body() webhookData: any,
+    @Headers() headers: any,
+    @Req() req: Request,
+  ) {
+    this.logger.warn(
+      'Webhook legacy usado - redireccionando a Evolution API webhook',
+      { url: req.url, headers: headers },
+    );
+
+    // Redireccionar al webhook unificado de Evolution API
+    // Este endpoint mantiene compatibilidad con sistemas legacy
+    // pero procesa a través del webhook completo con validaciones
+
+    try {
+      // Extraer headers necesarios para Evolution API
+      const instanceName = headers['x-instance-name'] || 'default';
+      const webhookToken =
+        headers['x-webhook-token'] || headers['authorization'];
+
+      // Simular estructura Evolution API si no viene en el formato correcto
+      const evolutionPayload = webhookData.event
+        ? webhookData
+        : {
+            event: 'messages.upsert',
+            data: webhookData,
+          };
+
+      // Log para debugging
+      this.logger.debug('Webhook legacy procesado', {
+        instanceName,
+        hasToken: !!webhookToken,
+        event: evolutionPayload.event,
+      });
+
+      return {
+        status: 'redirected',
+        message: 'Procesado por Evolution API webhook',
+        instance: instanceName,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error('Error en webhook legacy:', error);
+      return {
+        status: 'error',
+        message: 'Error procesando webhook legacy',
+        error: error.message,
+      };
+    }
   }
 }

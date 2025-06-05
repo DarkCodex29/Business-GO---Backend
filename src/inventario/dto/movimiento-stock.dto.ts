@@ -13,6 +13,8 @@ import {
 export enum TipoMovimientoStock {
   ENTRADA = 'ENTRADA',
   SALIDA = 'SALIDA',
+  AJUSTE = 'AJUSTE',
+  TRANSFERENCIA = 'TRANSFERENCIA',
 }
 
 export class MovimientoStockDto {

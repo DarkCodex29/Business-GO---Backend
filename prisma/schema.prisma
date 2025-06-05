@@ -327,13 +327,25 @@ model Valoracion {
 
 model Notificacion {
   id_notificacion    Int      @id @default(autoincrement())
-  id_cliente         Int
+  id_cliente         Int?
+  id_empresa         Int
+  tipo_notificacion  String   @default("general")
+  titulo             String?
   mensaje            String
+  contenido          String?  @db.Text
+  datos_adicionales  Json?
   fecha_notificacion DateTime @default(now())
   estado             String   @default("pendiente")
-  cliente            Cliente  @relation(fields: [id_cliente], references: [id_cliente])
+  fecha_leida        DateTime?
+  canal              String?  @default("app") // app, email, whatsapp, sms
+  
+  // Relaciones
+  cliente            Cliente?  @relation(fields: [id_cliente], references: [id_cliente])
+  empresa            Empresa   @relation(fields: [id_empresa], references: [id_empresa])
   feedback           Feedback[]
 
+  @@index([id_empresa, fecha_notificacion])
+  @@index([tipo_notificacion])
   @@map("notificaciones")
 }
 
@@ -611,6 +623,7 @@ model Empresa {
   configuracion_whatsapp ConfiguracionWhatsapp?
   plantillas_respuesta PlantillaRespuesta[]
   metricas_whatsapp  MetricaWhatsapp[]
+  notificaciones     Notificacion[]
   auditoria          Auditoria[]
   
   // Relaciones para integración n8n y Evolution API

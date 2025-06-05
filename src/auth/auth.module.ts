@@ -21,6 +21,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RolesModule } from '../roles/roles.module';
 import { EmailPasswordStrategy } from './strategies/email-password.strategy';
 import { WhatsAppStrategy } from './strategies/whatsapp.strategy';
+import { EvolutionApiModule } from '../integrations/evolution-api/evolution-api.module';
+import { SecurityMonitoringService } from './services/security-monitoring.service';
+import { Enhanced2FAService } from './services/enhanced-2fa.service';
+import { SecurityController } from './controllers/security.controller';
+import { SecurityHeadersMiddleware } from '../common/middleware/security-headers.middleware';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
 @Global()
 @Module({
@@ -40,8 +46,10 @@ import { WhatsAppStrategy } from './strategies/whatsapp.strategy';
     PrismaModule,
     EmailModule,
     RolesModule,
+    EvolutionApiModule,
+    NotificacionesModule,
   ],
-  controllers: [AuthController, PermisosController],
+  controllers: [AuthController, PermisosController, SecurityController],
   providers: [
     AuthService,
     JwtStrategy,
@@ -49,6 +57,9 @@ import { WhatsAppStrategy } from './strategies/whatsapp.strategy';
     TokenValidationMiddleware,
     PermisosService,
     InitPermisosCommand,
+    SecurityMonitoringService,
+    Enhanced2FAService,
+    SecurityHeadersMiddleware,
     // Estrategias de autenticación
     EmailPasswordStrategy,
     WhatsAppStrategy,
@@ -72,6 +83,9 @@ import { WhatsAppStrategy } from './strategies/whatsapp.strategy';
     SessionService,
     PermisosService,
     RolesModule,
+    SecurityMonitoringService,
+    Enhanced2FAService,
+    SecurityHeadersMiddleware,
   ],
 })
 export class AuthModule {}

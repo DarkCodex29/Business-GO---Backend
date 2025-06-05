@@ -58,7 +58,7 @@ export class AuditoriaService extends BaseAuditoriaService {
 
     // Validar que la empresa existe
     const empresa = await this.prisma.empresa.findUnique({
-      where: { id_empresa: context.empresa_id },
+      where: { id_empresa: parseInt(context.empresa_id) },
     });
 
     if (!empresa) {
@@ -68,7 +68,7 @@ export class AuditoriaService extends BaseAuditoriaService {
     // Validar usuario si se proporciona
     if (context.usuario_id) {
       const usuario = await this.prisma.usuario.findUnique({
-        where: { id_usuario: context.usuario_id },
+        where: { id_usuario: parseInt(context.usuario_id) },
       });
 
       if (!usuario) {
@@ -86,8 +86,8 @@ export class AuditoriaService extends BaseAuditoriaService {
   ): Promise<any> {
     const datosEnriquecidos = {
       ...data,
-      empresa_id: context.empresa_id,
-      usuario_id: context.usuario_id,
+      empresa_id: parseInt(context.empresa_id),
+      usuario_id: context.usuario_id ? parseInt(context.usuario_id) : null,
       ip_address: context.ip_address,
       user_agent: context.user_agent,
       severidad: data.severidad || NivelSeveridad.INFO,
@@ -132,7 +132,7 @@ export class AuditoriaService extends BaseAuditoriaService {
       const unMinutoAtras = new Date(Date.now() - 60 * 1000);
       const eventosRecientes = await this.prisma.auditoria.count({
         where: {
-          usuario_id: context.usuario_id,
+          usuario_id: context.usuario_id ? parseInt(context.usuario_id) : null,
           fecha_evento: {
             gte: unMinutoAtras,
           },
@@ -261,7 +261,7 @@ export class AuditoriaService extends BaseAuditoriaService {
   protected async construirQueryBase(empresaId: string): Promise<any> {
     return {
       where: {
-        empresa_id: empresaId,
+        empresa_id: parseInt(empresaId),
       },
       include: {
         empresa: {
@@ -436,7 +436,7 @@ export class AuditoriaService extends BaseAuditoriaService {
     const evento = await this.prisma.auditoria.findFirst({
       where: {
         id,
-        empresa_id: empresaId,
+        empresa_id: parseInt(empresaId),
       },
       include: {
         empresa: {
@@ -462,9 +462,9 @@ export class AuditoriaService extends BaseAuditoriaService {
   async validarAcceso(usuarioId: string, empresaId: string): Promise<boolean> {
     const usuarioEmpresa = await this.prisma.usuarioEmpresa.findFirst({
       where: {
-        usuario_id: usuarioId,
-        empresa_id: empresaId,
-        activo: true,
+        usuario_id: parseInt(usuarioId),
+        empresa_id: parseInt(empresaId),
+        estado: 'activo', // Cambiado de 'activo' a 'estado' según el schema
       },
     });
 
@@ -515,7 +515,7 @@ export class AuditoriaService extends BaseAuditoriaService {
     fechaInicio?: string,
     fechaFin?: string,
   ): Promise<any> {
-    const whereCondition: any = { empresa_id: empresaId };
+    const whereCondition: any = { empresa_id: parseInt(empresaId) };
 
     if (fechaInicio || fechaFin) {
       whereCondition.fecha_evento = {};
@@ -535,7 +535,7 @@ export class AuditoriaService extends BaseAuditoriaService {
     fechaInicio?: string,
     fechaFin?: string,
   ): Promise<any> {
-    const whereCondition: any = { empresa_id: empresaId };
+    const whereCondition: any = { empresa_id: parseInt(empresaId) };
 
     if (fechaInicio || fechaFin) {
       whereCondition.fecha_evento = {};
@@ -611,7 +611,7 @@ export class AuditoriaService extends BaseAuditoriaService {
     fechaFin?: string,
   ): Promise<any> {
     // Implementar cálculo de tendencias por día
-    const whereCondition: any = { empresa_id: empresaId };
+    const whereCondition: any = { empresa_id: parseInt(empresaId) };
 
     if (fechaInicio || fechaFin) {
       whereCondition.fecha_evento = {};

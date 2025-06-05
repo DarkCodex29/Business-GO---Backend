@@ -16,7 +16,11 @@ import {
   IReporteFinanciero,
 } from '../interfaces/reporte.interface';
 import { ReporteParamsDto } from '../dto/reporte-params.dto';
-import { BaseReportesService, IReporteQuery } from './base-reportes.service';
+import {
+  BaseReportesService,
+  IReporteQuery,
+  IReporteResponse,
+} from './base-reportes.service';
 import { ReportesValidationService } from './reportes-validation.service';
 import { ReportesCalculationService } from './reportes-calculation.service';
 
@@ -579,21 +583,47 @@ export class ReportesService extends BaseReportesService {
 
   // Implementación de métodos abstractos de BaseReportesService
   protected async executeReporteQuery(query: IReporteQuery): Promise<any[]> {
-    switch (query.tipoReporte) {
+    const {
+      tipoReporte,
+      empresaId,
+      fechaInicio,
+      fechaFin,
+      page,
+      limit,
+      parametros,
+    } = query;
+
+    switch (tipoReporte) {
       case TipoReporte.VENTAS:
         return this.executeVentasQuery(query);
+
       case TipoReporte.COMPRAS:
         return this.executeComprasQuery(query);
+
       case TipoReporte.INVENTARIO:
         return this.executeInventarioQuery(query);
+
       case TipoReporte.CLIENTES:
         return this.executeClientesQuery(query);
+
       case TipoReporte.PRODUCTOS:
         return this.executeProductosQuery(query);
+
       case TipoReporte.FINANCIERO:
         return this.executeFinancieroQuery(query);
+
+      case TipoReporte.WHATSAPP:
+        return this.getWhatsappData(
+          empresaId,
+          fechaInicio || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          fechaFin || new Date(),
+          page || 1,
+          limit || 20,
+          parametros,
+        );
+
       default:
-        throw new Error(`Tipo de reporte no soportado: ${query.tipoReporte}`);
+        throw new Error(`Tipo de reporte no soportado: ${tipoReporte}`);
     }
   }
 
@@ -637,6 +667,13 @@ export class ReportesService extends BaseReportesService {
           query.fechaFin,
           query.parametros,
         );
+      case TipoReporte.WHATSAPP:
+        return this.reportesCalculationService.calculateMetricasWhatsapp(
+          query.empresaId,
+          query.fechaInicio,
+          query.fechaFin,
+          query.parametros,
+        );
       default:
         return {};
     }
@@ -669,6 +706,23 @@ export class ReportesService extends BaseReportesService {
           this.prisma.ordenCompra.count({ where: whereClause }),
         ]);
         return ventas + compras;
+      case TipoReporte.WHATSAPP:
+        // Contar notificaciones y auditorías de WhatsApp
+        const [notificaciones, auditorias] = await Promise.all([
+          this.prisma.notificacion.count({
+            where: {
+              id_empresa: query.empresaId,
+              tipo_notificacion: 'WHATSAPP',
+            },
+          }),
+          this.prisma.auditoria.count({
+            where: {
+              empresa_id: query.empresaId,
+              recurso: 'whatsapp',
+            },
+          }),
+        ]);
+        return notificaciones + auditorias;
       default:
         return 0;
     }
@@ -1019,5 +1073,328 @@ export class ReportesService extends BaseReportesService {
         cantidad_compras: compras.length,
       },
     };
+  }
+
+  /**
+   * Genera reporte específico de WhatsApp con métricas detalladas
+   */
+  async getReporteWhatsapp(
+    empresaId: number,
+    parametros: {
+      fechaInicio?: Date;
+      fechaFin?: Date;
+      page?: number;
+      limit?: number;
+      incluirAlertas?: boolean;
+      agruparPor?: 'hora' | 'dia' | 'semana' | 'mes';
+      instanciaId?: string;
+      formatoSalida?: 'JSON' | 'CSV' | 'PDF';
+    } = {},
+  ): Promise<IReporteResponse<any>> {
+    this.logger.log(`Generando reporte de WhatsApp para empresa ${empresaId}`);
+
+    try {
+      const query: IReporteQuery = {
+        tipoReporte: TipoReporte.WHATSAPP,
+        empresaId,
+        fechaInicio:
+          parametros.fechaInicio ||
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        fechaFin: parametros.fechaFin || new Date(),
+        page: parametros.page || 1,
+        limit: parametros.limit || 100,
+        parametros: {
+          incluirAlertas: parametros.incluirAlertas ?? true,
+          agrupar_por: parametros.agruparPor || 'dia',
+          instanciaId: parametros.instanciaId,
+          formatoSalida: parametros.formatoSalida || 'JSON',
+        },
+      };
+
+      // Validar parámetros específicos de WhatsApp
+      this.validateWhatsappParameters(query.parametros);
+
+      // Ejecutar consulta de datos
+      const data = await this.executeReporteQuery(query);
+
+      // Calcular métricas específicas de WhatsApp
+      const metricas = await this.calculateReporteMetrics(query);
+
+      // Obtener conteo total
+      const total = await this.countReporteRecords(query);
+
+      // Construir metadata de paginación
+      const metadata = {
+        total,
+        page: query.page || 1,
+        limit: query.limit || 20,
+        totalPages: Math.ceil(total / (query.limit || 20)),
+        hasNext: (query.page || 1) < Math.ceil(total / (query.limit || 20)),
+        hasPrev: (query.page || 1) > 1,
+      };
+
+      // Configuración regional peruana
+      const configuracion = {
+        moneda: 'PEN',
+        zona_horaria: 'America/Lima',
+        formato_fecha: 'dd/MM/yyyy',
+        igv_rate: 0.18,
+        decimales_moneda: 2,
+        incluir_igv: true,
+        idioma: 'es',
+      };
+
+      this.logger.log(
+        `Reporte de WhatsApp generado: ${data.length} registros, ${metricas.totalMensajes} mensajes totales`,
+      );
+
+      return {
+        data,
+        metadata,
+        metricas,
+        configuracion,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error generando reporte de WhatsApp: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Error al generar reporte de WhatsApp: ${error.message}`);
+    }
+  }
+
+  /**
+   * Valida parámetros específicos para reportes de WhatsApp
+   */
+  private validateWhatsappParameters(parametros: any): void {
+    if (
+      parametros.agrupar_por &&
+      !['hora', 'dia', 'semana', 'mes'].includes(parametros.agrupar_por)
+    ) {
+      throw new Error(
+        'El parámetro agrupar_por debe ser: hora, dia, semana o mes',
+      );
+    }
+
+    if (
+      parametros.formatoSalida &&
+      !['JSON', 'CSV', 'PDF'].includes(parametros.formatoSalida)
+    ) {
+      throw new Error('El formato de salida debe ser: JSON, CSV o PDF');
+    }
+
+    if (parametros.instanciaId && typeof parametros.instanciaId !== 'string') {
+      throw new Error('El ID de instancia debe ser una cadena válida');
+    }
+  }
+
+  /**
+   * Obtiene datos específicos de WhatsApp para el reporte
+   */
+  private async getWhatsappData(
+    empresaId: number,
+    fechaInicio: Date,
+    fechaFin: Date,
+    page: number,
+    limit: number,
+    parametros: any,
+  ): Promise<any[]> {
+    const offset = (page - 1) * limit;
+
+    // Base where clause para filtros comunes
+    const whereClause: any = {
+      id_empresa: empresaId,
+      fecha_notificacion: {
+        gte: fechaInicio,
+        lte: fechaFin,
+      },
+    };
+
+    // Filtro por instancia específica si se proporciona
+    if (parametros.instanciaId) {
+      whereClause.datos_adicionales = {
+        path: ['id_instancia'],
+        equals: parametros.instanciaId,
+      };
+    }
+
+    try {
+      // Obtener notificaciones de WhatsApp
+      const notificaciones = await this.prisma.notificacion.findMany({
+        where: {
+          ...whereClause,
+          tipo_notificacion: 'WHATSAPP',
+        },
+        // include: {
+        //   usuario: {
+        //     select: {
+        //       nombre: true,
+        //       email: true,
+        //     },
+        //   },
+        // },
+        orderBy: {
+          fecha_notificacion: 'desc',
+        },
+        take: Math.floor(limit * 0.6), // 60% notificaciones
+        skip: Math.floor(offset * 0.6),
+      });
+
+      // Obtener auditorías de WhatsApp
+      const auditorias = await this.prisma.auditoria.findMany({
+        where: {
+          empresa_id: empresaId,
+          recurso: 'whatsapp',
+          fecha_evento: {
+            gte: fechaInicio,
+            lte: fechaFin,
+          },
+        },
+        // include: {
+        //   usuario: {
+        //     select: {
+        //       nombre: true,
+        //       email: true,
+        //     },
+        //   },
+        // },
+        orderBy: {
+          fecha_evento: 'desc',
+        },
+        take: Math.floor(limit * 0.4), // 40% auditorías
+        skip: Math.floor(offset * 0.4),
+      });
+
+      // Obtener instancias relacionadas para contexto
+      const instancias = await this.prisma.evolutionInstance.findMany({
+        where: {
+          id_empresa: empresaId,
+        },
+        // include: {
+        //   configuracion: true,
+        // },
+      });
+
+      // Crear mapa de instancias para lookup rápido
+      const instanciasMap = new Map(
+        instancias.map((inst) => [inst.id_instance, inst]),
+      );
+
+      // Combinar y formatear datos
+      const datosCombiandos = [
+        ...notificaciones.map((n) => ({
+          tipo: 'NOTIFICACION',
+          id: n.id_notificacion,
+          fecha: n.fecha_notificacion,
+          contenido: n.contenido || n.titulo,
+          estado: n.fecha_leida ? 'LEIDA' : 'PENDIENTE',
+          usuario: 'Sistema', // n.usuario?.nombre || 'Sistema',
+          instancia:
+            this.extractFromJson(n.datos_adicionales, 'id_instancia') ||
+            'Desconocida',
+          instancia_info: instanciasMap.get(
+            this.extractFromJson(n.datos_adicionales, 'id_instancia'),
+          ),
+          datos_adicionales: n.datos_adicionales,
+          prioridad: this.determinarPrioridad(n),
+          // Formateo específico peruano
+          fecha_formateada: this.formatearFecha(n.fecha_notificacion),
+          tiempo_lectura: n.fecha_leida
+            ? Math.round(
+                (new Date(n.fecha_leida).getTime() -
+                  new Date(n.fecha_notificacion).getTime()) /
+                  (1000 * 60),
+              )
+            : null,
+        })),
+        ...auditorias.map((a) => ({
+          tipo: 'AUDITORIA',
+          id: a.id,
+          fecha: a.fecha_evento,
+          contenido: a.descripcion,
+          accion: a.accion,
+          resultado: 'EXITOSO', // a.resultado || 'EXITOSO',
+          usuario: 'Sistema', // a.usuario?.nombre || this.extractFromJson(a.metadatos, 'usuario') || 'Sistema',
+          instancia:
+            this.extractFromJson(a.metadatos, 'id_instancia') ||
+            this.extractFromJson(a.metadatos, 'instancia') ||
+            'Desconocida',
+          instancia_info: instanciasMap.get(
+            this.extractFromJson(a.metadatos, 'id_instancia'),
+          ),
+          datos_adicionales: a.metadatos,
+          // Formateo específico peruano
+          fecha_formateada: this.formatearFecha(a.fecha_evento),
+        })),
+      ];
+
+      // Ordenar por fecha descendente
+      datosCombiandos.sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+      );
+
+      // Aplicar límite final
+      return datosCombiandos.slice(0, limit);
+    } catch (error) {
+      this.logger.error(
+        `Error obteniendo datos de WhatsApp: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Error al obtener datos de WhatsApp: ${error.message}`);
+    }
+  }
+
+  /**
+   * Determina la prioridad de una notificación basada en su contenido
+   */
+  private determinarPrioridad(notificacion: any): 'ALTA' | 'MEDIA' | 'BAJA' {
+    const contenido = (
+      notificacion.contenido ||
+      notificacion.titulo ||
+      ''
+    ).toLowerCase();
+
+    if (
+      contenido.includes('error') ||
+      contenido.includes('desconectado') ||
+      contenido.includes('fallo')
+    ) {
+      return 'ALTA';
+    }
+
+    if (
+      contenido.includes('mensaje entrante') ||
+      contenido.includes('nuevo mensaje')
+    ) {
+      return 'MEDIA';
+    }
+
+    return 'BAJA';
+  }
+
+  /**
+   * Formatea fecha según el contexto peruano
+   */
+  private formatearFecha(fecha: Date | string): string {
+    const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+
+    return fechaObj.toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Lima',
+    });
+  }
+
+  /**
+   * Extrae un valor de un objeto JSON de forma segura
+   */
+  private extractFromJson(jsonValue: any, key: string): any {
+    if (!jsonValue || typeof jsonValue !== 'object') {
+      return null;
+    }
+    return jsonValue[key];
   }
 }

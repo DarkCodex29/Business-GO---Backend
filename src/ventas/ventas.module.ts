@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 import { CotizacionesController } from './controllers/cotizaciones.controller';
 import { CotizacionesService } from './services/cotizaciones.service';
 import { VentasValidationService } from './services/ventas-validation.service';
@@ -14,9 +15,13 @@ import { NotasDebitoController } from './controllers/notas-debito.controller';
 import { NotasDebitoService } from './services/notas-debito.service';
 import { ReembolsosController } from './controllers/reembolsos.controller';
 import { ReembolsosService } from './services/reembolsos.service';
+import { VentasAvanzadoController } from './controllers/ventas-avanzado.controller';
+import { VentasPipelineService } from './services/ventas-pipeline.service';
+import { VentasAnalyticsService } from './services/ventas-analytics.service';
+import { VentasAutomationService } from './services/ventas-automation.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificacionesModule],
   controllers: [
     CotizacionesController,
     OrdenesVentaController,
@@ -24,6 +29,7 @@ import { ReembolsosService } from './services/reembolsos.service';
     NotasCreditoController,
     NotasDebitoController,
     ReembolsosController,
+    VentasAvanzadoController,
   ],
   providers: [
     // Servicios especializados aplicando SRP
@@ -37,6 +43,11 @@ import { ReembolsosService } from './services/reembolsos.service';
     NotasCreditoService,
     NotasDebitoService,
     ReembolsosService,
+
+    // Servicios avanzados (Optimización #11)
+    VentasPipelineService,
+    VentasAnalyticsService,
+    VentasAutomationService,
   ],
   exports: [
     VentasValidationService,
@@ -47,6 +58,9 @@ import { ReembolsosService } from './services/reembolsos.service';
     NotasCreditoService,
     NotasDebitoService,
     ReembolsosService,
+    VentasPipelineService,
+    VentasAnalyticsService,
+    VentasAutomationService,
   ],
 })
 export class VentasModule {}

@@ -5,13 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductoValidationService } from '../../productos/services/producto-validation.service';
+import { TipoMovimientoStock } from '../dto/movimiento-stock.dto';
 
 export interface IInventarioValidator {
   validateMovimientoStock(
     productoId: number,
     empresaId: number,
     cantidad: number,
-    tipoMovimiento: 'ENTRADA' | 'SALIDA',
+    tipoMovimiento: TipoMovimientoStock,
   ): Promise<void>;
   validateDisponibilidadUpdate(
     productoId: number,
@@ -41,7 +42,7 @@ export class InventarioValidationService implements IInventarioValidator {
     productoId: number,
     empresaId: number,
     cantidad: number,
-    tipoMovimiento: 'ENTRADA' | 'SALIDA',
+    tipoMovimiento: TipoMovimientoStock,
   ): Promise<void> {
     // Validar que el producto existe y pertenece a la empresa
     await this.productoValidationService.validateProductoEmpresaExists(
@@ -69,7 +70,7 @@ export class InventarioValidationService implements IInventarioValidator {
     }
 
     // Para salidas, validar que hay stock suficiente
-    if (tipoMovimiento === 'SALIDA') {
+    if (tipoMovimiento === TipoMovimientoStock.SALIDA) {
       await this.validateStockSuficiente(productoId, cantidad);
     }
   }

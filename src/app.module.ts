@@ -23,6 +23,7 @@ import { ComprasModule } from './compras/compras.module';
 import { FidelizacionModule } from './fidelizacion/fidelizacion.module';
 import { SuscripcionesModule } from './suscripciones/suscripciones.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { EvolutionApiModule } from './integrations/evolution-api/evolution-api.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -51,6 +52,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
     // Módulos SaaS
     SuscripcionesModule,
     WhatsappModule,
+    // Integraciones
+    EvolutionApiModule,
   ],
   providers: [
     // Interceptor global para estandarizar respuestas

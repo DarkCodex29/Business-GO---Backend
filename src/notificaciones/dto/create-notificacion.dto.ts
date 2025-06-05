@@ -6,6 +6,7 @@ export enum TipoNotificacion {
   SMS = 'sms',
   PUSH = 'push',
   IN_APP = 'in_app',
+  WHATSAPP = 'whatsapp',
 }
 
 export enum EstadoNotificacion {

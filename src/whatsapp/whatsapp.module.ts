@@ -7,9 +7,10 @@ import { ConsultasWhatsappService } from './services/consultas-whatsapp.service'
 import { MensajesWhatsappService } from './services/mensajes-whatsapp.service';
 import { WhatsappController } from './controllers/whatsapp.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { EvolutionApiModule } from '../integrations/evolution-api/evolution-api.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, EvolutionApiModule],
   controllers: [WhatsappController],
   providers: [
     // Servicio original (mantenido para compatibilidad)

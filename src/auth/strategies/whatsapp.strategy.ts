@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -14,16 +15,19 @@ import {
 import { Request } from 'express';
 import { RoleType, ROLES } from '../../common/constants/roles.constant';
 import { v4 as uuidv4 } from 'uuid';
+import { EvolutionApiService } from '../../integrations/evolution-api/services/evolution-api.service';
 
 @Injectable()
 export class WhatsAppStrategy implements IAuthStrategy {
   readonly type = 'whatsapp';
+  private readonly logger = new Logger(WhatsAppStrategy.name);
   private whatsappSessions = new Map<string, WhatsAppSession>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
+    private readonly evolutionApiService: EvolutionApiService,
   ) {}
 
   async validate(credentials: AuthCredentials, req?: Request): Promise<any> {
@@ -130,10 +134,17 @@ export class WhatsAppStrategy implements IAuthStrategy {
       metadata: { contactName },
     });
 
-    // TODO: Integrar con Evolution API para enviar mensaje
-    // await this.sendWhatsAppCode(phoneNumber, code);
-
-    console.log(`🔐 Código WhatsApp para ${phoneNumber}: ${code}`); // Para desarrollo
+    // Enviar código vía Evolution API
+    try {
+      await this.sendWhatsAppCode(phoneNumber, code);
+      this.logger.log(
+        `Código WhatsApp enviado a ${phoneNumber} vía Evolution API`,
+      );
+    } catch (error) {
+      this.logger.error(`Error enviando código WhatsApp: ${error.message}`);
+      // En caso de error, mostrar código en consola como fallback
+      console.log(`🔐 Código WhatsApp FALLBACK para ${phoneNumber}: ${code}`);
+    }
 
     return {
       sessionId,
@@ -263,12 +274,51 @@ export class WhatsAppStrategy implements IAuthStrategy {
     }
   }
 
-  // TODO: Integrar con Evolution API
+  /**
+   * Envía código de verificación vía Evolution API
+   */
   private async sendWhatsAppCode(
     phoneNumber: string,
     code: string,
   ): Promise<void> {
-    // Implementar envío real del código por WhatsApp
-    // usando Evolution API o el servicio de WhatsApp que uses
+    try {
+      // Buscar instancia Evolution API disponible
+      // Por ahora usar instancia por defecto, luego se puede mejorar
+      const defaultInstance = await this.prisma.evolutionInstance.findFirst({
+        where: {
+          estado_conexion: 'conectado',
+        },
+        orderBy: {
+          fecha_creacion: 'desc',
+        },
+      });
+
+      if (!defaultInstance) {
+        throw new Error(
+          'No hay instancias Evolution API conectadas disponibles',
+        );
+      }
+
+      // Formatear mensaje de código
+      const mensaje = `🔐 *Código de verificación BusinessGo*\n\nTu código es: *${code}*\n\nEste código expira en 5 minutos.\n\n_Si no solicitaste este código, ignora este mensaje._`;
+
+      // Enviar mensaje vía Evolution API
+      const resultado = await this.evolutionApiService.sendTextMessage(
+        defaultInstance.instance_name,
+        phoneNumber,
+        mensaje,
+      );
+
+      if (!resultado.success) {
+        throw new Error(`Error Evolution API: ${resultado.error}`);
+      }
+
+      this.logger.log(
+        `Código enviado exitosamente vía Evolution API a ${phoneNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error enviando código WhatsApp: ${error.message}`);
+      throw error;
+    }
   }
 }

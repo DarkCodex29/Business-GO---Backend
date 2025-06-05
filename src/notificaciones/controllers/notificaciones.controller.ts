@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { NotificacionesService } from '../services/notificaciones.service';
+import { NotificacionesWhatsappBridgeService } from '../services/notificaciones-whatsapp-bridge.service';
 import { CreateNotificacionDto } from '../dto/create-notificacion.dto';
 import { UpdateNotificacionDto } from '../dto/update-notificacion.dto';
 import { CreateNotificacionBulkDto } from '../dto/create-notificacion-bulk.dto';
@@ -37,7 +38,10 @@ import { PERMISSIONS } from '../../common/constants/permissions.constant';
 @UseGuards(JwtAuthGuard, RolesGuard, EmpresaPermissionGuard)
 @Roles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES_EMPRESA.ADMINISTRADOR)
 export class NotificacionesController {
-  constructor(private readonly notificacionesService: NotificacionesService) {}
+  constructor(
+    private readonly notificacionesService: NotificacionesService,
+    private readonly whatsappBridge: NotificacionesWhatsappBridgeService,
+  ) {}
 
   // CRUD básico de notificaciones
 
@@ -397,6 +401,80 @@ export class NotificacionesController {
     return await this.notificacionesService.getClientesMasActivos(
       +empresaId,
       limite ? +limite : 10,
+    );
+  }
+
+  // ========================================
+  // NUEVOS ENDPOINTS WHATSAPP INTEGRATION
+  // ========================================
+
+  @Get('whatsapp/metricas-unificadas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.READ] })
+  @ApiOperation({
+    summary: 'Obtener métricas unificadas de WhatsApp + Notificaciones',
+    description:
+      'Combina métricas del sistema de notificaciones con datos directos de WhatsApp',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas unificadas del sistema híbrido WhatsApp',
+  })
+  async getMetricasWhatsAppUnificadas(@Param('empresaId') empresaId: number) {
+    return await this.whatsappBridge.getMetricasUnificadas(+empresaId);
+  }
+
+  @Post('whatsapp/migrar-consultas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.BULK] })
+  @ApiOperation({
+    summary:
+      'Migrar consultas existentes de WhatsApp al sistema de notificaciones',
+    description: 'Proceso de migración para unificar datos históricos',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({
+    name: 'limite',
+    required: false,
+    description: 'Número máximo de consultas a migrar (default: 100)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Migración completada con estadísticas de resultado',
+  })
+  async migrarConsultasWhatsApp(
+    @Param('empresaId') empresaId: number,
+    @Query('limite') limite?: number,
+  ) {
+    return await this.whatsappBridge.migrarConsultasExistentes(
+      +empresaId,
+      limite ? +limite : 100,
+    );
+  }
+
+  @Delete('whatsapp/limpiar-antiguas')
+  @EmpresaPermissions({ permissions: [PERMISSIONS.NOTIFICACIONES.DELETE] })
+  @ApiOperation({
+    summary: 'Limpiar notificaciones WhatsApp antiguas',
+    description:
+      'Mantenimiento: elimina notificaciones WhatsApp leídas/enviadas antiguas',
+  })
+  @ApiParam({ name: 'empresaId', description: 'ID de la empresa' })
+  @ApiQuery({
+    name: 'dias',
+    required: false,
+    description: 'Días de antigüedad para eliminar (default: 90)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Limpieza completada con número de registros eliminados',
+  })
+  async limpiarNotificacionesWhatsAppAntiguas(
+    @Param('empresaId') empresaId: number,
+    @Query('dias') dias?: number,
+  ) {
+    return await this.whatsappBridge.limpiarNotificacionesAntiguas(
+      +empresaId,
+      dias ? +dias : 90,
     );
   }
 }

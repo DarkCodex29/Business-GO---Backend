@@ -177,8 +177,22 @@ export abstract class BaseInventarioService {
         case TipoMovimientoStock.SALIDA:
           nuevaCantidad = stockActual.cantidad - cantidad;
           break;
+        case TipoMovimientoStock.AJUSTE:
+          nuevaCantidad = cantidad; // Para ajustes, la cantidad es el valor final
+          break;
+        case TipoMovimientoStock.TRANSFERENCIA:
+          // Para transferencias, manejar según el contexto
+          nuevaCantidad = stockActual.cantidad + cantidad;
+          break;
         default:
           throw new Error(`Tipo de movimiento no válido: ${tipo}`);
+      }
+
+      // Validar que no quede stock negativo
+      if (nuevaCantidad < 0) {
+        throw new Error(
+          `El movimiento resultaría en stock negativo. Stock actual: ${stockActual.cantidad}, Movimiento: ${cantidad}`,
+        );
       }
 
       // Actualizar stock

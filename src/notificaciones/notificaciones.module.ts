@@ -4,6 +4,7 @@ import { NotificacionesService } from './services/notificaciones.service';
 import { BaseNotificacionesService } from './services/base-notificaciones.service';
 import { NotificacionesValidationService } from './services/notificaciones-validation.service';
 import { NotificacionesCalculationService } from './services/notificaciones-calculation.service';
+import { NotificacionesWhatsappBridgeService } from './services/notificaciones-whatsapp-bridge.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
@@ -13,12 +14,14 @@ import { PrismaModule } from '../prisma/prisma.module';
     NotificacionesService,
     NotificacionesValidationService,
     NotificacionesCalculationService,
+    NotificacionesWhatsappBridgeService,
     // BaseNotificacionesService es abstracto, no se registra como provider
   ],
   exports: [
     NotificacionesService,
     NotificacionesValidationService,
     NotificacionesCalculationService,
+    NotificacionesWhatsappBridgeService,
   ],
 })
 export class NotificacionesModule {}

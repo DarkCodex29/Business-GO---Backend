@@ -241,7 +241,11 @@ export class NotificacionesService extends BaseNotificacionesService {
       },
     });
 
-    if (!notificacion || notificacion.cliente.empresas.length === 0) {
+    if (
+      !notificacion ||
+      !notificacion.cliente ||
+      notificacion.cliente.empresas.length === 0
+    ) {
       throw new NotFoundException(
         `Notificación con ID ${notificacionId} no encontrada para la empresa ${empresaId}`,
       );
@@ -283,6 +287,7 @@ export class NotificacionesService extends BaseNotificacionesService {
             data: {
               mensaje: notificacionData.contenido,
               id_cliente: clienteId,
+              id_empresa: empresaId,
               estado: 'pendiente',
             },
           }),
@@ -304,6 +309,7 @@ export class NotificacionesService extends BaseNotificacionesService {
           data: {
             mensaje: notificacionData.contenido,
             id_cliente: clienteEmpresa.cliente_id,
+            id_empresa: empresaId,
             estado: 'pendiente',
           },
         }),

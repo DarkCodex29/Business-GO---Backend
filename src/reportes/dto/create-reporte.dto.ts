@@ -8,6 +8,7 @@ export enum TipoReporte {
   CLIENTES = 'clientes',
   PRODUCTOS = 'productos',
   FINANCIERO = 'financiero',
+  WHATSAPP = 'whatsapp',
 }
 
 export enum FormatoReporte {

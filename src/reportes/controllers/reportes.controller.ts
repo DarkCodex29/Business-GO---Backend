@@ -12,6 +12,9 @@ import {
   Logger,
   HttpStatus,
   HttpCode,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +26,8 @@ import {
   ApiExtraModels,
 } from '@nestjs/swagger';
 import { ReportesRefactoredService } from '../services/reportes-refactored.service';
+import { ReportesCalculationService } from '../services/reportes-calculation.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateReporteMejoradoDto,
   ReporteQueryMejoradoDto,
@@ -63,6 +68,8 @@ export class ReportesController {
   constructor(
     @Inject('REPORTES_SERVICE')
     private readonly reportesService: ReportesRefactoredService,
+    private readonly reportesCalculationService: ReportesCalculationService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post()
@@ -746,5 +753,456 @@ export class ReportesController {
 
     this.logger.log(`Reporte ${id} ejecutado exitosamente`);
     return resultado;
+  }
+
+  /**
+   * Endpoint para generar reporte de WhatsApp
+   * GET /reportes/whatsapp/{empresaId}
+   */
+  @Get('whatsapp/:empresaId')
+  @ApiOperation({
+    summary: 'Generar reporte de WhatsApp',
+    description:
+      'Genera un reporte detallado de las métricas y actividad de WhatsApp para una empresa específica, incluyendo mensajes, conversaciones, instancias y alertas.',
+  })
+  @ApiParam({
+    name: 'empresaId',
+    description: 'ID de la empresa',
+    type: 'number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'fechaInicio',
+    description: 'Fecha de inicio del período (formato: YYYY-MM-DD)',
+    required: false,
+    type: 'string',
+    example: '2024-01-01',
+  })
+  @ApiQuery({
+    name: 'fechaFin',
+    description: 'Fecha de fin del período (formato: YYYY-MM-DD)',
+    required: false,
+    type: 'string',
+    example: '2024-01-31',
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Número de página para paginación',
+    required: false,
+    type: 'number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Cantidad de registros por página',
+    required: false,
+    type: 'number',
+    example: 100,
+  })
+  @ApiQuery({
+    name: 'agruparPor',
+    description: 'Tipo de agrupación para métricas temporales',
+    required: false,
+    enum: ['hora', 'dia', 'semana', 'mes'],
+    example: 'dia',
+  })
+  @ApiQuery({
+    name: 'instanciaId',
+    description: 'ID de instancia específica para filtrar',
+    required: false,
+    type: 'string',
+    example: 'inst_empresa1_whatsapp',
+  })
+  @ApiQuery({
+    name: 'incluirAlertas',
+    description: 'Incluir alertas en el reporte',
+    required: false,
+    type: 'boolean',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'formatoSalida',
+    description: 'Formato de salida del reporte',
+    required: false,
+    enum: ['JSON', 'CSV', 'PDF'],
+    example: 'JSON',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reporte de WhatsApp generado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          description: 'Lista de eventos y actividades de WhatsApp',
+          items: {
+            type: 'object',
+            properties: {
+              tipo: { type: 'string', example: 'NOTIFICACION' },
+              id: { type: 'number', example: 123 },
+              fecha: { type: 'string', format: 'date-time' },
+              contenido: {
+                type: 'string',
+                example: 'Nuevo mensaje de +51987654321',
+              },
+              estado: { type: 'string', example: 'PENDIENTE' },
+              usuario: { type: 'string', example: 'Juan Pérez' },
+              instancia: { type: 'string', example: 'inst_empresa1_whatsapp' },
+              prioridad: { type: 'string', example: 'MEDIA' },
+              fecha_formateada: { type: 'string', example: '25/12/2024 15:30' },
+            },
+          },
+        },
+        metadata: {
+          type: 'object',
+          properties: {
+            total: { type: 'number', example: 245 },
+            page: { type: 'number', example: 1 },
+            limit: { type: 'number', example: 100 },
+            totalPages: { type: 'number', example: 3 },
+            hasNext: { type: 'boolean', example: true },
+            hasPrev: { type: 'boolean', example: false },
+          },
+        },
+        metricas: {
+          type: 'object',
+          properties: {
+            totalMensajes: { type: 'number', example: 1247 },
+            mensajesEnviados: { type: 'number', example: 623 },
+            mensajesRecibidos: { type: 'number', example: 624 },
+            totalConversaciones: { type: 'number', example: 89 },
+            conversacionesActivas: { type: 'number', example: 62 },
+            totalInstancias: { type: 'number', example: 3 },
+            instanciasConectadas: { type: 'number', example: 2 },
+            tiempoRespuestaPromedio: { type: 'number', example: 12 },
+            tasaRespuesta: { type: 'number', example: 94 },
+            topConversaciones: { type: 'array', items: { type: 'object' } },
+            topInstancias: { type: 'array', items: { type: 'object' } },
+            alertasWhatsapp: { type: 'array', items: { type: 'object' } },
+          },
+        },
+        configuracion: {
+          type: 'object',
+          properties: {
+            moneda: { type: 'string', example: 'PEN' },
+            zona_horaria: { type: 'string', example: 'America/Lima' },
+            formato_fecha: { type: 'string', example: 'dd/MM/yyyy' },
+            igv_rate: { type: 'number', example: 0.18 },
+          },
+        },
+        fecha_generacion: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parámetros inválidos',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'El parámetro agrupar_por debe ser: hora, dia, semana o mes',
+        },
+        error: { type: 'string', example: 'Bad Request' },
+        statusCode: { type: 'number', example: 400 },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Empresa no encontrada',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Empresa no encontrada' },
+        error: { type: 'string', example: 'Not Found' },
+        statusCode: { type: 'number', example: 404 },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Error al generar reporte de WhatsApp',
+        },
+        error: { type: 'string', example: 'Internal Server Error' },
+        statusCode: { type: 'number', example: 500 },
+      },
+    },
+  })
+  async getReporteWhatsapp(
+    @Param('empresaId') empresaId: string,
+    @Query('fechaInicio') fechaInicio?: string,
+    @Query('fechaFin') fechaFin?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('agruparPor') agruparPor?: 'hora' | 'dia' | 'semana' | 'mes',
+    @Query('instanciaId') instanciaId?: string,
+    @Query('incluirAlertas') incluirAlertas?: string,
+    @Query('formatoSalida') formatoSalida?: 'JSON' | 'CSV' | 'PDF',
+  ) {
+    try {
+      // Validar empresa ID
+      const empresaIdNum = parseInt(empresaId, 10);
+      if (isNaN(empresaIdNum)) {
+        throw new BadRequestException(
+          'ID de empresa debe ser un número válido',
+        );
+      }
+
+      // Validar y convertir fechas
+      let fechaInicioDate: Date | undefined;
+      let fechaFinDate: Date | undefined;
+
+      if (fechaInicio) {
+        fechaInicioDate = new Date(fechaInicio);
+        if (isNaN(fechaInicioDate.getTime())) {
+          throw new BadRequestException(
+            'Fecha de inicio inválida. Use formato YYYY-MM-DD',
+          );
+        }
+      }
+
+      if (fechaFin) {
+        fechaFinDate = new Date(fechaFin);
+        if (isNaN(fechaFinDate.getTime())) {
+          throw new BadRequestException(
+            'Fecha de fin inválida. Use formato YYYY-MM-DD',
+          );
+        }
+      }
+
+      // Validar que fechaInicio <= fechaFin
+      if (fechaInicioDate && fechaFinDate && fechaInicioDate > fechaFinDate) {
+        throw new BadRequestException(
+          'La fecha de inicio no puede ser mayor que la fecha de fin',
+        );
+      }
+
+      // Validar paginación
+      const pageNum = page ? parseInt(page, 10) : 1;
+      const limitNum = limit ? parseInt(limit, 10) : 100;
+
+      if (pageNum < 1) {
+        throw new BadRequestException('El número de página debe ser mayor a 0');
+      }
+
+      if (limitNum < 1 || limitNum > 1000) {
+        throw new BadRequestException('El límite debe estar entre 1 y 1000');
+      }
+
+      // Validar que la empresa existe
+      const empresa = await this.prisma.empresa.findUnique({
+        where: { id_empresa: empresaIdNum },
+        select: { id_empresa: true, nombre: true },
+      });
+
+      if (!empresa) {
+        throw new NotFoundException('Empresa no encontrada');
+      }
+
+      // Construir parámetros
+      const parametros = {
+        fechaInicio: fechaInicioDate,
+        fechaFin: fechaFinDate,
+        page: pageNum,
+        limit: limitNum,
+        agruparPor: agruparPor || 'dia',
+        instanciaId,
+        incluirAlertas: incluirAlertas === 'true' || incluirAlertas === '1',
+        formatoSalida: formatoSalida || 'JSON',
+      };
+
+      // Generar reporte usando el servicio base
+      const resultado =
+        await this.reportesCalculationService.calculateMetricasWhatsapp(
+          empresaIdNum,
+          parametros.fechaInicio,
+          parametros.fechaFin,
+          parametros,
+        );
+
+      // Formatear respuesta
+      const respuesta = {
+        data: [],
+        metadata: {
+          total: 0,
+          page: parametros.page,
+          limit: parametros.limit,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+        metricas: resultado,
+        configuracion: {
+          moneda: 'PEN',
+          zona_horaria: 'America/Lima',
+          formato_fecha: 'dd/MM/yyyy',
+          igv_rate: 0.18,
+        },
+        fecha_generacion: new Date(),
+      };
+
+      // Log de actividad
+      this.logger.log(
+        `Reporte de WhatsApp generado para empresa ${empresaIdNum}: ${resultado.totalMensajes || 0} mensajes`,
+      );
+
+      return resultado;
+    } catch (error) {
+      this.logger.error(
+        `Error en endpoint de reporte WhatsApp: ${error.message}`,
+        error.stack,
+      );
+
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Error interno al generar reporte de WhatsApp',
+      );
+    }
+  }
+
+  /**
+   * Endpoint para obtener métricas rápidas de WhatsApp (sin paginación)
+   * GET /reportes/whatsapp/{empresaId}/metricas
+   */
+  @Get('whatsapp/:empresaId/metricas')
+  @ApiOperation({
+    summary: 'Obtener métricas rápidas de WhatsApp',
+    description:
+      'Obtiene únicamente las métricas calculadas de WhatsApp sin los datos detallados, útil para dashboards y resúmenes.',
+  })
+  @ApiParam({
+    name: 'empresaId',
+    description: 'ID de la empresa',
+    type: 'number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'periodo',
+    description: 'Período predefinido para las métricas',
+    required: false,
+    enum: ['hoy', 'ayer', '7dias', '30dias', '90dias'],
+    example: '30dias',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas de WhatsApp obtenidas exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        totalMensajes: { type: 'number', example: 1247 },
+        mensajesEnviados: { type: 'number', example: 623 },
+        mensajesRecibidos: { type: 'number', example: 624 },
+        totalConversaciones: { type: 'number', example: 89 },
+        conversacionesActivas: { type: 'number', example: 62 },
+        totalInstancias: { type: 'number', example: 3 },
+        instanciasConectadas: { type: 'number', example: 2 },
+        tiempoRespuestaPromedio: { type: 'number', example: 12 },
+        tasaRespuesta: { type: 'number', example: 94 },
+        alertasActivas: { type: 'number', example: 2 },
+        fecha_calculo: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  async getMetricasWhatsapp(
+    @Param('empresaId') empresaId: string,
+    @Query('periodo') periodo?: 'hoy' | 'ayer' | '7dias' | '30dias' | '90dias',
+  ) {
+    try {
+      // Validar empresa ID
+      const empresaIdNum = parseInt(empresaId, 10);
+      if (isNaN(empresaIdNum)) {
+        throw new BadRequestException(
+          'ID de empresa debe ser un número válido',
+        );
+      }
+
+      // Determinar fechas según el período
+      const now = new Date();
+      let fechaInicio: Date;
+      let fechaFin: Date = now;
+
+      switch (periodo) {
+        case 'hoy':
+          fechaInicio = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          break;
+        case 'ayer':
+          fechaInicio = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - 1,
+          );
+          fechaFin = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case '7dias':
+          fechaInicio = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '90dias':
+          fechaInicio = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '30dias':
+        default:
+          fechaInicio = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+      }
+
+      // Calcular solo métricas
+      const metricas =
+        await this.reportesCalculationService.calculateMetricasWhatsapp(
+          empresaIdNum,
+          fechaInicio,
+          fechaFin,
+          { periodo },
+        );
+
+      // Enriquecer con datos adicionales
+      const resultado = {
+        ...metricas,
+        alertasActivas:
+          metricas.alertasWhatsapp?.filter((a: any) => a.estado === 'ACTIVA')
+            .length || 0,
+        fecha_calculo: new Date(),
+        periodo_consultado: periodo || '30dias',
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+      };
+
+      this.logger.log(
+        `Métricas WhatsApp calculadas para empresa ${empresaIdNum}: ${metricas.totalMensajes} mensajes`,
+      );
+
+      return resultado;
+    } catch (error) {
+      this.logger.error(
+        `Error obteniendo métricas WhatsApp: ${error.message}`,
+        error.stack,
+      );
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Error interno al calcular métricas de WhatsApp',
+      );
+    }
   }
 }

@@ -55,8 +55,8 @@ export class AuditoriaService extends BaseAuditoriaService {
   ): Promise<any> {
     return {
       ...data,
-      empresa_id: context.empresa_id,
-      usuario_id: context.usuario_id,
+      empresa_id: parseInt(context.empresa_id),
+      usuario_id: context.usuario_id ? parseInt(context.usuario_id) : null,
       ip_address: context.ip_address,
       user_agent: context.user_agent,
       severidad: data.severidad || NivelSeveridad.INFO,

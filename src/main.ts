@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ErrorInterceptor } from './common/interceptors/error.interceptor';
+import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import * as Sentry from '@sentry/node';
 
 async function bootstrap() {
@@ -22,6 +23,14 @@ async function bootstrap() {
 
   // Registrar interceptor de errores global
   app.useGlobalInterceptors(new ErrorInterceptor());
+
+  // Aplicar middleware de seguridad globalmente
+  app.use((req: any, res: any, next: any) => {
+    const securityMiddleware = new SecurityHeadersMiddleware(
+      app.get('ConfigService'),
+    );
+    securityMiddleware.use(req, res, next);
+  });
 
   // Configuración global de pipes
   app.useGlobalPipes(
